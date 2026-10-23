@@ -1,0 +1,746 @@
+"""FastAPI web app: the JSON API and the single-page app in app/static (no build step)."""
+from __future__ import annotations
+
+import csv
+import io
+import json
+import logging
+import math
+import threading
+import time
+from datetime import datetime
+from typing import Optional
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
+from fastapi.staticfiles import StaticFiles
+
+from . import auth, brokers, db, engine, execution, health, ledger, marketdata as md, moneyops, notify, scheduler, views
+from . import strategies as S
+from .config import APP_NAME, BASE_DIR, COOKIE_SECURE, DISPLAY_TZ, PUBLIC_URL, SCHEDULER_ENABLED
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+log = logging.getLogger("app")
+STATIC = BASE_DIR / "app" / "static"
+DOCS = BASE_DIR / "app" / "docs"
+TZ = ZoneInfo(DISPLAY_TZ)
+VERSION = "1.0.0"
+
+
+def clean(x):
+    try:
+        import numpy as np
+    except ImportError:  # pragma: no cover
+        np = None
+    if isinstance(x, dict):
+        return {str(k): clean(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [clean(v) for v in x]
+    if np is not None:
+        if isinstance(x, np.bool_):
+            return bool(x)
+        if isinstance(x, np.integer):
+            return int(x)
+        if isinstance(x, np.floating):
+            x = float(x)
+    if isinstance(x, float) and (math.isnan(x) or math.isinf(x)):
+        return None
+    return x
+
+
+class J(JSONResponse):
+    def render(self, content) -> bytes:
+        return json.dumps(clean(content), ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+
+
+app = FastAPI(title=APP_NAME, docs_url=None, redoc_url=None, default_response_class=J)
+app.mount("/static", StaticFiles(directory=str(STATIC)), name="static")
+
+
+@app.on_event("startup")
+def _startup():
+    db.init()
+    auth.ensure_env_user()
+    engine.startup()
+    if SCHEDULER_ENABLED:
+        scheduler.start()
+    else:
+        log.warning("SCHEDULER_ENABLED=0: no data refresh, no orders and no LINE from this copy")
+
+
+@app.on_event("shutdown")
+def _shutdown():
+    scheduler.stop()
+
+
+# ---------------------------------------------------------------- auth
+def _ip(request: Request) -> str:
+    return (request.headers.get("x-forwarded-for") or (request.client.host if request.client else "?")).split(",")[0].strip()
+
+
+def user(request: Request):
+    s = auth.session_from_cookie(request.cookies.get(auth.COOKIE))
+    if not s:
+        raise HTTPException(401, "Please sign in")
+    return s
+
+
+async def body(request: Request) -> dict:
+    try:
+        b = await request.json()
+        return b if isinstance(b, dict) else {}
+    except Exception:
+        return {}
+
+
+def mode_of(m: Optional[str]) -> str:
+    m = (m or "paper").lower()
+    if m not in brokers.MODES:
+        raise HTTPException(400, "Unknown mode")
+    return m
+
+
+def _err(e: Exception):
+    raise HTTPException(400, str(e))
+
+
+@app.get("/", include_in_schema=False)
+def index(request: Request):
+    if not auth.session_from_cookie(request.cookies.get(auth.COOKIE)):
+        return RedirectResponse("/login")
+    return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/login", include_in_schema=False)
+def login_page():
+    return FileResponse(STATIC / "login.html", headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/manifest.webmanifest", include_in_schema=False)
+def manifest():
+    return J({"name": APP_NAME, "short_name": "TH Bot", "start_url": "/", "display": "standalone", "background_color": "#0B0E13",
+              "theme_color": "#0B0E13", "icons": [{"src": "/static/icons/icon-192.png?v=3", "sizes": "192x192", "type": "image/png"},
+                        {"src": "/static/icons/icon-512.png?v=3", "sizes": "512x512", "type": "image/png"},
+                        {"src": "/static/icons/favicon.svg?v=3", "sizes": "any", "type": "image/svg+xml"}]})
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return FileResponse(STATIC / "icons" / "favicon.ico", media_type="image/x-icon", headers={"Cache-Control": "public, max-age=86400"})
+
+
+def _same_computer(request: Request) -> bool:
+    """True when the browser runs on the bot's own computer (http://127.0.0.1). Behind Caddy/Docker the real
+    visitor address is used, so a stranger who finds the server before you cannot create the login."""
+    host = request.client.host if request.client else ""
+    return host in ("127.0.0.1", "::1", "localhost", "testclient")
+
+
+@app.get("/api/auth")
+def auth_state(request: Request):
+    s = auth.session_from_cookie(request.cookies.get(auth.COOKIE))
+    return {"signed_in": bool(s), "username": s["username"] if s else None, "needs_setup": auth.needs_setup(),
+            "setup_allowed": _same_computer(request), "app": APP_NAME}
+
+
+@app.post("/api/setup")
+async def setup(request: Request):
+    if not auth.needs_setup():
+        raise HTTPException(403, "Already set up")
+    if not _same_computer(request):
+        raise HTTPException(403, "The first login can only be created on the bot's own computer "
+                                 "(or with APP_USERNAME / APP_PASSWORD in .env on a server)")
+    b = await body(request)
+    try:
+        auth.create_user(str(b.get("username", "")), str(b.get("password", "")))
+    except ValueError as e:
+        _err(e)
+    return await _do_login(request, b)
+
+
+@app.post("/api/login")
+async def login(request: Request):
+    return await _do_login(request, await body(request))
+
+
+async def _do_login(request: Request, b: dict):
+    try:
+        val, age = auth.login(str(b.get("username", "")), str(b.get("password", "")), _ip(request),
+                              request.headers.get("user-agent", ""), bool(b.get("remember", True)))
+    except PermissionError as e:
+        raise HTTPException(429, str(e))
+    except ValueError as e:
+        time.sleep(0.8)
+        raise HTTPException(401, str(e))
+    r = J({"ok": True})
+    r.set_cookie(auth.COOKIE, val, max_age=age, httponly=True, samesite="lax", secure=COOKIE_SECURE)
+    return r
+
+
+@app.post("/api/logout")
+def logout(request: Request):
+    auth.logout(request.cookies.get(auth.COOKIE))
+    r = J({"ok": True})
+    r.delete_cookie(auth.COOKIE)
+    return r
+
+
+@app.get("/api/health")
+def public_health():
+    lt = db.get_state("last_tick") or {}
+    return {"ok": True, "version": VERSION, "last_tick": lt.get("at"), "scheduler": SCHEDULER_ENABLED}
+
+
+# ---------------------------------------------------------------- pages
+@app.get("/api/topbar")
+def topbar(u=Depends(user)):
+    return {**views.topbar(), "username": u["username"], "version": VERSION}
+
+
+@app.get("/api/dashboard")
+def dashboard(mode: str = "paper", u=Depends(user)):
+    return views.dashboard(mode_of(mode))
+
+
+@app.get("/api/strategies")
+def strategies(mode: str = "paper", u=Depends(user)):
+    return views.strategies_list(mode_of(mode))
+
+
+@app.get("/api/strategy-types")
+def strategy_types(u=Depends(user)):
+    return {"types": S.types_public()}
+
+
+@app.get("/api/strategies/{sid}")
+def strategy(sid: str, mode: str = "paper", u=Depends(user)):
+    d = views.strategy_detail(mode_of(mode), sid)
+    if not d:
+        raise HTTPException(404, "No such strategy")
+    return d
+
+
+@app.get("/api/strategies/{sid}/chart")
+def strategy_chart(sid: str, range: str = "1M", u=Depends(user)):
+    s = S.get(sid)
+    if not s:
+        raise HTTPException(404, "No such strategy")
+    try:
+        return s.chart(md.now_utc(), range)
+    except Exception as e:
+        return {"charts": [], "error": str(e)}
+
+
+@app.post("/api/strategies/preview")
+async def strategy_preview(request: Request, u=Depends(user)):
+    b = await body(request)
+    S.load_plugins()
+    cls = S.TYPES.get(b.get("type"))
+    if not cls:
+        raise HTTPException(400, "Unknown type")
+    try:
+        inst = cls({"id": "_preview", "name": b.get("name") or "Preview", "params": cls.merge_params(b.get("params") or {})})
+        for sym, tf in inst.data_needs():
+            if not md.last_update(sym, tf):
+                (engine.metals.update(sym) if tf == "1h" else md.update(sym, tf))
+        ev = inst.evaluate(md.now_utc())
+        changes = len([h for h in ev.get("history", []) if h["t"] > time.time() - 365 * 86400]) if ev.get("ok") else None
+        return {"ok": ev.get("ok"), "error": ev.get("error"), "label": ev.get("label"), "checks": ev.get("checks"),
+                "target": ev.get("target"), "changes_12m": changes, "describe": inst.describe()}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.post("/api/strategies")
+async def strategy_create(request: Request, u=Depends(user)):
+    b = await body(request)
+    try:
+        sid = S.create(b.get("type"), str(b.get("name") or ""), b.get("color"), b.get("params") or {}, b.get("exec") or {})
+    except ValueError as e:
+        _err(e)
+    s = S.get(sid)
+    db.add_event("info", "strategy", f"Strategy added: {s.name}", json.dumps(s.params), strategy=sid)
+    notify.send("system", f"New strategy added: {s.name} ({s.type}). It starts with $0; give it money on the Money page.")
+    amt = float(b.get("paper_money") or 0)
+    if amt > 0 and "paper" in brokers.enabled_modes():
+        try:
+            if ledger.pool_cash("paper") < amt:
+                moneyops.to_bot("paper", amt - ledger.pool_cash("paper"), "for a new strategy")
+            moneyops.add("paper", sid, amt, b.get("invest"), "Start money")
+        except ValueError as e:
+            db.add_event("warn", "money", "Could not give paper money", str(e), strategy=sid)
+    return {"id": sid}
+
+
+@app.patch("/api/strategies/{sid}")
+async def strategy_update(sid: str, request: Request, u=Depends(user)):
+    b = await body(request)
+    try:
+        S.update(sid, name=b.get("name"), color=b.get("color"), params=b.get("params"), exec=b.get("exec"),
+                 line_on=(1 if b["line_on"] else 0) if "line_on" in b else None)
+    except (ValueError, KeyError) as e:
+        _err(e)
+    db.add_event("info", "strategy", f"Strategy updated: {sid}", json.dumps({k: v for k, v in b.items()}), strategy=sid)
+    return {"ok": True}
+
+
+@app.post("/api/strategies/{sid}/control")
+async def strategy_control(sid: str, request: Request, u=Depends(user)):
+    b = await body(request)
+    c = b.get("control")
+    if c not in ("active", "paused", "stopping"):
+        raise HTTPException(400, "control must be active, paused or stopping")
+    r = S.row(sid)
+    if not r:
+        raise HTTPException(404, "No such strategy")
+    S.update(sid, control=c)
+    words = {"active": "Active: follows every signal", "paused": "Paused: no new buys, exits still run",
+             "stopping": "Stop & sell: everything is sold with a split plan"}
+    db.add_event("warn" if c != "active" else "info", "strategy", f"{r['name']}: {words[c]}", "", strategy=sid)
+    notify.send("system", f"{r['name']}: {words[c]}.", strategy=sid)
+    return {"ok": True}
+
+
+@app.post("/api/strategies/{sid}/archive")
+async def strategy_archive(sid: str, request: Request, u=Depends(user)):
+    b = await body(request)
+    archive = bool(b.get("archive", True))
+    if archive:
+        for m in brokers.MODES:
+            v = ledger.value(m, sid)
+            if v["positions"] or v["cash"] > 1:
+                raise HTTPException(400, f"{brokers.MODE_LABEL[m]}: stop & sell and withdraw its money first")
+    S.update(sid, archived=1 if archive else 0)
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------- money
+@app.get("/api/money")
+def money(mode: str = "paper", u=Depends(user)):
+    return views.money(mode_of(mode))
+
+
+@app.post("/api/money/{action}")
+async def money_action(action: str, request: Request, u=Depends(user)):
+    b = await body(request)
+    mode = mode_of(b.get("mode"))
+    try:
+        if action == "add":
+            return moneyops.add(mode, b.get("strategy"), b.get("amount"), b.get("invest"), b.get("note", ""))
+        if action == "withdraw":
+            return moneyops.withdraw(mode, b.get("strategy"), b.get("amount"), b.get("note", ""))
+        if action == "move":
+            return moneyops.move(mode, b.get("strategy"), b.get("other"), b.get("amount"), b.get("note", ""), b.get("invest"))
+        if action == "to-bot":
+            return moneyops.to_bot(mode, b.get("amount"), b.get("note", ""))
+        if action == "to-webull":
+            return moneyops.to_webull(mode, b.get("amount"), b.get("note", ""))
+        if action == "split":
+            alloc = b.get("allocations")
+            if b.get("equal"):
+                total = b.get("total") if b.get("total") not in (None, "") else ledger.pool_cash(mode)
+                alloc = moneyops.equal_split(total, list(b.get("strategies") or []))
+            return moneyops.split(mode, alloc or {}, b.get("invest"), b.get("note", ""))
+    except (ValueError, TypeError) as e:
+        _err(e)
+    raise HTTPException(404, "Unknown action")
+
+
+# ---------------------------------------------------------------- orders
+@app.get("/api/plans")
+def plans(mode: str = "paper", status: Optional[str] = None, limit: int = 30, u=Depends(user)):
+    m = mode_of(mode)
+    allp = execution.plans_view(m, limit=200)
+    counts = {"queued": sum(p["state"] == "queued" for p in allp), "running": sum(p["state"] == "running" for p in allp),
+              "done_today": sum(p["status"] in ("done", "cancelled") and (p["finished_at"] or 0) > time.time() - 86400 for p in allp)}
+    sel = [p for p in allp if (status in (None, "", "all") or (status == "done" and p["status"] in ("done", "cancelled"))
+                               or p["state"] == status)][:limit]
+    return {"plans": sel, "counts": counts}
+
+
+@app.post("/api/plans/{pid}/{action}")
+def plan_action(pid: int, action: str, u=Depends(user)):
+    if action == "start-now":
+        return {"ok": execution.start_now(pid)}
+    if action == "cancel":
+        return {"ok": execution.cancel_plan(pid, "cancelled by you")}
+    raise HTTPException(404, "Unknown action")
+
+
+@app.get("/api/settings/execution")
+def exec_settings(u=Depends(user)):
+    return views.execution_settings()
+
+
+@app.post("/api/settings/execution")
+async def exec_settings_save(request: Request, u=Depends(user)):
+    b = await body(request)
+    d = b.get("defaults") or {}
+    allowed = {"exec_lots", "exec_interval_min", "exec_start_mode", "exec_start_time", "exec_exit_mode", "exec_session",
+               "exec_limit_offset_pct", "exec_retries", "exec_min_lot_usd", "exec_min_trade_usd", "exec_max_order_usd", "new_money_start"}
+    upd = {k: str(v) for k, v in d.items() if k in allowed}
+    try:
+        if "exec_lots" in upd and not (1 <= int(upd["exec_lots"]) <= 60):
+            raise ValueError("Lots: 1 to 60")
+        if "exec_interval_min" in upd and not (0.5 <= float(upd["exec_interval_min"]) <= 120):
+            raise ValueError("Minutes between lots: 0.5 to 120")
+        if "exec_start_time" in upd:
+            datetime.strptime(upd["exec_start_time"], "%H:%M")
+        if "exec_limit_offset_pct" in upd and not (0 <= float(upd["exec_limit_offset_pct"]) <= 2):
+            raise ValueError("Limit offset: 0 to 2%")
+        if "new_money_start" in upd and upd["new_money_start"] not in ("now", "buy"):
+            raise ValueError("New money: 'now' or 'buy'")
+    except ValueError as e:
+        _err(e)
+    db.set_settings(upd)
+    for sid, ov in (b.get("overrides") or {}).items():
+        clean_ov = {k: v for k, v in (ov or {}).items() if k in ("lots", "interval_min", "start_mode", "start_time", "exit_mode") and v not in ("", None)}
+        S.update(sid, exec=clean_ov)
+    db.add_event("info", "settings", "Execution settings saved", json.dumps(b))
+    return {"ok": True}
+
+
+@app.get("/api/fills")
+def fills(mode: str = "paper", strategy: Optional[str] = None, side: Optional[str] = None, limit: int = 50, offset: int = 0,
+          days: Optional[float] = None, u=Depends(user)):
+    m = mode_of(mode)
+    since = time.time() - days * 86400 if days else None
+    out = execution.fills_view(m, strategy or None, side, limit, offset, since)
+    st = db.one("SELECT COUNT(*) n, COALESCE(SUM(filled_qty*avg_price),0) v FROM orders WHERE mode=? AND filled_qty>0", (m,))
+    closed = db.rows("SELECT summary FROM plans WHERE mode=? AND status='done'", (m,))
+    out["stats"] = {"fills": st["n"], "traded": st["v"], "plans_done": len(closed)}
+    return out
+
+
+@app.get("/api/fills.csv")
+def fills_csv(mode: str = "paper", u=Depends(user)):
+    rows = execution.fills_view(mode_of(mode), limit=100000)["rows"]
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["time_bangkok", "strategy", "side", "symbol", "qty", "avg_price_usd", "value_usd", "lot", "plan", "reason"])
+    for r in rows:
+        w.writerow([datetime.fromtimestamp(r["updated_at"], TZ).strftime("%Y-%m-%d %H:%M:%S"), r["name"], r["side"], r["symbol"],
+                    r["filled_qty"], r["avg_price"], round(r["value"], 2), f"{r['lot']}/{r['lots']}", r["plan_id"], r["reason"]])
+    return Response(buf.getvalue(), media_type="text/csv",
+                    headers={"Content-Disposition": f'attachment; filename="fills-{mode}-{datetime.now(TZ):%Y%m%d}.csv"'})
+
+
+@app.get("/api/positions")
+def positions(mode: str = "paper", u=Depends(user)):
+    return views.positions(mode_of(mode))
+
+
+# ---------------------------------------------------------------- health + logs
+@app.get("/api/health/report")
+def health_report(u=Depends(user)):
+    return {"latest": health.latest(), "history": health.history()}
+
+
+@app.post("/api/health/run")
+def health_run(u=Depends(user)):
+    return health.run(send=False)
+
+
+@app.get("/api/health/indicators")
+def health_indicators(strategy: str, u=Depends(user)):
+    s = S.get(strategy)
+    if not s:
+        raise HTTPException(404, "No such strategy")
+    try:
+        return health.indicator_table(s, rows=12)
+    except Exception as e:
+        return {"rows": [], "cols": [], "error": str(e)}
+
+
+@app.get("/api/events")
+def events(level: Optional[str] = None, source: Optional[str] = None, q: Optional[str] = None, limit: int = 100, before: Optional[int] = None,
+           u=Depends(user)):
+    sql, args = "SELECT * FROM events WHERE 1=1", []
+    if level and level != "all":
+        sql += " AND level=?"
+        args.append(level)
+    if source and source != "all":
+        sql += " AND source=?"
+        args.append(source)
+    if q:
+        sql += " AND (title LIKE ? OR message LIKE ?)"
+        args += [f"%{q}%", f"%{q}%"]
+    if before:
+        sql += " AND id<?"
+        args.append(before)
+    sql += " ORDER BY id DESC LIMIT ?"
+    args.append(min(500, limit))
+    counts = {r["level"]: r["n"] for r in db.rows("SELECT level, COUNT(*) n FROM events WHERE t>? GROUP BY level", (int(time.time()) - 86400,))}
+    sources = [r["source"] for r in db.rows("SELECT DISTINCT source FROM events ORDER BY source")]
+    return {"events": db.rows(sql, tuple(args)), "counts_24h": counts, "sources": sources}
+
+
+@app.get("/api/events.log")
+def events_log(days: int = 1, u=Depends(user)):
+    rows = db.rows("SELECT * FROM events WHERE t>=? ORDER BY id", (int(time.time()) - days * 86400,))
+    txt = "\n".join(f"{datetime.fromtimestamp(r['t'], TZ):%Y-%m-%d %H:%M:%S} {r['level'].upper():5} {r['source']:9} "
+                    f"{r['title']} | {r['message'] or ''}".rstrip(" |") for r in rows)
+    return Response(txt + "\n", media_type="text/plain",
+                    headers={"Content-Disposition": f'attachment; filename="bot-log-{datetime.now(TZ):%Y%m%d}.log"'})
+
+
+# ---------------------------------------------------------------- LINE
+@app.get("/api/line")
+def line_get(u=Depends(user)):
+    return {"settings": notify.settings_public(), "summary": notify.summary(), "recent": notify.recent(),
+            "preview": notify.preview(), "strategies": [{"id": r["id"], "name": r["name"], "color": r["color"], "line_on": bool(r["line_on"])}
+                                                        for r in S.rows()]}
+
+
+@app.post("/api/line")
+async def line_save(request: Request, u=Depends(user)):
+    b = await body(request)
+    try:
+        notify.save_settings(b)
+        for sid, on in (b.get("strategies") or {}).items():
+            S.update(sid, line_on=1 if on else 0)
+    except (ValueError, KeyError) as e:
+        _err(e)
+    return {"ok": True}
+
+
+@app.post("/api/line/test")
+def line_test(u=Depends(user)):
+    ok, err = notify.test_message()
+    if not ok:
+        raise HTTPException(400, err or "Not sent")
+    db.add_event("info", "line", "Test message sent", "")
+    return {"ok": True}
+
+
+@app.post("/api/line/quota")
+def line_quota(u=Depends(user)):
+    return notify.quota(force=True)
+
+
+# ---------------------------------------------------------------- Webull
+def _webull_public():
+    s = db.get_settings()
+    out = {"region": s.get("webull_region"), "modes": brokers.enabled_modes(s)}
+    for env in ("test", "live"):
+        b = brokers.WebullBroker(s, env=env)
+        st = b.status()
+        k = b.key
+        st["key_hint"] = (k[:4] + "…" + k[-4:]) if len(k) > 8 else ("set" if k else "")
+        st["account_id"] = b.account_id
+        st["endpoint"] = b.endpoint
+        out[env] = st
+    pb = brokers.PaperBroker(s)
+    out["paper"] = {"connected": True, "start_cash": float(s.get("paper_start_cash") or 0), "cash": pb._acct()["cash"]}
+    return out
+
+
+@app.get("/api/webull")
+def webull_get(u=Depends(user)):
+    return _webull_public()
+
+
+@app.post("/api/webull/{env}/{action}")
+async def webull_action(env: str, action: str, request: Request, u=Depends(user)):
+    if env not in ("test", "live"):
+        raise HTTPException(400, "env must be test or live")
+    b = await body(request)
+    p = "webull_test_" if env == "test" else "webull_"
+    if action == "keys":
+        upd = {}
+        if b.get("app_key"):
+            upd[p + "app_key"] = str(b["app_key"]).strip()
+        if b.get("app_secret"):
+            upd[p + "app_secret"] = str(b["app_secret"]).strip()
+        if "account_id" in b:
+            upd[p + "account_id"] = str(b.get("account_id") or "").strip()
+        if env == "test" and "endpoint" in b:
+            upd["webull_test_endpoint"] = str(b.get("endpoint") or "").strip()
+        db.set_settings(upd)
+        return _webull_public()
+    if action == "connect":
+        def go():
+            try:
+                brokers.WebullBroker(env=env).connect()
+                db.add_event("info", "webull", f"Webull {env} connected", "")
+            except Exception as e:
+                db.add_event("error", "webull", f"Webull {env} connection failed", str(e))
+        threading.Thread(target=go, daemon=True).start()
+        time.sleep(1.0)
+        return _webull_public()
+    if action == "disconnect":
+        brokers.WebullBroker(env=env).disconnect()
+        db.add_event("warn", "webull", f"Webull {env} disconnected", "")
+        return _webull_public()
+    if action == "test":
+        t0 = time.time()
+        try:
+            a = brokers.WebullBroker(env=env).account()
+        except brokers.BrokerError as e:
+            raise HTTPException(400, str(e))
+        db.set_state(f"acct_cache:{env}", {**a, "_at": int(time.time())})
+        return {"ok": True, "ms": int((time.time() - t0) * 1000), "account": a}
+    raise HTTPException(404, "Unknown action")
+
+
+# ---------------------------------------------------------------- settings
+@app.get("/api/settings")
+def settings_get(request: Request, u=Depends(user)):
+    s = db.get_settings()
+    sess = db.rows("SELECT id, created_at, last_seen, ip, ua, expires_at FROM sessions WHERE user_id=? AND revoked=0 AND expires_at>? "
+                   "ORDER BY last_seen DESC", (u["user_id"], int(time.time())))
+    for x in sess:
+        x["device"] = auth.device_name(x.pop("ua") or "")
+        x["current"] = x["id"] == u["id"]
+        x["id"] = x["id"][:8]
+    from .config import BACKUP_DIR
+    files = sorted(BACKUP_DIR.glob("bot-*.db")) if BACKUP_DIR.exists() else []
+    usr = db.one("SELECT username, pw_changed_at FROM users WHERE id=?", (u["user_id"],))
+    return {"user": usr, "sessions": sess,
+            "modes": {m: s.get(f"mode_{m}") == "1" for m in brokers.MODES},
+            "display": {"show_thb": s.get("show_thb") == "1", "theme": s.get("theme"), "tz": DISPLAY_TZ},
+            "data": {"source": md.source(), "metals_source": s.get("metals_source"),
+                     "rolls": db.rows("SELECT * FROM rolls ORDER BY t DESC LIMIT 30"), "status": db.get_state("data_status") or {}},
+            "server": {"scheduler": SCHEDULER_ENABLED, "version": VERSION, "public_url": PUBLIC_URL,
+                       "backups": [{"name": f.name, "size": f.stat().st_size, "t": int(f.stat().st_mtime)} for f in files[-5:]],
+                       "started": (db.get_state("heartbeat") or {}).get("since")},
+            "paper": {"start_cash": s.get("paper_start_cash"), "strategy_cash": s.get("paper_strategy_cash"),
+                      "spread_pct": s.get("paper_spread_pct")},
+            "paused": s.get("trading_paused") == "1", "follow_current_signal": s.get("follow_current_signal") == "1"}
+
+
+@app.post("/api/settings")
+async def settings_save(request: Request, u=Depends(user)):
+    b = await body(request)
+    upd = {}
+    for m, on in (b.get("modes") or {}).items():
+        if m not in brokers.MODES:
+            continue
+        if m == "live" and on and db.get_setting("mode_live") != "1" and b.get("confirm") != "LIVE":
+            raise HTTPException(400, "Type LIVE to switch on real-money trading")
+        upd[f"mode_{m}"] = "1" if on else "0"
+    if "show_thb" in b:
+        upd["show_thb"] = "1" if b["show_thb"] else "0"
+    if "theme" in b and b["theme"] in ("dark", "light", "auto"):
+        upd["theme"] = b["theme"]
+    if "follow_current_signal" in b:
+        upd["follow_current_signal"] = "1" if b["follow_current_signal"] else "0"
+    for k in ("paper_spread_pct",):
+        if k in b:
+            upd[k] = str(float(b[k]))
+    db.set_settings(upd)
+    if upd:
+        db.add_event("info", "settings", "Settings saved", json.dumps(upd))
+    return {"ok": True}
+
+
+@app.post("/api/settings/password")
+async def settings_password(request: Request, u=Depends(user)):
+    b = await body(request)
+    try:
+        auth.change_password(u["user_id"], str(b.get("old", "")), str(b.get("new", "")), keep_session=u["id"])
+    except ValueError as e:
+        _err(e)
+    db.add_event("info", "login", "Password changed", "Other devices were signed out")
+    notify.send("login", "Your bot password was changed. Other devices were signed out.", critical=True)
+    return {"ok": True}
+
+
+@app.post("/api/sessions/{short}/revoke")
+def session_revoke(short: str, u=Depends(user)):
+    r = db.one("SELECT id FROM sessions WHERE user_id=? AND id LIKE ? AND revoked=0", (u["user_id"], short + "%"))
+    if not r:
+        raise HTTPException(404, "No such session")
+    db.run("UPDATE sessions SET revoked=1 WHERE id=?", (r["id"],))
+    return {"ok": True}
+
+
+@app.post("/api/pause")
+async def pause(request: Request, u=Depends(user)):
+    b = await body(request)
+    on = bool(b.get("paused"))
+    db.set_settings({"trading_paused": "1" if on else "0"})
+    msg = "ALL TRADING PAUSED: no order lots are sent until you resume." if on else "Trading resumed."
+    db.add_event("warn" if on else "info", "orders", msg, "")
+    notify.send("system", msg, critical=on)
+    return {"ok": True, "paused": on}
+
+
+@app.post("/api/reset-paper")
+async def reset_paper(request: Request, u=Depends(user)):
+    b = await body(request)
+    if b.get("confirm") != "RESET":
+        raise HTTPException(400, "Type RESET to confirm")
+    cash = float(b.get("start_cash") or db.get_setting("paper_start_cash") or 100000)
+    per = float(b.get("strategy_cash") or db.get_setting("paper_strategy_cash") or 10000)
+    with execution._LOCK:
+        ledger.reset_mode("paper")
+        brokers.PaperBroker.reset(cash)
+        db.set_settings({"paper_start_cash": str(cash), "paper_strategy_cash": str(per)})
+        db.set_state("paper_seeded", None)
+        moneyops.seed_paper()
+    db.add_event("warn", "settings", "Paper account reset", f"${cash:,.0f} account, ${per:,.0f} per strategy")
+    return {"ok": True}
+
+
+@app.post("/api/stop-all")
+async def stop_all(request: Request, u=Depends(user)):
+    b = await body(request)
+    if b.get("confirm") != "STOP":
+        raise HTTPException(400, "Type STOP to confirm")
+    for r in S.rows():
+        S.update(r["id"], control="stopping")
+    db.add_event("warn", "strategy", "All strategies: Stop & sell", "")
+    notify.send("system", "All strategies set to Stop & sell.", critical=True)
+    return {"ok": True}
+
+
+@app.get("/api/backup")
+def backup_download(u=Depends(user)):
+    p = engine.backup()
+    return FileResponse(p, filename=p.name, media_type="application/octet-stream")
+
+
+@app.post("/api/run-now")
+def run_now(u=Depends(user)):
+    scheduler.run_now()
+    return {"ok": True}
+
+
+@app.post("/api/data/refresh")
+def data_refresh(u=Depends(user)):
+    threading.Thread(target=lambda: engine.refresh_data(md.now_utc(), force=True), daemon=True).start()
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------- docs
+DOC_ORDER = ["overview", "quick-start-mac", "first-day", "modes", "dashboard", "strategies", "money", "orders", "line", "health",
+             "strategy-gold1", "strategy-gold2", "strategy-silver1", "strategy-silver2", "strategy-qld", "strategy-semis", "strategy-qld-tbd",
+             "deploy", "update", "backups", "plugins", "layout", "tests", "troubleshooting", "glossary", "decisions"]
+
+
+@app.get("/api/docs")
+def docs_index(u=Depends(user)):
+    out = []
+    for name in DOC_ORDER:
+        p = DOCS / f"{name}.md"
+        if p.exists():
+            first = p.read_text(encoding="utf-8").splitlines()
+            meta = json.loads(first[0][4:-3]) if first and first[0].startswith("<!--") else {}
+            out.append({"name": name, "title": meta.get("title", name), "group": meta.get("group", "Help")})
+    return {"docs": out}
+
+
+@app.get("/api/docs/{name}")
+def doc(name: str, u=Depends(user)):
+    p = DOCS / f"{Path(name).name}.md"
+    if not p.exists():
+        raise HTTPException(404, "No such page")
+    txt = p.read_text(encoding="utf-8")
+    meta = {}
+    if txt.startswith("<!--"):
+        head, txt = txt.split("\n", 1)
+        meta = json.loads(head[4:-3])
+    return {"name": name, "meta": meta, "markdown": txt, "updated": int(p.stat().st_mtime)}

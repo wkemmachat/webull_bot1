@@ -1,0 +1,13 @@
+# TH Strategy Bot · Python 3.9+ (3.12 recommended)
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+pandas>=2.2,<3
+numpy>=1.26,<3
+yfinance==0.2.65
+httpx==0.28.1
+itsdangerous==2.2.0
+python-dotenv==1.0.1
+cryptography>=41
+tzdata>=2024.1
+# Webull Thailand OpenAPI (only needed for Webull test / Live)
+webull-openapi-python-sdk==3.0.4

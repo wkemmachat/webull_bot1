@@ -1,0 +1,17 @@
+services:
+  bot:
+    build: .
+    container_name: th-strategy-bot
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - DATA_DIR=/app/data
+    volumes:
+      - ./data:/app/data
+    # only reachable from the server itself; Caddy adds HTTPS in front.
+    # Port on the server: BOT_PORT in .env (default 8012) — pick a free one if another app uses 8012.
+    ports:
+      - "127.0.0.1:${BOT_PORT:-8012}:8000"
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }

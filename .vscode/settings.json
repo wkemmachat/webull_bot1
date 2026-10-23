@@ -1,0 +1,7 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": ["tests", "-q"],
+  "files.exclude": { "**/__pycache__": true, ".pytest_cache": true },
+  "search.exclude": { "data": true, "data-demo": true, ".venv": true, "app/static/vendor": true }
+}

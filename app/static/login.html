@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0B0E13">
+<title>Sign in · TH Strategy Bot</title>
+<link rel="icon" href="/favicon.ico?v=3" sizes="32x32">
+<link rel="icon" type="image/svg+xml" href="/static/icons/favicon.svg?v=3">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png?v=3">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/app.css?v=1">
+<script>try { var t = localStorage.getItem('theme'); if (t && t !== 'auto') document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<style>
+.wrap { min-height: 100vh; display: flex; flex-wrap: wrap; }
+.left { flex: 1 1 420px; padding: 56px 64px; display: flex; flex-direction: column; justify-content: space-between; gap: 40px; background: var(--side);
+  border-right: 1px solid var(--line); }
+.right { flex: 1 1 420px; display: flex; align-items: center; justify-content: center; padding: 48px 24px; }
+.feat { display: flex; gap: 12px; align-items: flex-start; }
+.feat svg { width: 20px; height: 20px; flex: none; color: var(--accent); margin-top: 2px; }
+.go { height: 48px; font-size: 15px; font-weight: 600; }
+.in.big { height: 46px; font-size: 15px; }
+@media (max-width: 760px) { .left { padding: 32px 24px; } .left .feats { display: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="left">
+    <div class="row"><div class="logo" style="width:40px;height:40px">TH</div><div><div style="font-weight:600;font-size:17px">TH Strategy Bot</div><div class="muted small">Webull Thailand · private console</div></div></div>
+    <div class="col feats" style="gap:26px;max-width:460px">
+      <h1 style="font-size:40px;line-height:1.1;font-weight:600;letter-spacing:-.02em">Six strategies.<br>One Webull account.<br><span style="color:var(--accent)">Every order on the record.</span></h1>
+      <div class="feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h11M4 18h6"/></svg><div><b>Split orders, timed starts</b><div class="muted">Each plan is sent in lots, from the Bangkok time you choose.</div></div></div>
+      <div class="feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg><div><b>LINE alerts on your schedule</b><div class="muted">Instant for signals and errors, a digest for everything else.</div></div></div>
+      <div class="feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><div><b>Cross-checked every night</b><div class="muted">The bot's books are compared with Webull after each US close.</div></div></div>
+    </div>
+    <div class="dim small">Signals are research, not financial advice. Leveraged ETFs can fall fast.</div>
+  </section>
+  <section class="right">
+    <form id="f" style="width:100%;max-width:400px" class="col" autocomplete="on">
+      <div><h2 style="font-size:26px;font-weight:600" id="ttl">Sign in</h2><div class="muted" id="sub" style="margin-top:4px">Only you can open this console.</div></div>
+      <div class="f"><label for="u">Username</label><input class="in big" id="u" name="username" autocomplete="username" required></div>
+      <div class="f"><label for="p">Password</label><input class="in big" id="p" name="password" type="password" autocomplete="current-password" required></div>
+      <div class="f hidden" id="p2w"><label for="p2">Repeat password</label><input class="in big" id="p2" type="password" autocomplete="new-password"></div>
+      <label class="row small" style="min-height:44px;color:var(--text2)"><input type="checkbox" id="rem" checked style="width:18px;height:18px;accent-color:var(--accent)">Keep me signed in for 30 days</label>
+      <button class="btn p go" type="submit" id="go">Sign in</button>
+      <div class="note err hidden" id="err"></div>
+      <div class="note" style="background:var(--panel);border:1px solid var(--line);color:var(--muted);font-size:12.5px" id="help">
+        After 5 wrong tries the login locks for 15 minutes and LINE tells you. Forgot the password? Run <span class="mono" style="color:var(--text2)">python -m app.reset_password</span> on the server.</div>
+    </form>
+  </section>
+</div>
+<script>
+(async function () {
+  const $ = (id) => document.getElementById(id);
+  let setup = false, allowed = true;
+  try {
+    const a = await (await fetch('/api/auth')).json();
+    if (a.signed_in) { location.href = '/'; return; }
+    setup = a.needs_setup; allowed = a.setup_allowed !== false;
+  } catch (e) {}
+  if (setup && !allowed) {
+    $('ttl').textContent = 'Login not created yet';
+    $('sub').textContent = 'For safety the first login can only be made on the bot\'s own computer.';
+    ['u', 'p'].forEach((id) => $(id).closest('.f').classList.add('hidden'));
+    $('go').classList.add('hidden'); $('rem').closest('label').classList.add('hidden');
+    $('help').innerHTML = 'On the server, put <span class="mono">APP_USERNAME</span> and <span class="mono">APP_PASSWORD</span> in <span class="mono">.env</span> and restart, or run <span class="mono">docker compose exec bot python -m app.reset_password</span>. Then reload this page.';
+    return;
+  }
+  if (setup) {
+    $('ttl').textContent = 'Create your login';
+    $('sub').textContent = 'This bot has one login, only yours. Username: letters, digits or an email address. Password: at least 10 characters.';
+    $('p2w').classList.remove('hidden'); $('go').textContent = 'Create and sign in';
+    $('p').autocomplete = 'new-password'; $('help').classList.add('hidden');
+  }
+  $('f').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    $('err').classList.add('hidden');
+    if (setup && $('p').value !== $('p2').value) { $('err').textContent = 'The two passwords are not the same.'; $('err').classList.remove('hidden'); return; }
+    $('go').disabled = true;
+    try {
+      const r = await fetch(setup ? '/api/setup' : '/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: $('u').value, password: $('p').value, remember: $('rem').checked }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.detail || 'Sign-in failed');
+      location.href = '/';
+    } catch (e) { $('err').textContent = e.message; $('err').classList.remove('hidden'); }
+    $('go').disabled = false;
+  });
+})();
+</script>
+</body>
+</html>

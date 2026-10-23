@@ -1,0 +1,261 @@
+"""The bot's loop (every 30 seconds): refresh prices → evaluate every strategy → record new signals and
+alert them → let each trading mode follow the targets → send due order lots → LINE → daily jobs."""
+from __future__ import annotations
+
+import json
+import logging
+import shutil
+import sqlite3
+import threading
+import time
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+
+from . import brokers, db, execution, ledger, marketdata as md, markethours as mh, metals, notify
+from . import strategies as S
+from .config import BACKUP_DIR, DB_PATH, DISPLAY_TZ
+
+log = logging.getLogger("engine")
+NY = ZoneInfo("America/New_York")
+TZ = ZoneInfo(DISPLAY_TZ)
+_lock = threading.Lock()
+STALE_S = {"signal": 3 * 3600, "regime": 4 * 86400}
+
+
+# ---------------------------------------------------------------- data
+def _needs():
+    out = set()
+    for s in S.all_instances():
+        for x in s.data_needs():
+            out.add(x)
+    return sorted(out)
+
+
+def refresh_data(now, force=False):
+    status = db.get_state("data_status") or {}
+    errors = []
+    for sym, tf in _needs():
+        key = f"{sym}:{tf}"
+        last = md.last_update(sym, tf) or 0
+        try:
+            if tf == "1h":
+                if force or metals.due(sym, now):
+                    n = metals.update(sym)
+                    status[key] = {"ok": True, "at": int(time.time()), "bars": n}
+            else:
+                if force or _daily_due(sym, now, last):
+                    n = md.update(sym, "1d")
+                    status[key] = {"ok": True, "at": int(time.time()), "bars": n}
+        except Exception as e:
+            log.warning("data %s: %s", key, e)
+            status[key] = {"ok": False, "at": int(time.time()), "error": str(e)[:300], "last_ok": (status.get(key) or {}).get("last_ok") or last}
+            errors.append(f"{key}: {e}")
+        else:
+            if key in status and status[key].get("ok"):
+                status[key]["last_ok"] = int(time.time())
+    db.set_state("data_status", status)
+    if errors:
+        last_alert = db.get_state("data_alert_at", 0)
+        if time.time() - last_alert > 6 * 3600:
+            notify.send("data", "Price data problem:\n" + "\n".join(errors[:6]))
+            db.add_event("warn", "data", "Price data problem", "\n".join(errors[:10]))
+            db.set_state("data_alert_at", int(time.time()))
+    return errors
+
+
+def _daily_due(sym, now, last):
+    if md.source() == "csv":
+        return time.time() - last > 60
+    ny = now.astimezone(NY)
+    after_close = datetime.combine(ny.date(), datetime.strptime("16:07", "%H:%M").time(), NY)
+    if ny >= after_close and last < after_close.timestamp() and mh.is_trading_day(ny.date()):
+        return True                                   # the closing bar
+    return time.time() - last > 30 * 60               # charts during the day
+
+
+# ---------------------------------------------------------------- evaluation + signals
+def _signal_text(s, h):
+    if hasattr(s, "signal_message"):
+        return s.signal_message(h)
+    if h["kind"] == "STATE":
+        tgt = s.target_for(h["to"]) if hasattr(s, "target_for") else {}
+        pos = " + ".join(f"{w * 100:.0f}% {k}" for k, w in sorted(tgt.items(), key=lambda x: -x[1]))
+        return f"REGIME · {s.name}: {h['from']} → {h['to']}\n{h['text']}\nNew target: {pos}"
+    word = "BUY" if h["kind"] == "BUY" else "SELL"
+    tgt = s.params.get("etf") if word == "BUY" else (s.params.get("cash_etf") or "cash")
+    return f"{word} · {s.name}\n{h['text']}\nMoves to {tgt}"
+
+
+def evaluate_all(now):
+    out = {}
+    for s in S.all_instances():
+        prev = db.one("SELECT * FROM strategy_state WHERE strategy=?", (s.id,))
+        try:
+            ev = s.evaluate(now)
+        except Exception as e:
+            ev = {"ok": False, "error": str(e)[:300]}
+        ev["computed_at"] = int(time.time())
+        if ev.get("ok"):
+            first = prev is None or not prev.get("bar_time")
+            last_bar = (prev or {}).get("bar_time") or 0
+            for h in ev.get("history", []):
+                live = (not first) and h["t"] > last_bar
+                cur = db.run("INSERT OR IGNORE INTO signals(strategy,t,kind,from_state,to_state,price,text,source,created_at) "
+                             "VALUES(?,?,?,?,?,?,?,?,?)", (s.id, h["t"], h["kind"], h["from"], h["to"], h["price"], h["text"],
+                                                           "live" if live else "history", int(time.time())))
+                if live and cur.rowcount:
+                    late = time.time() - h["t"] > 8 * 3600
+                    txt = ("LATE · " if late else "") + _signal_text(s, h)
+                    notify.send("regime" if h["kind"] == "STATE" else "signal", txt, strategy=s.id)
+                    db.add_event("info", "signal", f"{s.name}: {h['kind'].lower()} {h['from']} → {h['to']}", h["text"], strategy=s.id)
+            db.run("INSERT INTO strategy_state(strategy,computed_at,bar_time,state,label,target,signal_time,ok,error,detail) "
+                   "VALUES(?,?,?,?,?,?,?,1,NULL,?) ON CONFLICT(strategy) DO UPDATE SET computed_at=excluded.computed_at, "
+                   "bar_time=excluded.bar_time, state=excluded.state, label=excluded.label, target=excluded.target, "
+                   "signal_time=excluded.signal_time, ok=1, error=NULL, detail=excluded.detail",
+                   (s.id, ev["computed_at"], ev["bar_time"], ev["state"], ev["label"], json.dumps(ev["target"]), ev.get("signal_time"),
+                    json.dumps({"checks": ev.get("checks"), "price": ev.get("price"), "next_check": ev.get("next_check"),
+                                **(ev.get("detail") or {})})))
+        else:
+            db.run("INSERT INTO strategy_state(strategy,computed_at,ok,error) VALUES(?,?,0,?) ON CONFLICT(strategy) DO UPDATE SET "
+                   "computed_at=excluded.computed_at, ok=0, error=excluded.error", (s.id, ev["computed_at"], ev.get("error")))
+        out[s.id] = (s, ev)
+    return out
+
+
+def fresh(s, ev, now) -> bool:
+    """Only trade on a signal whose bar is recent enough (a data outage must not trade on old signals)."""
+    if not ev.get("ok"):
+        return False
+    age = now.timestamp() - (ev.get("bar_time") or 0)
+    return age <= STALE_S.get(s.family, 3 * 3600) or md.source() == "csv"
+
+
+# ---------------------------------------------------------------- daily jobs
+def _once(key: str, day: str) -> bool:
+    done = db.get_state(f"job:{key}")
+    if done == day:
+        return False
+    db.set_state(f"job:{key}", day)
+    return True
+
+
+def daily_jobs(now):
+    ny = now.astimezone(NY)
+    day = ny.strftime("%Y-%m-%d")
+    hh = ny.strftime("%H:%M")
+    if mh.is_trading_day(ny.date()) and hh >= "16:40" and _once("report", day):
+        queue_reports(now)
+    htime = db.get_setting("health_time_ny") or "16:45"
+    if hh >= htime and _once("health", day):
+        from . import health
+        try:
+            health.run(now)
+        except Exception as e:
+            log.exception("health")
+            db.add_event("error", "health", "Health check crashed", str(e))
+    local = now.astimezone(TZ)
+    if local.strftime("%H:%M") >= "03:30" and _once("backup", local.strftime("%Y-%m-%d")):
+        try:
+            backup()
+        except Exception as e:
+            db.add_event("error", "server", "Backup failed", str(e))
+    if _once("prune", local.strftime("%Y-%W")):
+        db.prune()
+
+
+def queue_reports(now):
+    for mode in brokers.enabled_modes():
+        for s in S.all_instances():
+            v = ledger.value(mode, s.id)
+            if (v["net_in"] or 0) <= 0 and not v["positions"]:
+                continue
+            st = db.one("SELECT label FROM strategy_state WHERE strategy=?", (s.id,)) or {}
+            since = int((now - timedelta(hours=24)).timestamp())
+            fills = db.rows("SELECT side, symbol, SUM(filled_qty) q, SUM(filled_qty*avg_price) v FROM orders WHERE mode=? AND strategy=? "
+                            "AND filled_qty>0 AND updated_at>=? GROUP BY side, symbol", (mode, s.id, since))
+            hold = ", ".join(f"{p['qty']:.0f} {k}" for k, p in v["positions"].items()) or "cash only"
+            ret = f"{v['ret'] * 100:+.1f}%" if v["ret"] is not None else "—"
+            lines = [f"{s.name} · {brokers.MODE_LABEL[mode]}", f"${v['value']:,.0f} ({ret} on ${v['net_in']:,.0f}) · {st.get('label', '—')}",
+                     f"Holds {hold}"]
+            if fills:
+                lines.append("Today: " + "; ".join(f"{f['side'].lower()} {f['q']:.0f} {f['symbol']}" for f in fills))
+            notify.send("report", "\n".join(lines), strategy=s.id)
+
+
+def backup():
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    name = BACKUP_DIR / f"bot-{datetime.now(TZ).strftime('%Y-%m-%d')}.db"
+    src = sqlite3.connect(str(DB_PATH))
+    dst = sqlite3.connect(str(name))
+    with dst:
+        src.backup(dst)
+    src.close()
+    dst.close()
+    keep = int(db.get_setting("backup_keep_days") or 30)
+    files = sorted(BACKUP_DIR.glob("bot-*.db"))
+    for f in files[:-keep]:
+        f.unlink(missing_ok=True)
+    db.add_event("info", "server", "Database backup", f"{name.name} · {name.stat().st_size / 1e6:.1f} MB")
+    _ = shutil
+    return name
+
+
+# ---------------------------------------------------------------- the tick
+def heartbeat():
+    now = int(time.time())
+    hb = db.get_state("heartbeat") or {}
+    last = hb.get("last")
+    gaps = [g for g in hb.get("gaps", []) if now - g[0] < 3 * 86400]
+    if last and now - last > 600:
+        gaps.append([last, now])
+    db.set_state("heartbeat", {"last": now, "since": hb.get("since") or now, "gaps": gaps[-50:], "ticks": (hb.get("ticks") or 0) + 1})
+
+
+def tick(now=None):
+    if not _lock.acquire(blocking=False):
+        return {"busy": True}
+    started = time.time()
+    try:
+        now = now or md.now_utc()
+        heartbeat()
+        errors = refresh_data(now)
+        evs = evaluate_all(now)
+        settings = db.get_settings()
+        for mode in brokers.enabled_modes(settings):
+            try:
+                broker = brokers.get(mode, settings)
+            except Exception as e:
+                log.warning("broker %s: %s", mode, e)
+                continue
+            for sid, (s, ev) in evs.items():
+                if not fresh(s, ev, now):
+                    continue
+                try:
+                    execution.reconcile(mode, s, ev, now, broker, settings)
+                except Exception as e:
+                    log.exception("reconcile %s %s", mode, sid)
+                    db.add_event("error", "orders", f"{s.name}: could not plan orders", str(e), strategy=sid, mode=mode)
+        execution.process(now, settings)
+        try:
+            notify.dispatch()
+        except Exception as e:
+            log.exception("line dispatch")
+            db.add_event("error", "line", "LINE dispatcher error", str(e))
+        daily_jobs(now)
+        db.set_state("last_tick", {"at": int(time.time()), "took": round(time.time() - started, 2), "errors": errors})
+        return {"ok": True, "errors": errors}
+    finally:
+        _lock.release()
+
+
+def startup():
+    """Called once when the app starts."""
+    S.load_plugins()
+    new = S.seed()
+    from . import moneyops
+    moneyops.seed_paper()
+    for sid in new:
+        moneyops.seed_new_paper(sid)
+        db.add_event("info", "strategy", f"New default strategy added: {sid}", "Created by the update", strategy=sid)
+    db.add_event("info", "server", "Bot started", f"data source: {md.source()}")
+    notify.send("system", "Bot started.")

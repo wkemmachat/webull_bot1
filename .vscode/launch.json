@@ -1,0 +1,33 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run TH Strategy Bot",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["app.main:app", "--host", "127.0.0.1", "--port", "8000", "--workers", "1"],
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": true
+    },
+    {
+      "name": "Run (offline demo prices)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["app.main:app", "--host", "127.0.0.1", "--port", "8001", "--workers", "1"],
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "env": { "DATA_SOURCE": "csv", "DATA_DIR": "${workspaceFolder}/data-demo", "SCHEDULER_ENABLED": "1" },
+      "preLaunchTask": "Make demo data"
+    },
+    {
+      "name": "Tests",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["-q"],
+      "python": "${workspaceFolder}/.venv/bin/python"
+    }
+  ]
+}

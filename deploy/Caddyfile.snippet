@@ -1,0 +1,14 @@
+# TH Strategy Bot — add this block to /etc/caddy/Caddyfile (keep your other sites as they are), then:
+#   sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
+# The port must match BOT_PORT in the bot's .env (default 8012).
+webull-bot1.kemmachat.com {
+    encode gzip
+    reverse_proxy 127.0.0.1:8012
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy same-origin
+        -Server
+    }
+}

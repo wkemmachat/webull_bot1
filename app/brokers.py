@@ -1,0 +1,399 @@
+"""Brokers, one per trading mode.
+
+paper  PaperBroker: pretend money inside the bot. Fills limit orders against the live (Yahoo) price
+       plus a small spread, only while the US session is open (the execution engine checks that).
+test   WebullBroker(env="test"): Webull's test server (th-api.uat.webullbroker.com), test keys and account.
+live   WebullBroker(env="live"): your real Webull Thailand account (region 'th').
+
+The Webull part follows the official `webull-openapi-python-sdk` and the Gold & Silver bot. A new login
+needs approval in the Webull app (SMS code; Menu → Messages → OpenAPI Notifications) within 5 minutes,
+so the scheduler never starts a login by itself: it reuses the saved token (lapses after 15 idle days).
+"""
+from __future__ import annotations
+
+import logging
+import threading
+import time
+from pathlib import Path
+
+from . import db, marketdata as md
+from .config import DATA_DIR
+
+log = logging.getLogger("broker")
+MODES = ("paper", "test", "live")
+MODE_LABEL = {"paper": "Paper", "test": "Webull test", "live": "Live"}
+
+
+class BrokerError(Exception):
+    pass
+
+
+def _num(x):
+    try:
+        return None if x is None or x == "" else float(x)
+    except (TypeError, ValueError):
+        return None
+
+
+# ---------------------------------------------------------------- paper
+class PaperBroker:
+    mode = "paper"
+    label = "Paper trading (pretend money, live prices)"
+    KEY = "paper_account"
+
+    def __init__(self, settings=None, quote_fn=None):
+        self.settings = settings or db.get_settings()
+        self.quote_fn = quote_fn or md.quote
+        self.spread = float(self.settings.get("paper_spread_pct") or 0.05) / 100
+        self.fee = float(self.settings.get("paper_fee_pct") or 0) / 100
+
+    def _acct(self):
+        a = db.get_state(self.KEY)
+        if not a:
+            cash = float(self.settings.get("paper_start_cash") or 100000)
+            a = {"cash": cash, "start_cash": cash, "positions": {}, "orders": {}, "created": int(time.time())}
+            db.set_state(self.KEY, a)
+        return a
+
+    def _save(self, a):
+        if len(a["orders"]) > 3000:     # keep the newest orders only
+            keep = sorted(a["orders"].values(), key=lambda o: o.get("t", 0))[-2000:]
+            a["orders"] = {o["cid"]: o for o in keep}
+        db.set_state(self.KEY, a)
+
+    def status(self):
+        return {"connected": True, "label": self.label, "mode": "paper"}
+
+    def ready(self):
+        return True, None
+
+    def quote(self, symbol):
+        return self.quote_fn(symbol)
+
+    def account(self):
+        a = self._acct()
+        pos, mv = {}, 0.0
+        for sym, p in a["positions"].items():
+            if p["qty"] <= 1e-9:
+                continue
+            try:
+                px = self.quote(sym)["price"]
+            except Exception:
+                px = p.get("last") or (p["cost"] / p["qty"] if p["qty"] else 0)
+            pos[sym] = {"qty": p["qty"], "cost": p["cost"] / p["qty"] if p["qty"] else None, "last": px, "value": p["qty"] * px}
+            mv += p["qty"] * px
+        return {"total": a["cash"] + mv, "cash": a["cash"], "market_value": mv, "buying_power": a["cash"],
+                "positions": pos, "currency": "USD", "account_id": "PAPER"}
+
+    def _try_fill(self, a, o):
+        if o["status"] != "SUBMITTED":
+            return
+        q = self.quote(o["symbol"])
+        px = q["price"] * (1 + self.spread if o["side"] == "BUY" else 1 - self.spread)
+        if o["limit"] is not None and ((o["side"] == "BUY" and o["limit"] < px) or (o["side"] == "SELL" and o["limit"] > px)):
+            return
+        p = a["positions"].setdefault(o["symbol"], {"qty": 0.0, "cost": 0.0})
+        qty = o["qty"]
+        fee = qty * px * self.fee
+        if o["side"] == "BUY":
+            if qty * px + fee > a["cash"] + 1e-6:
+                o.update(status="FAILED", error="insufficient cash")
+                return
+            p["qty"] += qty
+            p["cost"] += qty * px
+            a["cash"] -= qty * px + fee
+        else:
+            if qty > p["qty"] + 1e-9:
+                o.update(status="FAILED", error="not enough shares")
+                return
+            avg = p["cost"] / p["qty"] if p["qty"] else 0
+            p["qty"] -= qty
+            p["cost"] = max(0.0, p["cost"] - avg * qty)
+            a["cash"] += qty * px - fee
+        p["last"] = q["price"]
+        o.update(status="FILLED", filled_qty=qty, avg_price=round(px, 4), filled_at=int(time.time()))
+
+    def place(self, symbol, side, qty, limit, session, cid):
+        a = self._acct()
+        if cid in a["orders"]:
+            return {"order_id": cid}
+        o = {"cid": cid, "symbol": symbol, "side": side, "qty": float(qty), "limit": limit, "status": "SUBMITTED",
+             "filled_qty": 0.0, "avg_price": None, "t": int(time.time())}
+        a["orders"][cid] = o
+        self._try_fill(a, o)
+        self._save(a)
+        if o["status"] == "FAILED":
+            raise BrokerError(o.get("error", "rejected"))
+        return {"order_id": cid}
+
+    def order(self, cid):
+        a = self._acct()
+        o = a["orders"].get(cid)
+        if not o:
+            raise BrokerError("unknown order")
+        if o["status"] == "SUBMITTED":
+            try:
+                self._try_fill(a, o)
+                self._save(a)
+            except Exception as e:
+                log.warning("paper fill check %s: %s", cid, e)
+        return {"status": o["status"], "filled_qty": o["filled_qty"], "avg_price": o["avg_price"]}
+
+    def cancel(self, cid):
+        a = self._acct()
+        o = a["orders"].get(cid)
+        if o and o["status"] == "SUBMITTED":
+            o["status"] = "CANCELLED"
+            self._save(a)
+        return True
+
+    @classmethod
+    def reset(cls, start_cash):
+        db.set_state(cls.KEY, {"cash": float(start_cash), "start_cash": float(start_cash), "positions": {}, "orders": {},
+                               "created": int(time.time())})
+
+
+# ---------------------------------------------------------------- Webull
+_wb_lock = threading.Lock()
+_wb_clients: dict = {}
+
+
+def conn_key(env):
+    return "webull_conn_test" if env == "test" else "webull_conn"
+
+
+class WebullBroker:
+    TEST_HOST = "th-api.uat.webullbroker.com"
+
+    def __init__(self, settings=None, env="live"):
+        self.settings = s = settings or db.get_settings()
+        self.env = "test" if env == "test" else "live"
+        self.mode = self.env
+        p = "webull_test_" if self.env == "test" else "webull_"
+        self.prefix = p
+        self.key = (s.get(p + "app_key") or "").strip()
+        self.secret = (s.get(p + "app_secret") or "").strip()
+        self.region = (s.get("webull_region") or "th").strip()
+        self.endpoint = (s.get(p + "endpoint") or "").strip() if self.env == "test" else ""
+        if self.env == "test" and not self.endpoint:
+            self.endpoint = self.TEST_HOST
+        self.account_id = (s.get(p + "account_id") or "").strip()
+        self.label = "Webull test environment" if self.env == "test" else "Webull Thailand (live)"
+        self.tok_dir = Path(DATA_DIR) / ("webull-test" if self.env == "test" else "webull")
+
+    def _clients(self, interactive=False):
+        if not self.key or not self.secret:
+            raise BrokerError(f"Add your Webull {'test ' if self.env == 'test' else ''}App Key and App Secret on the Webull page")
+        ck = (self.env, self.key, self.region, self.endpoint)
+        with _wb_lock:
+            if ck in _wb_clients:
+                return _wb_clients[ck]
+            st = db.get_state(conn_key(self.env)) or {}
+            tok = self.tok_dir / "token.txt"
+            if not interactive:
+                ok_once = self.env == "test" and (self.tok_dir / "connected.ok").exists()
+                if not tok.exists() and not ok_once:
+                    raise BrokerError("Webull is not connected yet: press Connect on the Webull page")
+                if st.get("status") in ("error", "connecting") and time.time() - st.get("at", 0) < 1800:
+                    raise BrokerError("Webull login needs attention: press Connect on the Webull page")
+            try:
+                from webull.core.client import ApiClient
+                from webull.data.data_client import DataClient
+                from webull.trade.trade_client import TradeClient
+            except ImportError as e:
+                raise BrokerError("The Webull SDK is not installed (pip install -r requirements.txt)") from e
+            api = ApiClient(self.key, self.secret, self.region)
+            if self.endpoint:
+                api.add_endpoint(self.region, self.endpoint)
+            self.tok_dir.mkdir(parents=True, exist_ok=True)
+            api.set_token_dir(str(self.tok_dir))
+            api.set_file_logger(path=str(self.tok_dir / "webull_sdk.log"), log_level=logging.INFO,
+                                format_string="%(asctime)s %(name)s %(levelname)s %(message)s", backup_count=48)
+            db.set_state(conn_key(self.env), {"status": "connecting", "at": int(time.time()),
+                                              "msg": "Waiting for approval: open the Webull app and enter the SMS code "
+                                                     "(Menu → Messages → OpenAPI Notifications). You have 5 minutes."})
+            try:
+                trade = TradeClient(api)
+                data = DataClient(api)
+            except Exception as e:
+                db.set_state(conn_key(self.env), {"status": "error", "at": int(time.time()), "msg": str(e)[:300]})
+                raise BrokerError(f"Webull connection failed: {e}") from e
+            prev = db.get_state(conn_key(self.env)) or {}
+            db.set_state(conn_key(self.env), {"status": "connected", "at": int(time.time()), "msg": "Connected",
+                                              "approved_at": prev.get("approved_at") or int(time.time())})
+            if self.env == "test":
+                (self.tok_dir / "connected.ok").write_text(str(int(time.time())))
+            _wb_clients[ck] = (trade, data)
+            return trade, data
+
+    def connect(self):
+        """Interactive login (Connect button). May wait up to 5 minutes for the SMS approval."""
+        st = db.get_state(conn_key(self.env)) or {}
+        st["approved_at"] = None
+        db.set_state(conn_key(self.env), st)
+        self._clients(interactive=True)
+        st = db.get_state(conn_key(self.env)) or {}
+        st["approved_at"] = int(time.time())
+        db.set_state(conn_key(self.env), st)
+        return self.status()
+
+    def disconnect(self):
+        with _wb_lock:
+            for k in [k for k in _wb_clients if k[0] == self.env]:
+                _wb_clients.pop(k, None)
+        tok = self.tok_dir / "token.txt"
+        if tok.exists():
+            tok.rename(self.tok_dir / f"token.disconnected.{int(time.time())}.txt")
+        db.set_state(conn_key(self.env), {"status": "disconnected", "at": int(time.time()), "msg": "Disconnected"})
+
+    def ready(self):
+        try:
+            self._clients()
+            return True, None
+        except BrokerError as e:
+            return False, str(e)
+
+    @staticmethod
+    def _call(fn, what):
+        try:
+            return fn()
+        except BrokerError:
+            raise
+        except Exception as e:
+            raise BrokerError(f"Webull {what} failed: {str(e)[:300]}") from e
+
+    @staticmethod
+    def _json(res, what):
+        if res is None or getattr(res, "status_code", 0) != 200:
+            body = ""
+            try:
+                body = res.text[:300]
+            except Exception:
+                pass
+            raise BrokerError(f"Webull {what} failed ({getattr(res, 'status_code', '?')}): {body}")
+        return res.json()
+
+    def _touch(self):
+        st = db.get_state(conn_key(self.env)) or {}
+        if time.time() - (st.get("used_at") or 0) > 60:
+            st["used_at"] = int(time.time())
+            db.set_state(conn_key(self.env), st)
+
+    def status(self):
+        st = db.get_state(conn_key(self.env)) or {}
+        tok = (self.tok_dir / "token.txt").exists()
+        used = st.get("used_at") or st.get("at")
+        return {"env": self.env, "mode": self.env, "connected": st.get("status") == "connected", "label": self.label,
+                "has_keys": bool(self.key and self.secret), "token_saved": tok,
+                "lapses_at": (used + 15 * 86400) if used and st.get("status") == "connected" else None, **st}
+
+    def accounts(self):
+        trade, _ = self._clients()
+        js = self._json(self._call(trade.account_v2.get_account_list, "account list"), "account list")
+        return js if isinstance(js, list) else js.get("data", js.get("accounts", []))
+
+    def _acct_id(self):
+        if self.account_id:
+            return self.account_id
+        accts = self.accounts()
+        if not accts:
+            raise BrokerError("No Webull account found for this API key")
+        if len(accts) > 1:
+            ids = ", ".join(str(a.get("account_id") or a.get("accountId")) for a in accts)
+            raise BrokerError(f"This API key has several Webull accounts ({ids}). Enter the one to use as Account ID.")
+        aid = accts[0].get("account_id") or accts[0].get("accountId")
+        self.account_id = aid
+        db.set_settings({self.prefix + "account_id": aid})
+        return aid
+
+    def quote(self, symbol):
+        try:
+            _, data = self._clients()
+            res = self._call(lambda: data.market_data.get_snapshot(symbol, "US_ETF", extend_hour_required=True,
+                                                                    overnight_required=True), "quote")
+            js = self._json(res, "quote")
+            row = js[0] if isinstance(js, list) and js else (js.get("data", [{}])[0] if isinstance(js, dict) else {})
+            px = _num(row.get("extend_hour_last_price")) if row.get("extend_hour_last_trade_time", 0) and \
+                (row.get("extend_hour_last_trade_time", 0) > (row.get("last_trade_time") or 0)) else None
+            px = px or _num(row.get("price"))
+            if px:
+                self._touch()
+                return {"price": px, "bid": _num(row.get("bid")), "ask": _num(row.get("ask")),
+                        "time": int((row.get("last_trade_time") or 0) / 1000), "source": "webull"}
+        except BrokerError as e:
+            log.warning("Webull quote failed for %s, using Yahoo: %s", symbol, e)
+        return md.quote(symbol)
+
+    def account(self):
+        trade, _ = self._clients()
+        aid = self._acct_id()
+        b = self._json(self._call(lambda: trade.account_v2.get_account_balance(aid), "balance"), "balance")
+        b = b.get("data", b) if isinstance(b, dict) else b
+        usd = next((x for x in (b.get("account_currency_assets") or []) if x.get("currency") == "USD"), {})
+        p = self._json(self._call(lambda: trade.account_v2.get_account_position(aid), "positions"), "positions")
+        rws = p if isinstance(p, list) else p.get("data", p.get("positions", []))
+        pos = {}
+        for r in rws or []:
+            if (r.get("instrument_type") or "EQUITY") != "EQUITY":
+                continue
+            q, last = _num(r.get("quantity")) or 0.0, _num(r.get("last_price"))
+            pos[r.get("symbol")] = {"qty": q, "cost": _num(r.get("cost_price")), "last": last, "value": q * (last or 0.0)}
+        self._touch()
+        return {"total": _num(b.get("total_net_liquidation_value")) or _num(usd.get("net_liquidation_value")),
+                "cash": _num(b.get("total_cash_balance")) or _num(usd.get("cash_balance")),
+                "market_value": _num(b.get("total_market_value")) or _num(usd.get("market_value")),
+                "buying_power": _num(usd.get("buying_power")), "positions": pos, "currency": "USD", "account_id": aid}
+
+    def place(self, symbol, side, qty, limit, session, cid):
+        trade, _ = self._clients()
+        order = {"combo_type": "NORMAL", "client_order_id": cid, "symbol": symbol, "instrument_type": "EQUITY",
+                 "market": "US", "order_type": "LIMIT" if limit else "MARKET", "quantity": str(int(qty)),
+                 "support_trading_session": session if limit else "CORE", "side": side,
+                 "time_in_force": "DAY", "entrust_type": "QTY"}
+        if limit:
+            order["limit_price"] = f"{limit:.2f}"
+        aid = self._acct_id()
+        js = self._json(self._call(lambda: trade.order_v3.place_order(aid, [order]), "place order"), "place order")
+        self._touch()
+        return {"order_id": (js or {}).get("order_id")}
+
+    def order(self, cid):
+        trade, _ = self._clients()
+        aid = self._acct_id()
+        js = self._json(self._call(lambda: trade.order_v3.get_order_detail(aid, cid), "order status"), "order status")
+        items = js.get("orders") if isinstance(js, dict) else None
+        it = (items or [js])[0] if (items or js) else {}
+        return {"status": (it.get("status") or "SUBMITTED").upper(), "filled_qty": _num(it.get("filled_quantity")) or 0.0,
+                "avg_price": _num(it.get("filled_price"))}
+
+    def cancel(self, cid):
+        trade, _ = self._clients()
+        aid = self._acct_id()
+        self._json(self._call(lambda: trade.order_v3.cancel_order(aid, cid), "cancel order"), "cancel order")
+        return True
+
+
+_override: dict = {}
+
+
+def get(mode: str, settings=None):
+    """The broker for a mode. Tests can install fakes with set_override()."""
+    if mode in _override:
+        return _override[mode]
+    if mode == "paper":
+        return PaperBroker(settings)
+    if mode in ("test", "live"):
+        return WebullBroker(settings, env=mode)
+    raise ValueError(f"unknown mode {mode}")
+
+
+def set_override(mode, broker):
+    if broker is None:
+        _override.pop(mode, None)
+    else:
+        _override[mode] = broker
+
+
+def enabled_modes(settings=None) -> list:
+    s = settings or db.get_settings()
+    return [m for m in MODES if s.get(f"mode_{m}") == "1"]

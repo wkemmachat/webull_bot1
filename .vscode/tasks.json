@@ -1,0 +1,8 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    { "label": "Make demo data", "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python scripts/make_demo_data.py --dir data-demo/csv" },
+    { "label": "Run tests", "type": "shell", "command": "${workspaceFolder}/.venv/bin/python -m pytest -q", "group": "test" }
+  ]
+}

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B0E13">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>TH Strategy Bot</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/favicon.ico?v=3" sizes="32x32">
+<link rel="icon" type="image/svg+xml" href="/static/icons/favicon.svg?v=3">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png?v=3">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/app.css?v=9">
+<script>try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : t; } catch (e) {}</script>
+</head>
+<body>
+<div class="app">
+  <nav class="side" id="side" aria-label="Main">
+    <a class="brand" href="#/"><div class="logo">TH</div><div><div style="font-weight:600;font-size:15px">TH Strategy Bot</div><div class="muted small">Webull Thailand</div></div></a>
+    <a class="nav" data-r="" href="#/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-4H3zM13 3v4h8V3z"/></svg>Dashboard</a>
+    <div class="grp">Trade</div>
+    <a class="nav" data-r="strategies" href="#/strategies"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 8l10 5 10-5-10-5zM2 16l10 5 10-5M2 12l10 5 10-5"/></svg>Strategies</a>
+    <a class="nav" data-r="money" href="#/money"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 14h2"/></svg>Money</a>
+    <a class="nav" data-r="orders" href="#/orders"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h11M4 18h6"/></svg>Orders<span class="cnt hidden" id="cnt-plans"></span></a>
+    <a class="nav" data-r="trades" href="#/trades"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"/></svg>Trades</a>
+    <a class="nav" data-r="positions" href="#/positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v9h9A9 9 0 1 1 12 3z"/></svg>Positions</a>
+    <div class="grp">Monitor</div>
+    <a class="nav" data-r="health" href="#/health"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Health check<span class="cnt hidden" id="cnt-health"></span></a>
+    <a class="nav" data-r="logs" href="#/logs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14v16H5zM9 8h6M9 12h6M9 16h3"/></svg>Logs</a>
+    <div class="grp">Configure</div>
+    <a class="nav" data-r="line" href="#/line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>LINE alerts</a>
+    <a class="nav" data-r="webull" href="#/webull"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1"/></svg>Webull</a>
+    <a class="nav" data-r="execution" href="#/execution"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Execution</a>
+    <a class="nav" data-r="settings" href="#/settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg>Settings</a>
+    <div class="grp">Help</div>
+    <a class="nav" data-r="docs" href="#/docs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h10l4 4v12H5zM15 4v4h4M9 13h6M9 17h4"/></svg>Docs &amp; manual</a>
+    <div class="side-foot"><div class="small" style="font-weight:500" id="who">—</div><div class="muted tiny" id="ver"></div>
+      <button class="btn s" type="button" id="logout" style="margin-top:6px">Sign out</button></div>
+  </nav>
+
+  <div class="main">
+    <header class="top" id="top">
+      <button class="btn s burger" type="button" id="burger" aria-label="Menu">☰</button>
+      <div class="seg" role="group" aria-label="Trading mode" id="modeseg">
+        <button type="button" data-m="paper">Paper</button><button type="button" data-m="test">Webull test</button><button type="button" data-m="live" class="live">● Live</button>
+      </div>
+      <span class="chip hide-m" id="mkt"><span class="dot" style="background:var(--warn-fg)"></span>…</span>
+      <span class="chip hide-m" id="wb"></span>
+      <span class="chip hide-m" id="sch"></span>
+      <span style="margin-left:auto" class="num muted small" id="clock"></span>
+      <button class="btn d s" type="button" id="pauseall">Pause all trading</button>
+    </header>
+    <div class="note err hidden" id="pausedbar" style="margin:12px 28px 0">All trading is paused: no order lots are sent. Plans wait until you resume. <a href="#" id="resume" style="margin-left:auto;color:inherit;text-decoration:underline">Resume trading</a></div>
+    <main class="content" id="view"></main>
+  </div>
+</div>
+<nav class="tabbar" aria-label="Tabs">
+  <a data-r="" href="#/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-4H3zM13 3v4h8V3z"/></svg>Home</a>
+  <a data-r="strategies" href="#/strategies"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 8l10 5 10-5-10-5zM2 16l10 5 10-5M2 12l10 5 10-5"/></svg>Strategies</a>
+  <a data-r="orders" href="#/orders"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h11M4 18h6"/></svg>Orders</a>
+  <a data-r="money" href="#/money"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 14h2"/></svg>Money</a>
+  <a data-r="more" href="#" id="more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>More</a>
+</nav>
+<div class="toast" id="toast" aria-live="polite"></div>
+<script src="/static/vendor/lightweight-charts.standalone.production.js"></script>
+<script src="/static/js/ui.js?v=9"></script>
+<script src="/static/js/charts.js?v=9"></script>
+<script src="/static/js/views/dashboard.js?v=9"></script>
+<script src="/static/js/views/strategies.js?v=9"></script>
+<script src="/static/js/views/money.js?v=9"></script>
+<script src="/static/js/views/orders.js?v=9"></script>
+<script src="/static/js/views/monitor.js?v=9"></script>
+<script src="/static/js/views/config.js?v=9"></script>
+<script src="/static/js/views/docs.js?v=9"></script>
+<script src="/static/js/app.js?v=9"></script>
+</body>
+</html>

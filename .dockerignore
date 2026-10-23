@@ -1,0 +1,13 @@
+.git
+.env
+data
+data-demo
+.venv
+venv
+__pycache__
+*.pyc
+.pytest_cache
+tests
+.vscode
+*.tar.gz
+*.zip
