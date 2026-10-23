@@ -115,3 +115,9 @@ def test_today_ignores_deposits(client, clock):
     execution.record_equity("paper", clock.dt, force=True)
     b = client.get("/api/dashboard?mode=paper").json()["bot"]
     assert abs(b["today"]) < 50                       # adding $5,000 is not a $5,000 gain
+
+
+def test_head_requests(client):
+    assert client.head("/api/health").status_code == 200          # uptime monitors and `curl -I`
+    assert client.head("/", follow_redirects=False).status_code in (302, 307)
+    assert client.head("/login").status_code == 200

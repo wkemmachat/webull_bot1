@@ -106,14 +106,14 @@ def _err(e: Exception):
     raise HTTPException(400, str(e))
 
 
-@app.get("/", include_in_schema=False)
+@app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
 def index(request: Request):
     if not auth.session_from_cookie(request.cookies.get(auth.COOKIE)):
         return RedirectResponse("/login")
     return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-cache"})
 
 
-@app.get("/login", include_in_schema=False)
+@app.api_route("/login", methods=["GET", "HEAD"], include_in_schema=False)
 def login_page():
     return FileResponse(STATIC / "login.html", headers={"Cache-Control": "no-cache"})
 
@@ -187,7 +187,7 @@ def logout(request: Request):
     return r
 
 
-@app.get("/api/health")
+@app.api_route("/api/health", methods=["GET", "HEAD"])
 def public_health():
     lt = db.get_state("last_tick") or {}
     return {"ok": True, "version": VERSION, "last_tick": lt.get("at"), "scheduler": SCHEDULER_ENABLED}
