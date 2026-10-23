@@ -364,7 +364,16 @@ def plans(mode: str = "paper", status: Optional[str] = None, limit: int = 30, u=
               "done_today": sum(p["status"] in ("done", "cancelled") and (p["finished_at"] or 0) > time.time() - 86400 for p in allp)}
     sel = [p for p in allp if (status in (None, "", "all") or (status == "done" and p["status"] in ("done", "cancelled"))
                                or p["state"] == status)][:limit]
-    return {"plans": sel, "counts": counts}
+    return {"plans": sel, "counts": counts, "blocked": execution.blocked_symbols(m)}
+
+
+@app.post("/api/orders/unblock")
+async def orders_unblock(request: Request, u=Depends(user)):
+    b = await body(request)
+    m = mode_of(b.get("mode"))
+    execution.unblock_symbols(m)
+    db.add_event("info", "orders", "Refused symbols cleared: the bot will try them again", "", mode=m)
+    return {"ok": True}
 
 
 @app.post("/api/plans/{pid}/{action}")

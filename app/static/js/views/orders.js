@@ -53,9 +53,13 @@
     let status = 'all';
     async function load() {
       const d = await U.api(`/api/plans?mode=${mode}&status=${status}&limit=40`);
+      setTimeout(() => { const u = el.querySelector('#unb'); if (u) u.onclick = (e) => U.busy(e.target, async () => { await U.api('/api/orders/unblock', { body: { mode } }); U.toast('The bot will try again at the next tick'); load(); }); }, 0);
       el.innerHTML = `<div class="page-head"><div><div class="eyebrow">Split execution · ${U.modeLabel[mode]}</div><h1 class="h1">Orders</h1>
         <div class="muted" style="margin-top:4px">Every signal becomes a plan: lots of limit orders sent a few minutes apart, from the start time you set.</div></div>
         <a class="btn" href="#/execution">Execution settings</a></div>
+        ${Object.keys(d.blocked || {}).length ? `<div class="note err" style="flex-direction:column;align-items:flex-start;gap:6px"><b>Webull refuses ${Object.keys(d.blocked).join(', ')} — no orders for ${Object.keys(d.blocked).length > 1 ? 'them' : 'it'} for 6 hours</b>
+          ${Object.entries(d.blocked).map(([s, b]) => `<span>${U.esc(s)}: ${U.esc(b.msg)}${b.hint ? ' → ' + U.esc(b.hint) : ''}</span>`).join('')}
+          <button class="btn s" id="unb">I fixed it — try again now</button></div>` : ''}
         <div class="seg" style="align-self:flex-start" id="st">${[['all', 'All'], ['queued', 'Queued · ' + d.counts.queued], ['running', 'Running · ' + d.counts.running], ['done', 'Done']].map(([k, l]) => `<button data-s="${k}" class="${status === k ? 'on' : ''}">${l}</button>`).join('')}</div>
         ${d.plans.map((p) => V.planCard(p)).join('') || '<div class="card empty">No plans here. Plans appear when a strategy\'s target changes or money is added.</div>'}
         <div class="row small muted" style="gap:16px"><span class="row" style="gap:6px"><span class="lot l-scheduled" style="width:20px;height:14px"></span>scheduled</span>

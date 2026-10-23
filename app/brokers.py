@@ -29,6 +29,34 @@ class BrokerError(Exception):
     pass
 
 
+class BrokerRejected(BrokerError):
+    """The broker answered and refused the order: it was NOT placed (safe to mark failed).
+    permanent=True when trying again cannot help (no permission for the symbol, symbol not tradable)."""
+
+    def __init__(self, msg, code="", permanent=False):
+        super().__init__(msg)
+        self.code, self.permanent = code, permanent
+
+
+# Webull refusals that a retry cannot fix (seen on the Webull TH test server, Oct 2026)
+PERMANENT_CODES = ("OPENAPI_IS_TH_FIRST_ETF_PLACE", "OPENAPI_TICKER_IS_DENY")
+PERMANENT_HINTS = {
+    "OPENAPI_IS_TH_FIRST_ETF_PLACE": "Activate Leveraged & Inverse ETF trading for your Webull account (Webull app), then try again.",
+    "OPENAPI_TICKER_IS_DENY": "Webull does not allow this symbol for your account. Choose another ETF for this strategy.",
+}
+
+
+def parse_rejection(text):
+    """'... HTTP Status: 417, Code: X, Msg: Y ...' → BrokerRejected, or None when it is not a clear 4xx refusal."""
+    import re
+    m = re.search(r"HTTP Status:\s*(\d+).*?Code:\s*([A-Za-z0-9_]+)(?:.*?Msg:\s*([^\r\n]*))?", text or "", re.S)
+    if not m or not m.group(1).startswith("4"):
+        return None
+    code, msg = m.group(2), (m.group(3) or "").split(", RequestID")[0].strip()
+    perm = code in PERMANENT_CODES or "DENY" in code or "PERMISSION" in code or "NOT_SUPPORT" in code
+    return BrokerRejected(f"{code}: {msg}", code=code, permanent=perm)
+
+
 def _first(d, *keys):
     """The first of these keys that holds a number."""
     for k in keys:
@@ -133,7 +161,7 @@ class PaperBroker:
         self._try_fill(a, o)
         self._save(a)
         if o["status"] == "FAILED":
-            raise BrokerError(o.get("error", "rejected"))
+            raise BrokerRejected(o.get("error", "rejected"), code="PAPER_REJECTED")
         return {"order_id": cid}
 
     def order(self, cid):
@@ -402,7 +430,13 @@ class WebullBroker:
         if limit:
             order["limit_price"] = f"{limit:.2f}"
         aid = self._acct_id()
-        js = self._json(self._call(lambda: trade.order_v3.place_order(aid, [order]), "place order"), "place order")
+        try:
+            js = self._json(self._call(lambda: trade.order_v3.place_order(aid, [order]), "place order"), "place order")
+        except BrokerError as e:
+            rej = parse_rejection(str(e))
+            if rej:
+                raise rej from e
+            raise                                       # timeout / 5xx: the order may or may not exist
         self._touch()
         return {"order_id": (js or {}).get("order_id")}
 
@@ -410,11 +444,22 @@ class WebullBroker:
         trade, _ = self._clients()
         aid = self._acct_id()
         js = self._json(self._call(lambda: trade.order_v3.get_order_detail(aid, cid), "order status"), "order status")
-        items = js.get("orders") if isinstance(js, dict) else None
-        it = (items or [js])[0] if (items or js) else {}
-        fee = sum(_num(it.get(k)) or 0.0 for k in ("commission", "fee", "fees", "total_fee", "transaction_fee", "sec_fee",
-                                                   "taf_fee", "platform_fee", "settlement_fee"))
-        return {"status": (it.get("status") or "SUBMITTED").upper(), "filled_qty": _num(it.get("filled_quantity")) or 0.0,
+        return self.parse_detail(js, cid)
+
+    @staticmethod
+    def parse_detail(js, cid):
+        """Webull TH order detail: {client_order_id, combo_type, orders: [{status, filled_quantity, filled_price,
+        commission: {actual_commission}, fees: [{type, actual_value}], ...}]}. Status: PENDING, SUBMITTED,
+        PARTIAL_FILLED, FILLED, CANCELLED, FAILED."""
+        js = js.get("data", js) if isinstance(js, dict) and "orders" not in js and isinstance(js.get("data"), dict) else js
+        items = js.get("orders") if isinstance(js, dict) else (js if isinstance(js, list) else None)
+        items = [x for x in (items or []) if isinstance(x, dict)]
+        it = next((x for x in items if x.get("client_order_id") == cid), items[0] if items else None)
+        if not it or not it.get("status"):
+            raise BrokerError("order not found at Webull")
+        fee = _num((it.get("commission") or {}).get("actual_commission")) if isinstance(it.get("commission"), dict) else _num(it.get("commission"))
+        fee = (fee or 0.0) + sum((_num(f.get("actual_value")) or 0.0) for f in (it.get("fees") or []) if isinstance(f, dict))
+        return {"status": str(it["status"]).upper(), "filled_qty": _num(it.get("filled_quantity")) or 0.0,
                 "avg_price": _num(it.get("filled_price")), "fee": fee}
 
     def cancel(self, cid):

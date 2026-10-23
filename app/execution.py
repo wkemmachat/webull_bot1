@@ -411,6 +411,18 @@ def send_due(mode, now, broker, settings, positions=None, acct=None):
             res = broker.place(o["symbol"], o["side"], qty, limit, sess, cid)
             new, err = "submitted", None
             db.run("UPDATE orders SET broker_order_id=? WHERE id=?", (str((res or {}).get("order_id") or ""), o["id"]))
+        except brokers.BrokerRejected as e:            # refused for sure: nothing was placed
+            if o["side"] == "BUY" and guard is not None:
+                guard.spent(-qty * limit)
+            db.run("UPDATE orders SET status='failed', error=?, updated_at=? WHERE id=? AND status='sending'",
+                   (f"refused: {e}"[:300], int(time.time()), o["id"]))
+            sent.append(o["id"])
+            if e.permanent:
+                block_symbol(mode, o["symbol"], e.code, str(e), strat)
+                cancel_plan(o["plan_id"], f"Webull refuses {o['symbol']}: {e.code}", broker)
+            elif plan["status"] == "active":
+                _retry(o, qty, now, f"refused: {e}", int(_f(settings.get("exec_retries"), 3)))
+            continue
         except brokers.BrokerError as e:
             new, err = "unknown", str(e)[:300]
         db.run("UPDATE orders SET status=?, error=?, updated_at=? WHERE id=? AND status='sending'", (new, err, int(time.time()), o["id"]))
@@ -436,6 +448,33 @@ def _retry(o, qty_left, now, why, retries):
                       o["session"], plan_qty=qty_left, retry=o["retry"] + 1, qty=qty_left)
 
 
+# ---------------------------------------------------------------- symbols the broker refuses
+BLOCK_S = 6 * 3600
+
+
+def blocked_symbols(mode) -> dict:
+    b = db.get_state(f"blocked_sym:{mode}") or {}
+    return {k: v for k, v in b.items() if time.time() - v.get("at", 0) < BLOCK_S}
+
+
+def block_symbol(mode, symbol, code, msg, strat=None):
+    b = blocked_symbols(mode)
+    first = symbol not in b
+    b[symbol] = {"code": code, "msg": msg[:300], "at": int(time.time()), "hint": brokers.PERMANENT_HINTS.get(code, "")}
+    db.set_state(f"blocked_sym:{mode}", b)
+    if first:
+        name = strat.name if strat else ""
+        db.add_event("error", "orders", f"Webull refuses {symbol}", f"{msg} · {brokers.PERMANENT_HINTS.get(code, '')}",
+                     strategy=strat.id if strat else None, mode=mode)
+        notify.send("lot_failed", f"{brokers.MODE_LABEL[mode]} · Webull refuses {symbol}{' (' + name + ')' if name else ''}: {msg}\n"
+                    f"{brokers.PERMANENT_HINTS.get(code, '')} The bot stops trading {symbol} for 6 hours, then tries again.",
+                    strategy=strat.id if strat else None, critical=True)
+
+
+def unblock_symbols(mode):
+    db.set_state(f"blocked_sym:{mode}", {})
+
+
 def poll(mode, now, broker, only_id=None, settings=None):
     settings = settings or db.get_settings()
     retries = int(_f(settings.get("exec_retries"), 3))
@@ -443,6 +482,17 @@ def poll(mode, now, broker, only_id=None, settings=None):
     args = (mode, *WORKING, only_id) if only_id else (mode, *WORKING)
     for o in db.rows(q, args):
         plan = db.one("SELECT * FROM plans WHERE id=?", (o["plan_id"],))
+        rej = brokers.parse_rejection(o["error"] or "") if o["error"] and "HTTP Status" in (o["error"] or "") else None
+        if rej and o["status"] in ("unknown", "submitted") and not (o["applied_qty"] or 0):
+            # an older bot version kept refused orders open: settle them now
+            db.run("UPDATE orders SET status='failed', error=?, updated_at=? WHERE id=?", (f"refused: {rej}"[:300], int(time.time()), o["id"]))
+            if rej.permanent:
+                block_symbol(mode, o["symbol"], rej.code, str(rej), S.get(o["strategy"]))
+                if plan and plan["status"] == "active":
+                    cancel_plan(plan["id"], f"Webull refuses {o['symbol']}: {rej.code}", broker)
+            elif plan and plan["status"] == "active":
+                _retry(o, o["qty"] or 0, now, f"refused: {rej}", retries)
+            continue
         interval = (plan or {}).get("interval_min") or 10
         timeout = timedelta(minutes=max(2.0, interval - 0.5))
         age = now - _dt(o["submitted_at"] or _ts(now))
@@ -451,7 +501,7 @@ def poll(mode, now, broker, only_id=None, settings=None):
         try:
             st = broker.order(o["client_order_id"])
         except brokers.BrokerError as e:
-            if o["status"] in ("unknown", "sending"):
+            if o["status"] in ("unknown", "sending") or "not found" in str(e):
                 checks = (o["checks"] or 0) + 1
                 db.run("UPDATE orders SET checks=?, error=?, updated_at=? WHERE id=?", (checks, str(e)[:300], int(time.time()), o["id"]))
                 if checks >= 3 and age >= timedelta(minutes=3):
@@ -495,6 +545,12 @@ def poll(mode, now, broker, only_id=None, settings=None):
                     broker.cancel(o["client_order_id"])
                 except brokers.BrokerError as e:
                     log.warning("cancel %s: %s", o["client_order_id"], e)
+                    checks = (o["checks"] or 0) + 1
+                    db.run("UPDATE orders SET checks=?, error=? WHERE id=?", (checks, f"cancel failed: {e}"[:300], o["id"]))
+                    if checks == 5:
+                        notify.send("lot_failed", f"{brokers.MODE_LABEL[mode]} · Could not cancel {o['side']} {o['qty']:.0f} "
+                                    f"{o['symbol']} (lot {o['lot']}/{o['lots']}): {e}. The bot will not send a replacement "
+                                    "while it may still be open. Please check it in the Webull app.", strategy=o["strategy"], critical=True)
         db.run("UPDATE orders SET filled_qty=?, avg_price=?, status=COALESCE(?,status), updated_at=? WHERE id=?",
                (filled, avg if filled else o["avg_price"], new, int(time.time()), o["id"]))
         if new in ("partial", "cancelled", "failed"):
@@ -612,6 +668,9 @@ def reconcile(mode, strat, ev, now, broker, settings):
         if _drift(mode, strat, target, prices) <= strat.rebalance_band():
             return None
         reason = "rebalance" if reason == "signal" else reason
+    blk = blocked_symbols(mode)
+    if buys and any(s in blk for s in target if target.get(s, 0) > 0):
+        return None                                     # Webull refuses one of the target symbols: wait (see block_symbol)
     pid = build_plan(mode, strat, target, reason, now, broker, buys=buys, settings=settings)
     if pid is None:
         if changed:
