@@ -135,3 +135,15 @@ def test_webull_shared_test_account_and_token_date(client, tmp_path):
     (b.tok_dir / "token.txt").write_text("abc\n1793000000000\nNORMAL\n")
     assert b.token_info() == (1793000000, "NORMAL")
     (b.tok_dir / "token.txt").unlink()
+
+
+def test_webull_account_total_falls_back_to_cash_plus_positions(monkeypatch):
+    from app import brokers
+    b = brokers.WebullBroker(env="test")
+    monkeypatch.setattr(b, "raw_account", lambda: ("A1", {"total_cash_balance": "1000.50", "account_currency_assets": []},
+                                                    [{"symbol": "QLD", "quantity": "10", "last_price": "100"}]))
+    monkeypatch.setattr(b, "_touch", lambda: None)
+    a = b.account()
+    assert a["cash"] == 1000.5 and a["market_value"] == 1000 and a["total"] == 2000.5
+    monkeypatch.setattr(b, "raw_account", lambda: ("A1", {"total_asset": "5000", "total_cash_balance": "1000"}, []))
+    assert b.account()["total"] == 5000

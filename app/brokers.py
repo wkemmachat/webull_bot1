@@ -29,6 +29,15 @@ class BrokerError(Exception):
     pass
 
 
+def _first(d, *keys):
+    """The first of these keys that holds a number."""
+    for k in keys:
+        v = _num((d or {}).get(k))
+        if v is not None:
+            return v
+    return None
+
+
 def _num(x):
     try:
         return None if x is None or x == "" else float(x)
@@ -347,25 +356,42 @@ class WebullBroker:
             log.warning("Webull quote failed for %s, using Yahoo: %s", symbol, e)
         return md.quote(symbol)
 
-    def account(self):
+    def raw_account(self):
+        """The untouched balance and position JSON from Webull (for `python -m app.webull_check`)."""
         trade, _ = self._clients()
         aid = self._acct_id()
         b = self._json(self._call(lambda: trade.account_v2.get_account_balance(aid), "balance"), "balance")
+        p = self._json(self._call(lambda: trade.account_v2.get_account_position(aid), "positions"), "positions")
+        return aid, b, p
+
+    def account(self):
+        aid, b, p = self.raw_account()
         b = b.get("data", b) if isinstance(b, dict) else b
         usd = next((x for x in (b.get("account_currency_assets") or []) if x.get("currency") == "USD"), {})
-        p = self._json(self._call(lambda: trade.account_v2.get_account_position(aid), "positions"), "positions")
-        rws = p if isinstance(p, list) else p.get("data", p.get("positions", []))
-        pos = {}
+        rws = p if isinstance(p, list) else p.get("data", p.get("positions", p.get("holdings", [])))
+        pos, pos_v = {}, 0.0
         for r in rws or []:
             if (r.get("instrument_type") or "EQUITY") != "EQUITY":
                 continue
-            q, last = _num(r.get("quantity")) or 0.0, _num(r.get("last_price"))
-            pos[r.get("symbol")] = {"qty": q, "cost": _num(r.get("cost_price")), "last": last, "value": q * (last or 0.0)}
+            q = _first(r, "quantity", "qty", "position") or 0.0
+            last = _first(r, "last_price", "price", "close_price")
+            mv = _first(r, "market_value")
+            v = mv if mv is not None else q * (last or 0.0)
+            pos[r.get("symbol") or r.get("ticker")] = {"qty": q, "cost": _first(r, "cost_price", "average_cost", "avg_cost"),
+                                                       "last": last if last is not None else (v / q if q else None), "value": v}
+            pos_v += v
+        cash = _first(b, "total_cash_balance", "cash_balance", "total_cash") or _first(usd, "cash_balance", "cash")
+        mval = _first(b, "total_market_value", "market_value") or _first(usd, "market_value")
+        mval = mval if mval is not None else pos_v
+        total = (_first(b, "total_net_liquidation_value", "net_liquidation_value", "total_asset", "total_assets",
+                        "total_account_value", "account_value")
+                 or _first(usd, "net_liquidation_value", "total_asset", "total_assets"))
+        if total is None and cash is not None:
+            total = cash + (mval or 0.0)              # Webull did not send a total: cash + value of all positions
         self._touch()
-        return {"total": _num(b.get("total_net_liquidation_value")) or _num(usd.get("net_liquidation_value")),
-                "cash": _num(b.get("total_cash_balance")) or _num(usd.get("cash_balance")),
-                "market_value": _num(b.get("total_market_value")) or _num(usd.get("market_value")),
-                "buying_power": _num(usd.get("buying_power")), "positions": pos, "currency": "USD", "account_id": aid}
+        return {"total": total, "cash": cash, "market_value": mval,
+                "buying_power": _first(usd, "buying_power") or _first(b, "buying_power", "total_buying_power"),
+                "positions": pos, "currency": "USD", "account_id": aid}
 
     def place(self, symbol, side, qty, limit, session, cid):
         trade, _ = self._clients()
