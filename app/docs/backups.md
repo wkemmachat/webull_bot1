@@ -6,4 +6,4 @@
   and downloads it.
 - Keep `data/secret.key` too: it encrypts the stored Webull and LINE secrets.
 - Restore: stop the bot, copy the backup over `data/bot.db`, start again.
-- Forgot the password: `docker compose exec bot python -m app.reset_password` (or `python -m app.reset_password` without Docker).
+- Forgot the password: on the server `cd /opt/webull_bot1 && sudo -u thbot .venv/bin/python -m app.reset_password`; on the Mac `./.venv/bin/python -m app.reset_password`.

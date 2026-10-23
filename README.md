@@ -43,14 +43,15 @@ DATA_SOURCE=csv DATA_DIR=data-demo ./.venv/bin/python -m uvicorn app.main:app --
 ./.venv/bin/python -m pytest
 ```
 
-## Deploy (DigitalOcean, Docker + Caddy)
+## Deploy (DigitalOcean, systemd + Caddy, no Docker)
 
-See `app/docs/deploy.md` (also in the app under *Docs & manual → Deploy on DigitalOcean*). In short:
+See `app/docs/deploy.md` (also in the app under *Docs & manual → Deploy on DigitalOcean*) and `deploy/DEPLOY.md`. In short:
 
 ```bash
-git clone https://github.com/wkemmachat/webull_bot1.git && cd webull_bot1
+cd /opt && git clone https://github.com/wkemmachat/webull_bot1.git && cd webull_bot1
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 cp .env.example .env    # COOKIE_SECURE=1, PUBLIC_URL=https://webull-bot1.kemmachat.com, SCHEDULER_ENABLED=1, APP_USERNAME/PASSWORD
-docker compose up -d --build
+cp deploy/th-strategy-bot.service /etc/systemd/system/ && systemctl enable --now th-strategy-bot
 ```
 
 Only one copy may run the scheduler: set `SCHEDULER_ENABLED=0` on the Mac once the server trades.

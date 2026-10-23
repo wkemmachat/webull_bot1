@@ -1,0 +1,21 @@
+# systemd service for TH Strategy Bot (no Docker).
+#   sudo cp deploy/th-strategy-bot.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now th-strategy-bot
+[Unit]
+Description=TH Strategy Bot (Webull TH)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=thbot
+Group=thbot
+WorkingDirectory=/opt/webull_bot1
+# one worker: the scheduler thread must run exactly once. --proxy-headers: Caddy passes the visitor's real address.
+ExecStart=/opt/webull_bot1/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8012 --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,23 +1,28 @@
-# Deploy quick reference — webull-bot1.kemmachat.com (165.245.188.124)
+# Deploy quick reference — webull-bot1.kemmachat.com (165.245.188.124), no Docker
 
 Full guide: `app/docs/deploy.md` (in the app: Docs & manual → Deploy on DigitalOcean).
 
 ```bash
-# first time
-cd /opt && sudo git clone https://github.com/wkemmachat/webull_bot1.git && cd webull_bot1
-sudo cp .env.example .env && sudo nano .env    # COOKIE_SECURE=1, SCHEDULER_ENABLED=1, PUBLIC_URL, APP_USERNAME, APP_PASSWORD
-sudo mkdir -p data && sudo docker compose up -d --build
+# first time (as root)
+apt update && apt install -y git python3-venv python3-pip
+useradd --system --create-home --home-dir /home/thbot --shell /usr/sbin/nologin thbot
+cd /opt && git clone https://github.com/wkemmachat/webull_bot1.git && cd webull_bot1
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+cp .env.example .env && nano .env      # COOKIE_SECURE=1, SCHEDULER_ENABLED=1, PUBLIC_URL, APP_USERNAME, APP_PASSWORD
+mkdir -p data && chown -R thbot:thbot /opt/webull_bot1 && chmod 600 .env
+cp deploy/th-strategy-bot.service /etc/systemd/system/ && systemctl daemon-reload && systemctl enable --now th-strategy-bot
 # Caddy: add Caddyfile.snippet to /etc/caddy/Caddyfile
-sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
+caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy
 
 # update
-cd /opt/webull_bot1 && sudo git pull && sudo docker compose up -d --build
+cd /opt/webull_bot1 && git pull && .venv/bin/pip install -r requirements.txt && chown -R thbot:thbot . && systemctl restart th-strategy-bot
 
-# logs · restart · stop
-sudo docker compose logs -f --tail 100
-sudo docker compose restart
-sudo docker compose down
+# logs · restart · stop · status
+journalctl -u th-strategy-bot -f
+systemctl restart th-strategy-bot
+systemctl stop th-strategy-bot
+systemctl status th-strategy-bot --no-pager
 
 # password reset
-sudo docker compose exec bot python -m app.reset_password
+cd /opt/webull_bot1 && sudo -u thbot .venv/bin/python -m app.reset_password
 ```
