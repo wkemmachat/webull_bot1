@@ -17,6 +17,7 @@
         <div class="muted" style="margin-top:4px;max-width:760px">Three layers: your ${mode === 'paper' ? 'paper' : 'Webull'} account → the part you <b>allocate to the bot</b> → each strategy. The bot only ever uses money you allocate to it; the rest stays yours.</div></div>
         <div class="row"><button class="btn" data-f="out">Return to ${mode === 'paper' ? 'account' : 'Webull'}</button><button class="btn" data-f="in">Allocate to bot</button><button class="btn p" data-split="1">Give to strategies</button></div></div>
       ${d.account_error ? `<div class="note warn">${U.esc(d.account_error)}</div>` : ''}
+      ${f.guard_block ? `<div class="note err"><b>A buy was blocked by the money guard ${U.ago(f.guard_block.at)}:</b> ${U.esc(f.guard_block.why)}. No money outside the bot's allocation was used.</div>` : ''}
       <section class="card col" style="gap:16px">
         <div style="display:flex;align-items:stretch;height:14px;border-radius:7px;overflow:hidden;gap:2px;background:var(--line2)">
           ${d.rows.map((r) => seg(r.value, r.color, r.name)).join('')}
@@ -30,7 +31,8 @@
             <div class="muted small">strategies ${U.usd(f.strategies, 0)} + bot unassigned ${U.usd(f.pool, 0)}</div></div>
           <div class="arrow" aria-hidden="true">+</div>
           <div class="fl"><div class="eyebrow">Not for the bot</div><div class="num big" style="font-size:26px;margin-top:4px;color:var(--muted)">${U.usd(f.not_bot)}</div>
-            <div class="muted small">free cash ${U.usd(f.outside_cash, 0)}${f.own_shares > 1 ? ' + your own shares ' + U.usd(f.own_shares, 0) : ''} · the bot never touches it</div></div>
+            <div class="muted small">free cash ${U.usd(f.outside_cash, 0)}${f.own_shares > 1 ? ' + your own shares ' + U.usd(f.own_shares, 0) : ''} · the bot never touches it</div>
+            <div class="row small" style="gap:8px;margin-top:8px">🛡 <span>Protected cash floor <b class="num">${U.usd(f.protect_floor, 0)}</b></span><button class="btn s" data-protect="1">Set</button></div></div>
         </div>
         <div class="pool">
           <div><div class="eyebrow" style="color:var(--warn-fg)">Bot unassigned</div><div class="num big" style="font-size:30px;margin-top:4px;color:var(--warn-fg)">${U.usd(f.pool)}</div>
@@ -65,9 +67,33 @@
       U.on(el, '[data-k]', 'click', (e, b) => V.moneyDialog(b.dataset.k, b.dataset.s || null, load));
       U.on(el, '[data-f]', 'click', (e, b) => V.fundDialog(b.dataset.f, load));
       U.on(el, '[data-split]', 'click', () => V.splitDialog(load));
+      U.on(el, '[data-protect]', 'click', () => V.protectDialog(f, load));
     }
     await load();
     return { cleanup: () => {}, refresh: () => load().catch(() => {}), every: 60000 };
+  };
+
+  /* Protected cash floor: the bot never lets the account's cash fall below this */
+  V.protectDialog = function (f, onDone) {
+    const mode = U.mode();
+    const suggest = Math.max(0, Math.floor((f.outside_cash || 0) / 100) * 100);
+    U.modal('Protected cash floor', `<div class="col" style="gap:14px">
+      <div class="muted">Before <b>every</b> buy, the bot reads the cash in ${mode === 'paper' ? 'the account' : 'Webull'} and refuses any order that would take it below this amount. It is a second lock on top of the books: even if the books were wrong, money above the floor is never spent.</div>
+      <div class="f"><label for="pf">Never let ${mode === 'paper' ? 'account' : 'Webull'} cash fall below (USD)</label><input class="in num" id="pf" inputmode="decimal" style="height:50px;font-size:20px" value="${(f.protect_floor || 0).toFixed(2)}">
+        <div class="row" style="gap:6px"><button class="btn s" data-v="${suggest}">Your free cash now · ${U.usd(suggest, 0)}</button><button class="btn s" data-v="0">0 (off)</button></div>
+        <span class="h">Update it when you deposit to or withdraw from ${mode === 'paper' ? 'the account' : 'Webull'} outside the bot, or when you allocate more to the bot.</span></div>
+      <div class="row" style="justify-content:flex-end"><button class="btn" id="pc">Cancel</button><button class="btn p" id="pgo">Save</button></div></div>`, {
+      width: 520,
+      onOpen: (box, close) => {
+        U.on(box, '[data-v]', 'click', (e, b) => { box.querySelector('#pf').value = (+b.dataset.v).toFixed(2); });
+        box.querySelector('#pc').onclick = close;
+        box.querySelector('#pgo').onclick = (e) => U.busy(e.target, async () => {
+          const amount = parseFloat((box.querySelector('#pf').value || '0').replace(/[$,]/g, '')) || 0;
+          await U.api('/api/money/protect', { body: { mode, amount } });
+          U.toast('Protected cash floor saved'); close(); if (onDone) onDone();
+        });
+      },
+    });
   };
 
   /* Allocate to bot / Return to Webull */

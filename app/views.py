@@ -256,7 +256,10 @@ def money(mode):
     total = (acct or {}).get("total")
     outside = ledger.outside_cash(mode, cash)
     not_bot = (total - tot - un) if total is not None else None
-    fund = {"account_total": total, "account_cash": cash, "allocated": tot + un, "strategies": tot, "pool": un,
+    floor = float(db.get_setting(f"protect_floor_{mode}") or 0)
+    gb = db.get_state(f"guard_block:{mode}") or {}
+    fund = {"protect_floor": floor, "guard_block": gb if gb and time.time() - gb.get("at", 0) < 86400 else None,
+            "account_total": total, "account_cash": cash, "allocated": tot + un, "strategies": tot, "pool": un,
             "outside_cash": outside, "not_bot": not_bot, "own_shares": (not_bot - outside) if (not_bot is not None and outside is not None) else None}
     return {"mode": mode, "account": acct, "account_error": err, "rows": rows, "total": tot, "unassigned": un, "fund": fund, "moves": mv,
             "new_money_start": db.get_setting("new_money_start") or "now"}

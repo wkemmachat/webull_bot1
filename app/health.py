@@ -231,6 +231,15 @@ def run(now=None, send=True):
               f"not for the bot ${cash - cash_need:,.2f}",
               "The bot's books have more cash than the account (money left Webull?). Return money to Webull or withdraw from a strategy."
               if st == "error" else "", "#/money")
+        floor = float(settings.get(f"protect_floor_{mode}") or 0)
+        gb = db.get_state(f"guard_block:{mode}") or {}
+        recent_block = gb and time.time() - gb.get("at", 0) < 86400
+        st2 = "error" if (floor and cash < floor - 1) else ("warn" if recent_block else "ok")
+        _item(items, f"guard_{mode}", label, f"{label}: money guard (outside money untouched)", st2,
+              (f"Account cash ${cash:,.2f} is below the protected floor ${floor:,.2f}." if st2 == "error" else
+               f"A buy was blocked: {gb.get('why')}" if recent_block else
+               f"Every buy is checked against the account: bot cash ≤ account cash, floor ${floor:,.2f}, buying power."),
+              "Something outside the bot used the money, or the floor is set too high. Check Money." if st2 != "ok" else "", "#/money")
         neg = db.rows("SELECT strategy, cash FROM ledger WHERE mode=? AND cash < -1", (mode,))
         _item(items, f"neg_{mode}", label, f"{label}: no strategy below $0, no shorts", "error" if neg else "ok",
               "; ".join(f"{r['strategy']} ${r['cash']:,.2f}" for r in neg) if neg else "All strategies have cash ≥ 0 and long positions only.")

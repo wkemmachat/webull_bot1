@@ -89,7 +89,8 @@ DEFAULTS = {
     "mode_paper": "1", "mode_test": "0", "mode_live": "0",
     "paper_start_cash": "100000", "paper_strategy_cash": "10000", "paper_fee_pct": "0.0", "paper_spread_pct": "0.05",
     "follow_current_signal": "1",            # (old setting, replaced by new_money_start)
-    "new_money_start": "now",                # new money: "now" = follow today's signal · "buy" = keep cash until the next BUY signal
+    "new_money_start": "now",
+    "protect_floor_paper": "0", "protect_floor_test": "0", "protect_floor_live": "0",   # Webull cash the bot never spends below                # new money: "now" = follow today's signal · "buy" = keep cash until the next BUY signal
     "trading_paused": "0",                   # kill switch: no new orders are sent while 1
     # execution defaults (strategies may override)
     "exec_lots": "10", "exec_interval_min": "10", "exec_start_mode": "time", "exec_start_time": "22:00",
@@ -127,7 +128,7 @@ def con():
 
 
 # columns added after the first release: (table, column, definition)
-MIGRATIONS = [("ledger", "hold_amt", "REAL DEFAULT 0")]
+MIGRATIONS = [("ledger", "hold_amt", "REAL DEFAULT 0"), ("orders", "fee", "REAL DEFAULT 0")]
 
 
 def init():

@@ -333,6 +333,13 @@ async def money_action(action: str, request: Request, u=Depends(user)):
             return moneyops.withdraw(mode, b.get("strategy"), b.get("amount"), b.get("note", ""))
         if action == "move":
             return moneyops.move(mode, b.get("strategy"), b.get("other"), b.get("amount"), b.get("note", ""), b.get("invest"))
+        if action == "protect":
+            amt = round(float(b.get("amount") or 0), 2)
+            if amt < 0:
+                raise ValueError("Enter 0 or more")
+            db.set_settings({f"protect_floor_{mode}": str(amt)})
+            db.add_event("info", "money", f"Protected cash set to ${amt:,.2f}", brokers.MODE_LABEL[mode], mode=mode)
+            return {"ok": True, "floor": amt}
         if action == "to-bot":
             return moneyops.to_bot(mode, b.get("amount"), b.get("note", ""))
         if action == "to-webull":

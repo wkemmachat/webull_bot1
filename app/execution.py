@@ -275,9 +275,62 @@ def _buy_qty(mode, strat, plan, o, limit, broker, cash_buffer):
     return int(math.floor(value / limit)) if limit > 0 else 0
 
 
-def send_due(mode, now, broker, settings, positions=None):
+class Guard:
+    """Hard limit for buys, checked against Webull's own numbers right before each order:
+      1. the bot's cash in its books (strategies + bot unassigned) must not be more than the account's cash;
+      2. after the order, account cash must stay at or above the protected floor (Money page);
+      3. the order must fit in Webull's buying power.
+    Any money that is not the bot's therefore stays untouched even if the books were wrong."""
+
+    def __init__(self, mode, acct, settings):
+        self.mode, self.ok = mode, acct is not None and acct.get("cash") is not None
+        self.cash = float(acct["cash"]) if self.ok else None
+        bp = (acct or {}).get("buying_power")
+        self.bp = float(bp) if bp is not None else None
+        try:
+            self.floor = max(0.0, float(settings.get(f"protect_floor_{mode}") or 0))
+        except ValueError:
+            self.floor = 0.0
+        self.bot_cash = ledger.bot_cash(mode) if self.ok else None
+
+    def allow(self, value):
+        """(allowed_value, reason). allowed_value may be smaller than asked; 0 = block."""
+        if not self.ok:
+            return 0.0, "cannot read the account cash"
+        if self.bot_cash > self.cash + 1.0:
+            return 0.0, (f"the bot's books show ${self.bot_cash:,.2f} cash but the account has ${self.cash:,.2f} "
+                         "(money left the account?)")
+        room = self.cash - self.floor
+        if self.bp is not None:
+            room = min(room, self.bp)
+        if room <= 0:
+            return 0.0, f"account cash ${self.cash:,.2f} is at the protected floor ${self.floor:,.2f}"
+        return min(value, room), (None if value <= room else f"only ${room:,.2f} above the protected floor / buying power")
+
+    def spent(self, value):
+        if self.ok:
+            self.cash -= value
+            self.bot_cash -= value
+            if self.bp is not None:
+                self.bp -= value
+
+
+def _blocked(mode, o, strat, why):
+    db.run("UPDATE orders SET status='skipped', qty=0, error=?, updated_at=? WHERE id=?",
+           (f"blocked by the money guard: {why}"[:300], int(time.time()), o["id"]))
+    db.add_event("error", "orders", f"Buy blocked: {o['symbol']} for {strat.name}", why, strategy=strat.id, mode=mode)
+    db.set_state(f"guard_block:{mode}", {"at": int(time.time()), "why": why})
+    last = db.get_state(f"guard_alert:{mode}", 0)
+    if time.time() - last > 3600:
+        notify.send("lot_failed", f"{brokers.MODE_LABEL[mode]} · BUY BLOCKED by the money guard: {why}. "
+                    "No money outside the bot's allocation was used. Check the Money page.", critical=True)
+        db.set_state(f"guard_alert:{mode}", int(time.time()))
+
+
+def send_due(mode, now, broker, settings, positions=None, acct=None):
     if settings.get("trading_paused") == "1":
         return []
+    guard = Guard(mode, acct, settings) if acct is not None or mode != "paper" else None
     due = db.rows("SELECT * FROM orders WHERE mode=? AND status='scheduled' AND scheduled_at<=? ORDER BY scheduled_at, step, id",
                   (mode, _ts(now)))
     sent = []
@@ -332,6 +385,16 @@ def send_due(mode, now, broker, settings, positions=None):
                 qty = min(qty, int(o["qty"]))
         if c_["max_order_usd"] > 0 and qty * limit > c_["max_order_usd"]:
             qty = math.floor(c_["max_order_usd"] / limit)
+        if o["side"] == "BUY" and guard is not None and qty >= 1:
+            allowed, why = guard.allow(qty * limit)
+            if allowed < qty * limit:
+                q2 = int(math.floor(allowed / limit))
+                if q2 < 1:
+                    _blocked(mode, o, strat, why or "no room")
+                    continue
+                db.add_event("warn", "orders", f"Buy reduced by the money guard: {o['symbol']}", f"{qty} → {q2} shares · {why}",
+                             strategy=strat.id, mode=mode)
+                qty = q2
         if qty < 1:
             db.run("UPDATE orders SET status='skipped', qty=0, limit_price=?, error=?, updated_at=? WHERE id=?",
                    (limit, "nothing to trade (less than 1 share)", int(time.time()), o["id"]))
@@ -342,6 +405,8 @@ def send_due(mode, now, broker, settings, positions=None):
             if first <= 1:
                 notify.send("plan_start", f"{brokers.MODE_LABEL[mode]} · {strat.name}: plan started — {plan['lots']} lot(s) every "
                             f"{plan['interval_min']:g} min", strategy=strat.id)
+        if o["side"] == "BUY" and guard is not None:
+            guard.spent(qty * limit)
         try:
             res = broker.place(o["symbol"], o["side"], qty, limit, sess, cid)
             new, err = "submitted", None
@@ -351,6 +416,10 @@ def send_due(mode, now, broker, settings, positions=None):
         db.run("UPDATE orders SET status=?, error=?, updated_at=? WHERE id=? AND status='sending'", (new, err, int(time.time()), o["id"]))
         sent.append(o["id"])
         poll(mode, now, broker, only_id=o["id"])
+        if o["side"] == "SELL" and guard is not None and guard.ok:     # cash from a sale is the strategy's again
+            got = db.one("SELECT COALESCE(applied_value,0) v FROM orders WHERE id=?", (o["id"],))["v"]
+            guard.cash += got
+            guard.bot_cash += got
     return sent
 
 
@@ -404,6 +473,13 @@ def poll(mode, now, broker, only_id=None, settings=None):
                 ledger.book_fill(mode, o["strategy"], o["symbol"], o["side"], dq, dv)
                 notify.send("lot_filled", f"{brokers.MODE_LABEL[mode]} · {o['side']} {dq:.0f} {o['symbol']} @ ${avg:,.2f} "
                             f"(lot {o['lot']}/{o['lots']})", strategy=o["strategy"])
+        fee = float(st.get("fee") or 0.0)
+        if fee > (o["fee"] or 0) + 1e-9:                  # broker fees come out of the strategy's cash, not yours
+            with db.tx() as c:
+                n = c.execute("UPDATE orders SET fee=? WHERE id=? AND COALESCE(fee,0)=?", (fee, o["id"], o["fee"] or 0)).rowcount
+                if n == 1:
+                    c.execute("UPDATE ledger SET cash=cash-?, updated_at=? WHERE mode=? AND strategy=?",
+                              (fee - (o["fee"] or 0), int(time.time()), mode, o["strategy"]))
         status = (st.get("status") or "SUBMITTED").upper()
         new = None
         if status == "FILLED":
@@ -629,15 +705,17 @@ def process(now=None, settings=None):
                         db.set_state(f"not_ready_alert:{m}", int(time.time()))
                     continue
                 poll(m, now, broker, settings=s)
-                positions = None
-                if m != "paper" and db.one("SELECT COUNT(*) n FROM orders WHERE mode=? AND status='scheduled' AND side='SELL' AND scheduled_at<=?",
-                                           (m, _ts(now)))["n"]:
+                positions, acct = None, None
+                due_sides = {r["side"] for r in db.rows("SELECT DISTINCT side FROM orders WHERE mode=? AND status='scheduled' "
+                                                        "AND scheduled_at<=?", (m, _ts(now)))}
+                if due_sides:
                     try:
-                        positions = broker.account().get("positions") or {}
+                        acct = broker.account()            # fresh numbers for the money guard and the sell check
+                        positions = (acct.get("positions") or {}) if m != "paper" else None
                     except brokers.BrokerError as e:
-                        log.warning("positions for sell check: %s", e)
-                        positions = {}
-                sent = send_due(m, now, broker, s, positions)
+                        log.warning("account for the money guard: %s", e)
+                        positions = {} if m != "paper" else None
+                sent = send_due(m, now, broker, s, positions, acct)
                 finish_plans(m)
                 try:
                     record_equity(m, now)

@@ -121,7 +121,7 @@ class PaperBroker:
             p["cost"] = max(0.0, p["cost"] - avg * qty)
             a["cash"] += qty * px - fee
         p["last"] = q["price"]
-        o.update(status="FILLED", filled_qty=qty, avg_price=round(px, 4), filled_at=int(time.time()))
+        o.update(status="FILLED", filled_qty=qty, avg_price=round(px, 4), filled_at=int(time.time()), fee=round(fee, 4))
 
     def place(self, symbol, side, qty, limit, session, cid):
         a = self._acct()
@@ -147,7 +147,7 @@ class PaperBroker:
                 self._save(a)
             except Exception as e:
                 log.warning("paper fill check %s: %s", cid, e)
-        return {"status": o["status"], "filled_qty": o["filled_qty"], "avg_price": o["avg_price"]}
+        return {"status": o["status"], "filled_qty": o["filled_qty"], "avg_price": o["avg_price"], "fee": o.get("fee") or 0.0}
 
     def cancel(self, cid):
         a = self._acct()
@@ -412,8 +412,10 @@ class WebullBroker:
         js = self._json(self._call(lambda: trade.order_v3.get_order_detail(aid, cid), "order status"), "order status")
         items = js.get("orders") if isinstance(js, dict) else None
         it = (items or [js])[0] if (items or js) else {}
+        fee = sum(_num(it.get(k)) or 0.0 for k in ("commission", "fee", "fees", "total_fee", "transaction_fee", "sec_fee",
+                                                   "taf_fee", "platform_fee", "settlement_fee"))
         return {"status": (it.get("status") or "SUBMITTED").upper(), "filled_qty": _num(it.get("filled_quantity")) or 0.0,
-                "avg_price": _num(it.get("filled_price"))}
+                "avg_price": _num(it.get("filled_price")), "fee": fee}
 
     def cancel(self, cid):
         trade, _ = self._clients()

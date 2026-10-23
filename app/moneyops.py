@@ -52,7 +52,12 @@ WAIT_TXT = "kept in cash until the next buy signal"
 
 def to_bot(mode, amount, note=""):
     amount = round(float(amount), 2)
-    mid = ledger.fund_in(mode, amount, account_cash(mode), note)
+    cash = account_cash(mode)
+    floor = float(db.get_setting(f"protect_floor_{mode}") or 0)
+    if floor > 0 and cash is not None and cash - ledger.bot_cash(mode) - amount < floor - 0.005:
+        raise ValueError(f"That would give the bot money below your protected floor ${floor:,.2f}. Lower the floor first "
+                         "(Money → Protected cash floor).")
+    mid = ledger.fund_in(mode, amount, cash, note)
     db.add_event("info", "money", f"Allocated ${amount:,.2f} to the bot", f"{brokers.MODE_LABEL[mode]} · bot unassigned now "
                  f"${ledger.pool_cash(mode):,.2f}", mode=mode)
     notify.send("money", f"{brokers.MODE_LABEL[mode]} · Allocated ${amount:,.2f} from Webull to the bot. "

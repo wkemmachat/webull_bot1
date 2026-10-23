@@ -42,12 +42,34 @@ Webull account               $100
 
 **Default for new money**: *Execution → When new money arrives*. The Give / Add dialogs start from it.
 
-## Safety
+## Safety: how money outside the bot is protected
 
-- The bot sizes every buy from the strategy's own cash, so it cannot spend money you did not allocate.
-- If Webull's cash drops below the bot's cash (for example you withdrew in the Webull app), the nightly **Health check** reports a
-  problem on LINE. Return money to Webull or withdraw from a strategy to fix it.
+Webull's API keys cannot be limited to an amount: a key with trading permission can trade the whole account. So the limit is
+enforced by the bot, in three independent layers:
+
+1. **Books.** Every buy is sized from the strategy's own cash in the bot's books, never from the account. Strategies only get
+   money you allocate; broker fees are taken from the strategy that traded.
+2. **Money guard, checked against Webull right before every buy.** The bot reads the account's cash and buying power, and refuses
+   or shrinks the order if
+   - the bot's cash in its books (strategies + bot unassigned) is more than the account's cash (money left the account?), or
+   - the order would take the account's cash below your **protected cash floor**, or
+   - the order is bigger than Webull's buying power.
+   A blocked buy is never sent; LINE tells you at once (critical) and the Money page shows why.
+3. **Sells** only sell shares the bot bought (its books) and never more than the account really holds, so your own shares are
+   never sold.
+
+**Protected cash floor** (Money → *Not for the bot* → 🛡 Set): the account cash the bot never spends below. Set it to your free cash
+(the button suggests it) and update it when you deposit or withdraw in the Webull app or allocate more to the bot. The bot also
+refuses to allocate money below the floor. Even if the books were wrong, money above the floor stays untouched.
+
+**Extra protection outside the bot:** keep only the bot's money in the Webull account it trades (or ask Webull for a separate
+account and enter its Account ID on the Webull page), use a cash account (no margin), and limit the API key to the server's IP.
+
+Also:
+
+- If Webull's cash drops below the bot's cash (for example you withdrew in the Webull app), buys stop at once and the nightly
+  **Health check** reports a problem on LINE. Return money to Webull or withdraw from a strategy to fix it.
 - Returns are measured on **net money in** (in − out), and *Today* on the Dashboard leaves out money added that day, so adding money
   never looks like profit.
-- In **Paper** mode the account is $100,000; each strategy starts with $10,000 and the other $40,000 is *not for the bot* until you
+- In **Paper** mode the account is $100,000; each strategy starts with $10,000 and the rest is *not for the bot* until you
   allocate it.

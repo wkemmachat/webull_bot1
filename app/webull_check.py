@@ -1,4 +1,4 @@
-"""Show what Webull sends back for the account (balance and positions), with the totals the bot reads from it.
+"""Show the accounts this API key can see, and what Webull sends back for the bot's account (balance and positions).
 
   Mac:     ./.venv/bin/python -m app.webull_check test        (or live)
   Server:  cd /opt/webull_bot1 && sudo -u thbot .venv/bin/python -m app.webull_check test
@@ -17,6 +17,17 @@ def main():
         return 1
     db.init()
     b = brokers.WebullBroker(env=env)
+    try:
+        accts = b.accounts()
+        print(f"== Webull {env} · accounts this API key can see: {len(accts)}")
+        for a in accts:
+            print("   ", json.dumps({k: v for k, v in a.items() if "token" not in k.lower()}))
+        if len(accts) > 1 and not b.account_id:
+            print("Several accounts: enter the one the bot should use as Account ID on the Webull page, then run this again.")
+            return 0
+    except brokers.BrokerError as e:
+        print("Webull:", e)
+        return 1
     try:
         aid, bal, pos = b.raw_account()
         acct = b.account()
