@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png?v=3">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/css/app.css?v=12">
+<link rel="stylesheet" href="/static/css/app.css?v=13">
 <script>try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : t; } catch (e) {}</script>
 </head>
 <body>
@@ -29,6 +29,7 @@
     <a class="nav" data-r="positions" href="#/positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v9h9A9 9 0 1 1 12 3z"/></svg>Positions</a>
     <div class="grp">Monitor</div>
     <a class="nav" data-r="health" href="#/health"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Health check<span class="cnt hidden" id="cnt-health"></span></a>
+    <a class="nav" data-r="golive" href="#/golive"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>Go-live checklist</a>
     <a class="nav" data-r="logs" href="#/logs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h14v16H5zM9 8h6M9 12h6M9 16h3"/></svg>Logs</a>
     <div class="grp">Configure</div>
     <a class="nav" data-r="line" href="#/line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>LINE alerts</a>
@@ -66,15 +67,16 @@
 </nav>
 <div class="toast" id="toast" aria-live="polite"></div>
 <script src="/static/vendor/lightweight-charts.standalone.production.js"></script>
-<script src="/static/js/ui.js?v=12"></script>
-<script src="/static/js/charts.js?v=12"></script>
-<script src="/static/js/views/dashboard.js?v=12"></script>
-<script src="/static/js/views/strategies.js?v=12"></script>
-<script src="/static/js/views/money.js?v=12"></script>
-<script src="/static/js/views/orders.js?v=12"></script>
-<script src="/static/js/views/monitor.js?v=12"></script>
-<script src="/static/js/views/config.js?v=12"></script>
-<script src="/static/js/views/docs.js?v=12"></script>
-<script src="/static/js/app.js?v=12"></script>
+<script src="/static/js/ui.js?v=13"></script>
+<script src="/static/js/charts.js?v=13"></script>
+<script src="/static/js/views/dashboard.js?v=13"></script>
+<script src="/static/js/views/strategies.js?v=13"></script>
+<script src="/static/js/views/money.js?v=13"></script>
+<script src="/static/js/views/orders.js?v=13"></script>
+<script src="/static/js/views/monitor.js?v=13"></script>
+<script src="/static/js/views/config.js?v=13"></script>
+<script src="/static/js/views/docs.js?v=13"></script>
+<script src="/static/js/views/golive.js?v=13"></script>
+<script src="/static/js/app.js?v=13"></script>
 </body>
 </html>

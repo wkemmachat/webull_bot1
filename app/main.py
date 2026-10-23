@@ -17,7 +17,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import auth, brokers, db, engine, execution, health, ledger, marketdata as md, moneyops, notify, scheduler, views
+from . import auth, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, views
 from . import strategies as S
 from .config import APP_NAME, BASE_DIR, COOKIE_SECURE, DISPLAY_TZ, PUBLIC_URL, SCHEDULER_ENABLED
 
@@ -461,6 +461,26 @@ def health_indicators(strategy: str, u=Depends(user)):
         return {"rows": [], "cols": [], "error": str(e)}
 
 
+@app.get("/api/golive")
+def golive_get(mode: str = "test", u=Depends(user)):
+    return golive.report(mode_of(mode))
+
+
+@app.post("/api/golive/{action}")
+async def golive_action(action: str, request: Request, u=Depends(user)):
+    b = await body(request)
+    try:
+        if action == "tick":
+            golive.set_manual(str(b.get("key")), bool(b.get("done")), b.get("note", ""))
+        elif action == "restart":
+            golive.restart(mode_of(b.get("mode")))
+        else:
+            raise HTTPException(404, "Unknown action")
+    except ValueError as e:
+        _err(e)
+    return golive.report(mode_of(b.get("mode")))
+
+
 @app.get("/api/events")
 def events(level: Optional[str] = None, source: Optional[str] = None, q: Optional[str] = None, limit: int = 100, before: Optional[int] = None,
            u=Depends(user)):
@@ -729,7 +749,7 @@ def data_refresh(u=Depends(user)):
 
 
 # ---------------------------------------------------------------- docs
-DOC_ORDER = ["overview", "quick-start-mac", "first-day", "modes", "dashboard", "strategies", "money", "orders", "line", "health",
+DOC_ORDER = ["overview", "quick-start-mac", "first-day", "modes", "dashboard", "strategies", "money", "orders", "line", "health", "golive",
              "strategy-gold1", "strategy-gold2", "strategy-silver1", "strategy-silver2", "strategy-qld", "strategy-semis", "strategy-qld-tbd",
              "deploy", "update", "backups", "plugins", "layout", "tests", "troubleshooting", "glossary", "decisions"]
 

@@ -8,7 +8,7 @@
     [/^\/?$/, 'dashboard'], [/^\/strategies\/new$/, 'strategyNew'], [/^\/strategies\/([\w-]+)$/, 'strategy'], [/^\/strategies$/, 'strategies'],
     [/^\/money$/, 'money'], [/^\/orders$/, 'orders'], [/^\/execution$/, 'execution'], [/^\/trades$/, 'trades'],
     [/^\/positions$/, 'positions'], [/^\/health$/, 'health'], [/^\/logs$/, 'logs'], [/^\/line$/, 'line'], [/^\/webull$/, 'webull'],
-    [/^\/settings$/, 'settings'], [/^\/docs\/?([\w-]*)$/, 'docs'],
+    [/^\/settings$/, 'settings'], [/^\/golive$/, 'golive'], [/^\/docs\/?([\w-]*)$/, 'docs'],
   ];
 
   async function route() {

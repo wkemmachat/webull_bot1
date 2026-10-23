@@ -82,7 +82,7 @@ def test_manual_pages(client):
     docs = client.get("/api/docs").json()
     names = [d["name"] for d in (docs.get("docs") if isinstance(docs, dict) else docs)]
     from app.main import DOC_ORDER
-    assert len(names) == len(DOC_ORDER) == 26
+    assert len(names) == len(DOC_ORDER) == 27
     for n in names:
         r = client.get(f"/api/docs/{n}")
         assert r.status_code == 200 and len(r.json()["markdown"]) > 100, n
@@ -147,3 +147,38 @@ def test_webull_account_total_falls_back_to_cash_plus_positions(monkeypatch):
     assert a["cash"] == 1000.5 and a["market_value"] == 1000 and a["total"] == 2000.5
     monkeypatch.setattr(b, "raw_account", lambda: ("A1", {"total_asset": "5000", "total_cash_balance": "1000"}, []))
     assert b.account()["total"] == 5000
+
+
+def test_golive_checklist(client, clock):
+    sign_in(client)
+    r = client.get("/api/golive?mode=paper")
+    assert r.status_code == 200
+    d = r.json()
+    assert d["total"] >= 15 and 0 <= d["pct"] <= 1 and not d["ready"]
+    keys = {i["key"] for s in d["sections"] for i in s["items"]}
+    assert {"sessions", "plans", "lots", "health", "t_withdraw", "t_restart", "t_guard", "m_fills"} <= keys
+    d = client.post("/api/golive/tick", json={"key": "m_fills", "done": True, "mode": "paper"}).json()
+    item = next(i for s in d["sections"] for i in s["items"] if i["key"] == "m_fills")
+    assert item["status"] == "ok"
+    assert client.post("/api/golive/tick", json={"key": "nope", "done": True}).status_code == 400
+    assert client.post("/api/golive/restart", json={"mode": "paper"}).status_code == 200
+
+
+def test_golive_detects_planned_tests(clean, clock):
+    from app import golive, moneyops, execution as X
+    from test_execution import run_until_done
+    db.set_state("golive_start:paper", int(clock.dt.timestamp()) - 10)
+    s = S.get("qld_regime")
+    pid = X.reconcile("paper", s, dict(s.evaluate(clock.dt), target=s.target_for("2x")), clock.dt, brokers_get("paper"), db.get_settings())
+    run_until_done(clock, pid)
+    r = moneyops.withdraw("paper", s.id, 3000)
+    run_until_done(clock, r["plan_id"])
+    moneyops.move("paper", "gold_sta", "silver_dc", 100)
+    rep = golive.report("paper")
+    st = {i["key"]: i["status"] for sec in rep["sections"] for i in sec["items"]}
+    assert st["t_withdraw"] == "ok" and st["t_move"] == "ok" and st["t_stop"] == "todo"
+
+
+def brokers_get(m):
+    from app import brokers
+    return brokers.get(m)

@@ -257,3 +257,9 @@ table.t { width: 100%; border-collapse: collapse; }
   .flow { grid-template-columns: 1fr; }
   .flow .arrow { justify-self: center; line-height: 1; }
 }
+
+/* Go-live checklist */
+.gl { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex: none;
+  border: 1.5px solid var(--line); color: var(--muted); font-size: 12px; font-weight: 700; margin-top: 1px; }
+.gl.ok { background: color-mix(in srgb, var(--up) 18%, transparent); border-color: var(--up); color: var(--up); }
+.gl.warn { background: color-mix(in srgb, var(--warn-fg) 18%, transparent); border-color: var(--warn-fg); color: var(--warn-fg); }
