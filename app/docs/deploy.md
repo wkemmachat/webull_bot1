@@ -64,4 +64,19 @@ Add `deploy/Caddyfile.snippet` to the end of `/etc/caddy/Caddyfile` (keep a back
 
 ## 6 · Webull and LINE on the server
 
-Fresh database: enter LINE and Webull again in the web app. Webull API keys limited to an IP address: **165.245.188.124**.
+Fresh database: enter LINE and Webull again in the web app.
+
+**Webull API keys** (from Webull Thailand's developer docs, Oct 2026):
+
+1. webull.co.th → your photo → **Developer Tool** → **API Management → My Application**: apply for API access. Webull reviews it
+   (1–2 working days; you get an email).
+2. **API Management → API Keys Management**: application name `TH Strategy Bot`, permissions **Market data** and **Trading**
+   (both), IP whitelist **165.245.188.124**, 2FA on. Generate the key (SMS code + trading password). Copy the **App Key** and
+   **App Secret**; *Reset Key* gives a new secret if you lose it.
+3. In the bot: **Webull → Live API keys** → paste → Save → **Connect**. Webull sends an SMS code; enter it in the Webull app
+   (it pops up, or Menu → Messages → OpenAPI Notifications → Check Now) **within 5 minutes**. The token is saved on the server;
+   the Webull page shows until when it is valid.
+
+**Webull test** needs no application: on the Webull page press **Use #1** (one of Webull's three public shared test accounts on
+th-api.uat.webullbroker.com), Connect, then Test connection. Everyone shares those accounts, so their orders and positions
+change without you.

@@ -7,7 +7,8 @@ live   WebullBroker(env="live"): your real Webull Thailand account (region 'th')
 
 The Webull part follows the official `webull-openapi-python-sdk` and the Gold & Silver bot. A new login
 needs approval in the Webull app (SMS code; Menu → Messages → OpenAPI Notifications) within 5 minutes,
-so the scheduler never starts a login by itself: it reuses the saved token (lapses after 15 idle days).
+so the scheduler never starts a login by itself: it reuses the saved token. Webull's token file (token.txt: token,
+expires, status) says when it ends; the Webull page and the Health check show that date.
 """
 from __future__ import annotations
 
@@ -162,8 +163,16 @@ def conn_key(env):
     return "webull_conn_test" if env == "test" else "webull_conn"
 
 
+# Webull's shared test accounts (developer.webull.co.th/apis/docs/sdk#test-accounts): public, anyone may trade in them.
+SHARED_TEST_ACCOUNTS = [
+    {"account_id": "1249711087713001472", "app_key": "86d0dac12b1b28de7539f087b2c1dca7", "app_secret": "28dfb45a1be192a04242efd1aeba20f6"},
+    {"account_id": "1251161604462252032", "app_key": "0e3bd1b4a9d94857aee5410f9b769121", "app_secret": "e5e0f0046235380d5f6d3cebfe6d9696"},
+    {"account_id": "1251161573554425856", "app_key": "c12c25c93f98169ad56f5148e4edfd16", "app_secret": "f3ac0da97d2085ad4ce14b961cbd8824"},
+]
+
+
 class WebullBroker:
-    TEST_HOST = "th-api.uat.webullbroker.com"
+    TEST_HOST = "th-api.uat.webullbroker.com"     # Webull TH test environment (live: api.webull.co.th, the SDK default for "th")
 
     def __init__(self, settings=None, env="live"):
         self.settings = s = settings or db.get_settings()
@@ -279,13 +288,27 @@ class WebullBroker:
             st["used_at"] = int(time.time())
             db.set_state(conn_key(self.env), st)
 
+    def token_info(self):
+        """(expires_unix, status) from the SDK's token file, or (None, None)."""
+        f = self.tok_dir / "token.txt"
+        try:
+            lines = f.read_text().splitlines()
+        except OSError:
+            return None, None
+        exp = None
+        if len(lines) > 1 and lines[1].strip().isdigit():
+            exp = int(lines[1].strip())
+            exp = exp // 1000 if exp > 10 ** 11 else exp          # milliseconds or seconds
+        return exp, (lines[2].strip() if len(lines) > 2 else None)
+
     def status(self):
         st = db.get_state(conn_key(self.env)) or {}
         tok = (self.tok_dir / "token.txt").exists()
-        used = st.get("used_at") or st.get("at")
-        return {"env": self.env, "mode": self.env, "connected": st.get("status") == "connected", "label": self.label,
-                "has_keys": bool(self.key and self.secret), "token_saved": tok,
-                "lapses_at": (used + 15 * 86400) if used and st.get("status") == "connected" else None, **st}
+        exp, tstat = self.token_info()
+        connected = st.get("status") == "connected"
+        return {"env": self.env, "mode": self.env, "connected": connected, "label": self.label,
+                "has_keys": bool(self.key and self.secret), "token_saved": tok, "token_status": tstat,
+                "lapses_at": exp if (connected and exp) else None, **st}
 
     def accounts(self):
         trade, _ = self._clients()

@@ -40,7 +40,7 @@ EVENTS = {
     "health_problem": ("Health check: problem", "Books differ from Webull, a missed step, a stuck order…", "instant", True),
     "health_warning": ("Health check: warning", "Something to look at, not urgent.", "digest", False),
     "data": ("Data problem", "Prices could not be downloaded (at most one alert per 6 hours).", "instant", False),
-    "broker": ("Webull disconnected or token expiring", "The login lapses after 15 idle days; approval needed.", "instant", True),
+    "broker": ("Webull disconnected or token expiring", "Webull's login token is ending or was refused; approve again in the Webull app.", "instant", True),
     "login": ("Sign-in from a new device", "Or 5 wrong passwords in a row.", "instant", True),
     "system": ("Bot started / stopped / updated", "Server restarts and settings changes.", "digest", False),
 }

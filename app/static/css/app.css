@@ -39,6 +39,7 @@ h1, h2, h3 { margin: 0; }
 .side { width: 236px; flex: none; background: var(--side); border-right: 1px solid var(--line); padding: 18px 12px; display: flex;
   flex-direction: column; gap: 2px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
 .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 14px; color: var(--text); }
+.logo-img { display: block; flex: none; border-radius: 9px; }
 .logo { width: 34px; height: 34px; border-radius: 10px; background: var(--accent); color: var(--on-accent); display: flex; align-items: center;
   justify-content: center; font-weight: 700; font-size: 14px; flex: none; }
 .grp { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); padding: 14px 10px 6px; }

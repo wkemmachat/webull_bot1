@@ -3,7 +3,8 @@
 
 | You see | Do this |
 |---|---|
-| "Webull is not connected yet" | Webull page → Connect → approve in the Webull app within 5 minutes |
+| "Webull is not connected yet" | Webull page → Connect → enter the SMS code in the Webull app within 5 minutes (Menu → Messages → OpenAPI Notifications) |
+| Webull "401" / "IP not allowed" | The App Key's IP whitelist must contain the server IP (165.245.188.124); the Mac's IP will be refused |
 | A plan stays "Queued" | It waits for its start time and the US session. **Start now** sends at once if the market is open |
 | Lots keep retrying | The price moves away within the interval. Raise the limit offset a little or use fewer lots |
 | LINE "401" | The channel token was re-issued: paste the new one |

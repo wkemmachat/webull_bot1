@@ -46,7 +46,7 @@
             <div class="seg" data-ev="${e.key}"><button data-v="instant" class="${ev[e.key] === 'instant' ? 'on' : ''}">Instant</button><button data-v="digest" class="gi ${ev[e.key] === 'digest' ? 'on' : ''}">Digest</button>
               <button data-v="off" class="${ev[e.key] === 'off' ? 'on' : ''}" ${e.critical ? 'disabled' : ''}>Off</button></div></div>`).join('')}</section>
         <div class="col" style="gap:20px">
-          <section class="card col" style="gap:12px"><h2 class="h2">Preview</h2>${d.preview.map((p) => `<div class="row" style="align-items:flex-start;gap:10px;flex-wrap:nowrap"><div class="logo" style="width:32px;height:32px;font-size:12px">TH</div>
+          <section class="card col" style="gap:12px"><h2 class="h2">Preview</h2>${d.preview.map((p) => `<div class="row" style="align-items:flex-start;gap:10px;flex-wrap:nowrap"><img class="logo-img" src="/static/icons/favicon.svg?v=3" alt="" width="32" height="32">
             <div style="background:var(--seg);border-radius:4px 16px 16px 16px;padding:12px 14px;font-size:13px;white-space:pre-line">${U.esc(p)}</div></div>`).join('')}</section>
           <section class="card"><h2 class="h2" style="margin-bottom:6px">Strategies sending alerts</h2>${d.strategies.map((x) => `<div class="kv" style="align-items:center"><span class="row" style="gap:8px">${U.dot(x.color)}${U.esc(x.name)}</span>
             <button class="sw ${strat[x.id] ? 'on' : ''}" data-strat="${x.id}" role="switch" aria-label="LINE for ${U.esc(x.name)}"></button></div>`).join('')}</section>
@@ -95,11 +95,13 @@
         <div class="f"><label for="${env}-s">App Secret</label><input class="in num" id="${env}-s" type="password" placeholder="${st.has_keys ? 'saved (leave empty to keep)' : 'App Secret'}"></div>
         <div class="fs"><div class="f"><label for="${env}-a">Account ID (optional)</label><input class="in num" id="${env}-a" value="${U.esc(st.account_id || '')}" placeholder="found automatically"></div>
           ${env === 'test' ? `<div class="f"><label for="test-e">Test server</label><input class="in num" id="test-e" value="${U.esc(st.endpoint || '')}"></div>` : ''}</div>
-        <div class="muted small">Stored encrypted on your server. Get them at webull.co.th → Open API → Get API Key. Give the key trading permission only.</div>
+        ${env === 'test' ? `<div class="row" style="gap:6px"><span class="muted small">Webull's shared test accounts (public, no application needed):</span>${[1, 2, 3].map((n) => `<button class="btn s" data-shared="${n}">Use #${n}</button>`).join('')}</div>` : ''}
+        <div class="muted small">${env === 'live' ? 'webull.co.th → your photo → Developer Tool → API Management → API Keys Management. Tick <b>Market data</b> and <b>Trading</b>; IP whitelist: your server\'s IP. Stored encrypted on your server.'
+          : 'Test server th-api.uat.webullbroker.com. Shared accounts are used by everyone: orders and positions there can change at any time.'}</div>
         <div class="row"><button class="btn" data-a="keys" data-env="${env}">Save keys</button><button class="btn p" data-a="connect" data-env="${env}">${st.connected ? 'Reconnect' : 'Connect'}</button>
           <button class="btn" data-a="test" data-env="${env}">Test connection</button>${st.connected ? `<button class="btn d" data-a="disconnect" data-env="${env}">Disconnect</button>` : ''}</div>
         <div class="kv"><span class="muted">Last used</span><span class="num">${U.dt(st.used_at || st.at)}</span></div>
-        <div class="kv"><span class="muted">Login lapses if unused until</span><span class="num">${st.lapses_at ? U.dtLong(st.lapses_at) : '—'}</span></div></section>`;
+        <div class="kv"><span class="muted">Webull token valid until</span><span class="num">${st.lapses_at ? U.dtLong(st.lapses_at) : '—'}${st.token_status ? ' · ' + U.esc(st.token_status) : ''}</span></div></section>`;
     }
     function render() {
       el.innerHTML = `<div class="page-head"><div><div class="eyebrow">Webull OpenAPI · region ${U.esc(d.region)}</div><h1 class="h1">Webull connection</h1>
@@ -111,8 +113,12 @@
         <section class="card col" style="gap:12px"><div class="eyebrow">How connecting works</div>
           <div class="row" style="gap:12px;flex-wrap:nowrap;align-items:flex-start">${U.pill('ok', '1')}<div><b style="font-weight:500">Paste App Key and Secret, then press Connect</b></div></div>
           <div class="row" style="gap:12px;flex-wrap:nowrap;align-items:flex-start">${U.pill('ok', '2')}<div><b style="font-weight:500">Approve the prompt in the Webull app within 5 minutes</b><div class="muted small">Webull app → Menu → Messages → OpenAPI Notifications (SMS code).</div></div></div>
-          <div class="row" style="gap:12px;flex-wrap:nowrap;align-items:flex-start">${U.pill('ok', '3')}<div><b style="font-weight:500">The login is saved and renewed while used</b><div class="muted small">It lapses after 15 idle days. The bot never starts a new login by itself — it tells you on LINE.</div></div></div></section>
+          <div class="row" style="gap:12px;flex-wrap:nowrap;align-items:flex-start">${U.pill('ok', '3')}<div><b style="font-weight:500">The token is saved on the server</b><div class="muted small">Webull sets how long it lasts (shown above). Before it ends, the Health check and LINE remind you to press Reconnect. The bot never starts a new login by itself.</div></div></div></section>
         <div id="acct"></div>`;
+      U.on(el, '[data-shared]', 'click', (e, b) => U.busy(b, async () => {
+        d = await U.api('/api/webull/test/keys', { body: { shared: +b.dataset.shared } });
+        U.toast(`Shared test account #${b.dataset.shared} filled in. Press Connect, then Test connection.`); render();
+      }));
       U.on(el, '[data-a]', 'click', (e, b) => U.busy(b, async () => {
         const env = b.dataset.env, a = b.dataset.a;
         if (a === 'keys') {

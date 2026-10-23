@@ -43,7 +43,8 @@ PUBLIC_URL=http://127.0.0.1:8000
 ## 4 · Connect LINE and Webull test
 
 Go to **LINE alerts**, paste the channel token, add yourself as a recipient and press **Send test message**. Then open
-**Webull**, paste the test keys and press **Connect**; switch **Webull test** on in **Settings → Trading modes**.
+**Webull**, press **Use #1** under *Test API keys* (Webull's public shared test account), **Connect**, then **Test connection**;
+switch **Webull test** on in **Settings → Trading modes**. Live keys only work from the server's IP (IP whitelist).
 
 ## Offline demo
 

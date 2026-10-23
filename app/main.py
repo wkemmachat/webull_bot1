@@ -550,6 +550,12 @@ async def webull_action(env: str, action: str, request: Request, u=Depends(user)
     p = "webull_test_" if env == "test" else "webull_"
     if action == "keys":
         upd = {}
+        if env == "test" and b.get("shared"):
+            try:
+                acc = brokers.SHARED_TEST_ACCOUNTS[int(b["shared"]) - 1]
+            except (ValueError, IndexError):
+                raise HTTPException(400, "Shared test account 1, 2 or 3")
+            b = {**b, **acc, "endpoint": brokers.WebullBroker.TEST_HOST}
         if b.get("app_key"):
             upd[p + "app_key"] = str(b["app_key"]).strip()
         if b.get("app_secret"):

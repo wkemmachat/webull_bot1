@@ -254,10 +254,12 @@ def run(now=None, send=True):
             stt = b.status()
             lap = stt.get("lapses_at")
             if lap and lap - time.time() < 3 * 86400:
-                _item(items, f"token_{mode}", label, f"{label}: login valid", "warn", "The Webull login lapses within 3 days if unused.",
-                      "It renews with use. If no order is due, press Test connection on the Webull page.", "#/webull")
+                _item(items, f"token_{mode}", label, f"{label}: login valid", "warn",
+                      f"Webull's token ends {datetime.fromtimestamp(lap).strftime('%d %b %H:%M')}.",
+                      "Press Reconnect on the Webull page and approve the SMS code in the Webull app.", "#/webull")
             else:
-                _item(items, f"token_{mode}", label, f"{label}: login valid", "ok", "Token in use.", link="#/webull")
+                _item(items, f"token_{mode}", label, f"{label}: login valid", "ok",
+                      (f"Token valid until {datetime.fromtimestamp(lap).strftime('%d %b %Y')}." if lap else "Token in use."), link="#/webull")
 
     line = notify.summary()
     if not line["configured"]:

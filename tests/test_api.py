@@ -121,3 +121,17 @@ def test_head_requests(client):
     assert client.head("/api/health").status_code == 200          # uptime monitors and `curl -I`
     assert client.head("/", follow_redirects=False).status_code in (302, 307)
     assert client.head("/login").status_code == 200
+
+
+def test_webull_shared_test_account_and_token_date(client, tmp_path):
+    from app import brokers
+    sign_in(client)
+    r = client.post("/api/webull/test/keys", json={"shared": 2})
+    assert r.status_code == 200 and r.json()["test"]["account_id"] == brokers.SHARED_TEST_ACCOUNTS[1]["account_id"]
+    assert r.json()["test"]["endpoint"] == "th-api.uat.webullbroker.com"
+    assert client.post("/api/webull/test/keys", json={"shared": 9}).status_code == 400
+    b = brokers.WebullBroker(env="test")
+    b.tok_dir.mkdir(parents=True, exist_ok=True)
+    (b.tok_dir / "token.txt").write_text("abc\n1793000000000\nNORMAL\n")
+    assert b.token_info() == (1793000000, "NORMAL")
+    (b.tok_dir / "token.txt").unlink()
