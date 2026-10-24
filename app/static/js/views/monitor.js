@@ -37,7 +37,11 @@
     async function itab() {
       const box = el.querySelector('#itab');
       if (!pick) { box.innerHTML = '<div class="muted">No strategies</div>'; return; }
-      const t = await U.api('/api/health/indicators?strategy=' + pick);
+      const want = pick;
+      box.innerHTML = '<div class="empty"><span class="spin"></span></div>';
+      let t;
+      try { t = await U.api('/api/health/indicators?strategy=' + want); } catch (e) { t = { error: 'Could not load: ' + e.message, rows: [] }; }
+      if (want !== pick || !document.body.contains(box)) return;
       if (t.error || !t.rows.length) { box.innerHTML = `<div class="muted">${U.esc(t.error || 'No data yet')}</div>`; return; }
       box.innerHTML = `<div class="tw"><table class="t"><thead><tr><th>Bar close (BKK)</th>${t.cols.map((c) => `<th class="r">${U.esc(c)}</th>`).join('')}<th class="r">TradingView</th><th>Result</th></tr></thead><tbody>
         ${t.rows.map((r) => `<tr><td class="num">${U.dt(r.t)}</td>${r.vals.map((v) => `<td class="r num">${typeof v === 'number' ? U.n(v, 2) : U.esc(v)}</td>`).join('')}

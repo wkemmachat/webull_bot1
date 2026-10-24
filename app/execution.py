@@ -482,7 +482,10 @@ def poll(mode, now, broker, only_id=None, settings=None):
     args = (mode, *WORKING, only_id) if only_id else (mode, *WORKING)
     for o in db.rows(q, args):
         plan = db.one("SELECT * FROM plans WHERE id=?", (o["plan_id"],))
-        rej = brokers.parse_rejection(o["error"] or "") if o["error"] and "HTTP Status" in (o["error"] or "") else None
+        err = o["error"] or ""
+        # only a refused PLACE settles an order; a refused CANCEL ("status cannot be modified") means the order is
+        # already final at Webull (filled or cancelled): its real status is read below
+        rej = brokers.parse_rejection(err) if "HTTP Status" in err and "place order" in err and not err.startswith("cancel failed") else None
         if rej and o["status"] in ("unknown", "submitted") and not (o["applied_qty"] or 0):
             # an older bot version kept refused orders open: settle them now
             db.run("UPDATE orders SET status='failed', error=?, updated_at=? WHERE id=?", (f"refused: {rej}"[:300], int(time.time()), o["id"]))
@@ -557,6 +560,22 @@ def poll(mode, now, broker, only_id=None, settings=None):
             left = (o["qty"] or 0) - filled
             if left >= 1 and plan and plan["status"] == "active":
                 _retry(o, left, now, f"order {status.lower()} with {left:.0f} left", retries)
+
+
+def repair_cancel_refusals():
+    """Bot 1.0 (24 Oct) wrongly marked orders as refused when Webull refused to CANCEL them (OPENAPI_ORDER_CANNOT_OPERATE,
+    i.e. the order was already final). Read those orders again so a fill that really happened is booked."""
+    if db.get_state("repair_cancel_refusals"):
+        return 0
+    rows = db.rows("SELECT id FROM orders WHERE status='failed' AND error LIKE '%ORDER_CANNOT_OPERATE%' AND client_order_id IS NOT NULL "
+                   "AND COALESCE(applied_qty,0)=0")
+    for r in rows:
+        db.run("UPDATE orders SET status='submitted', checks=0, error='re-checking (was marked refused by mistake)' WHERE id=?", (r["id"],))
+    db.set_state("repair_cancel_refusals", int(time.time()))
+    if rows:
+        db.add_event("warn", "orders", f"Re-checking {len(rows)} order(s) wrongly marked refused",
+                     "Webull had refused to cancel them because they were already final; their real status is read again and any fill is booked.")
+    return len(rows)
 
 
 def finish_plans(mode):
@@ -746,6 +765,10 @@ def process(now=None, settings=None):
         s = settings or db.get_settings()
         now = now or md.now_utc()
         out = {}
+        try:
+            repair_cancel_refusals()
+        except Exception as e:
+            log.warning("repair: %s", e)
         modes = brokers.enabled_modes(s)
         for m in brokers.MODES:
             busy = db.one(f"SELECT COUNT(*) n FROM orders WHERE mode=? AND status IN ({_q(len(OPEN))})", (m, *OPEN))["n"]

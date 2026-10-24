@@ -459,6 +459,20 @@ def health_run(u=Depends(user)):
     return health.run(send=False)
 
 
+@app.get("/api/orders/{oid}/raw")
+def order_raw(oid: int, u=Depends(user)):
+    """Webull's own answer for one order (for checking a lot that does not fill)."""
+    o = db.one("SELECT * FROM orders WHERE id=?", (oid,))
+    if not o or not o["client_order_id"]:
+        raise HTTPException(404, "No such order")
+    b = brokers.get(o["mode"])
+    fn = getattr(b, "order_raw", None)
+    try:
+        return {"order": o, "webull": fn(o["client_order_id"]) if fn else b.order(o["client_order_id"])}
+    except brokers.BrokerError as e:
+        return {"order": o, "error": str(e)}
+
+
 @app.get("/api/health/indicators")
 def health_indicators(strategy: str, u=Depends(user)):
     s = S.get(strategy)

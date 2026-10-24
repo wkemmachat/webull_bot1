@@ -66,3 +66,49 @@ def test_old_stuck_refused_order_is_settled(clean, clock):
     assert db.one("SELECT status FROM orders WHERE id=?", (o["id"],))["status"] == "failed"
     assert db.one("SELECT status FROM plans WHERE id=?", (pid,))["status"] == "cancelled"
     X.unblock_symbols("paper")
+
+
+CANNOT = ("Webull cancel order failed: HTTP Status: 417, Code: OPENAPI_ORDER_CANNOT_OPERATE, Msg: The current status cannot "
+          "be modified.\r\n, RequestID: 1")
+
+
+class StuckAtWebull(brokers.PaperBroker):
+    """Webull test server: the order is accepted, never fills, and cannot be cancelled."""
+    def _try_fill(self, a, o):
+        return
+
+    def cancel(self, cid):
+        raise brokers.BrokerError(CANNOT)
+
+
+def test_refused_cancel_is_not_a_refused_order(clean, clock):
+    b = StuckAtWebull()
+    brokers.set_override("paper", b)
+    s = S.get("gold_sta")
+    pid = X.build_plan("paper", s, {"SGOV": 0.99}, "signal", NOW, b)
+    db.run("UPDATE orders SET scheduled_at=? WHERE plan_id=?", (int(NOW.timestamp()), pid))
+    X.process(NOW)
+    first = db.one("SELECT * FROM orders WHERE plan_id=? AND status='submitted'", (pid,))
+    assert first
+    for _ in range(12):
+        clock.advance(minutes=2)
+        X.process(clock.dt)
+    o = db.one("SELECT * FROM orders WHERE id=?", (first["id"],))
+    assert o["status"] == "submitted" and o["error"].startswith("cancel failed")      # still open: no replacement sent
+    assert db.one("SELECT COUNT(*) n FROM orders WHERE plan_id=? AND retry>0", (pid,))["n"] == 0
+    assert db.one("SELECT COUNT(*) n FROM line_queue WHERE critical=1 AND text LIKE '%Could not cancel%'")["n"] == 1
+
+
+def test_repair_rechecks_orders_wrongly_marked_refused(clean, clock):
+    s = S.get("gold_sta")
+    pid = X.build_plan("paper", s, {"SGOV": 0.99}, "signal", NOW, brokers.get("paper"))
+    o = db.one("SELECT * FROM orders WHERE plan_id=? ORDER BY id LIMIT 1", (pid,))
+    b = brokers.get("paper")
+    b.place("SGOV", "BUY", 5, 1000.0, "CORE", "filled1")                 # it really filled at the broker
+    db.run("UPDATE orders SET status='failed', qty=5, side='BUY', symbol='SGOV', client_order_id='filled1', submitted_at=?, "
+           "error=? WHERE id=?", (int(NOW.timestamp()), "refused: " + CANNOT, o["id"]))
+    db.set_state("repair_cancel_refusals", None)
+    X.process(NOW)
+    o = db.one("SELECT * FROM orders WHERE id=?", (o["id"],))
+    assert o["status"] == "filled" and o["applied_qty"] == 5                  # the fill is booked now
+    assert ledger.get("paper", s.id)["holdings"].get("SGOV") == 5
