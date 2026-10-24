@@ -395,7 +395,13 @@ class WebullBroker:
     def account(self):
         aid, b, p = self.raw_account()
         b = b.get("data", b) if isinstance(b, dict) else b
-        usd = next((x for x in (b.get("account_currency_assets") or []) if x.get("currency") == "USD"), {})
+        # Webull TH can hold several currencies (USD, THB, CNY, HKD …). US ETFs are bought with USD only, so the bot
+        # reads the USD figures when Webull sends them per currency; other currencies are reported, never used.
+        cur = [x for x in (b.get("account_currency_assets") or []) if isinstance(x, dict)]
+        usd = next((x for x in cur if str(x.get("currency") or "").upper() == "USD"), {})
+        other = [{"currency": str(x.get("currency") or "?").upper(), "cash": _first(x, "cash_balance", "cash", "total_cash")}
+                 for x in cur if str(x.get("currency") or "").upper() not in ("USD", "")]
+        other = [o for o in other if o["cash"]]
         rws = p if isinstance(p, list) else p.get("data", p.get("positions", p.get("holdings", [])))
         pos, pos_v = {}, 0.0
         for r in rws or []:
@@ -408,18 +414,25 @@ class WebullBroker:
             pos[r.get("symbol") or r.get("ticker")] = {"qty": q, "cost": _first(r, "cost_price", "average_cost", "avg_cost"),
                                                        "last": last if last is not None else (v / q if q else None), "value": v}
             pos_v += v
-        cash = _first(b, "total_cash_balance", "cash_balance", "total_cash") or _first(usd, "cash_balance", "cash")
-        mval = _first(b, "total_market_value", "market_value") or _first(usd, "market_value")
+        if usd and (_first(usd, "cash_balance", "cash", "total_cash") is not None or other):
+            cash = _first(usd, "cash_balance", "cash", "total_cash")       # None (→ no buys) rather than count THB
+            mval = _first(usd, "market_value", "total_market_value")
+        else:
+            cash = _first(b, "total_cash_balance", "cash_balance", "total_cash")
+            mval = _first(b, "total_market_value", "market_value")
         mval = mval if mval is not None else pos_v
-        total = (_first(b, "total_net_liquidation_value", "net_liquidation_value", "total_asset", "total_assets",
-                        "total_account_value", "account_value")
-                 or _first(usd, "net_liquidation_value", "total_asset", "total_assets"))
+        if usd and (cash is not None or other) and _first(usd, "net_liquidation_value", "total_asset", "total_assets",
+                                                          "total_net_liquidation_value") is not None:
+            total = _first(usd, "net_liquidation_value", "total_asset", "total_assets", "total_net_liquidation_value")
+        else:
+            total = _first(b, "total_net_liquidation_value", "net_liquidation_value", "total_asset", "total_assets",
+                           "total_account_value", "account_value")
         if total is None and cash is not None:
             total = cash + (mval or 0.0)              # Webull did not send a total: cash + value of all positions
         self._touch()
         return {"total": total, "cash": cash, "market_value": mval,
                 "buying_power": _first(usd, "buying_power") or _first(b, "buying_power", "total_buying_power"),
-                "positions": pos, "currency": "USD", "account_id": aid}
+                "positions": pos, "currency": "USD", "account_id": aid, "other_cash": other}
 
     def place(self, symbol, side, qty, limit, session, cid):
         trade, _ = self._clients()

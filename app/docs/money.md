@@ -42,6 +42,14 @@ Webull account               $100
 
 **Default for new money**: *Execution → When new money arrives*. The Give / Add dialogs start from it.
 
+## Currencies: USD only
+
+A Webull Thailand account can hold several currencies (USD, THB, CNY …). The strategies buy US ETFs, which are paid
+in USD, so the bot reads and uses **only the USD part**: "In Webull", cash, buying power, the money guard and the
+protected floor are all USD. THB or CNY balances are shown on the Money page as "Also in Webull … not counted" and are
+never used. To give the bot more money, exchange THB → USD in the Webull app first, then allocate the USD to the bot.
+If Webull ever sends a balance where the USD cash cannot be told apart, the bot buys nothing rather than count THB.
+
 ## Safety: how money outside the bot is protected
 
 Webull's API keys cannot be limited to an amount: a key with trading permission can trade the whole account. So the limit is

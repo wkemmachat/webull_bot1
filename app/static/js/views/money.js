@@ -24,8 +24,9 @@
           ${seg(f.pool, 'repeating-linear-gradient(45deg,var(--accent) 0 5px,color-mix(in srgb,var(--accent) 55%,transparent) 5px 10px)', 'Bot unassigned')}
           ${seg(f.not_bot, 'var(--line)', 'Not for the bot')}</div>
         <div class="flow">
-          <div class="fl"><div class="eyebrow">In ${mode === 'paper' ? 'the paper account' : 'Webull'}</div><div class="num big" style="font-size:26px;margin-top:4px">${U.usd(f.account_total)}</div>
-            <div class="muted small">cash ${U.usd(f.account_cash, 0)}${d.account && d.account._at ? ' · updated ' + U.time(d.account._at) : ''}</div></div>
+          <div class="fl"><div class="eyebrow">In ${mode === 'paper' ? 'the paper account' : 'Webull'}${mode === 'paper' ? '' : ' · USD'}</div><div class="num big" style="font-size:26px;margin-top:4px">${U.usd(f.account_total)}</div>
+            <div class="muted small">cash ${U.usd(f.account_cash, 0)}${d.account && d.account._at ? ' · updated ' + U.time(d.account._at) : ''}</div>
+            ${d.account && (d.account.other_cash || []).length ? `<div class="muted small" style="margin-top:4px">Also in Webull: ${d.account.other_cash.map((o) => `${U.esc(o.currency)} ${U.n(o.cash, 0)}`).join(' · ')} — not counted, the bot uses USD only</div>` : ''}</div>
           <div class="arrow" aria-hidden="true">=</div>
           <div class="fl" style="border-color:color-mix(in srgb,var(--accent) 45%,var(--line))"><div class="eyebrow">Allocated to the bot</div><div class="num big" style="font-size:26px;margin-top:4px">${U.usd(f.allocated)}</div>
             <div class="muted small">strategies ${U.usd(f.strategies, 0)} + bot unassigned ${U.usd(f.pool, 0)}</div></div>

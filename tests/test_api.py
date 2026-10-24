@@ -149,6 +149,23 @@ def test_webull_account_total_falls_back_to_cash_plus_positions(monkeypatch):
     assert b.account()["total"] == 5000
 
 
+def test_webull_multi_currency_uses_usd_only(monkeypatch):
+    from app import brokers
+    b = brokers.WebullBroker(env="test")
+    monkeypatch.setattr(b, "_touch", lambda: None)
+    bal = {"total_cash_balance": "152000", "total_asset": "160000", "account_currency_assets": [
+        {"currency": "USD", "cash_balance": "2000", "buying_power": "2000", "market_value": "1000", "net_liquidation_value": "3000"},
+        {"currency": "THB", "cash_balance": "150000", "buying_power": "150000"},
+        {"currency": "CNY", "cash_balance": "0"}]}
+    monkeypatch.setattr(b, "raw_account", lambda: ("A1", bal, [{"symbol": "QLD", "quantity": "10", "last_price": "100"}]))
+    a = b.account()
+    assert a["cash"] == 2000 and a["buying_power"] == 2000 and a["total"] == 3000          # THB is never counted
+    assert a["other_cash"] == [{"currency": "THB", "cash": 150000.0}]
+    bal2 = {"total_cash_balance": "152000", "account_currency_assets": [{"currency": "USD"}, {"currency": "THB", "cash_balance": "150000"}]}
+    monkeypatch.setattr(b, "raw_account", lambda: ("A1", bal2, []))
+    assert b.account()["cash"] is None                                                       # unclear → no buys, not THB
+
+
 def test_golive_checklist(client, clock):
     sign_in(client)
     r = client.get("/api/golive?mode=paper")
