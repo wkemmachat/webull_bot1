@@ -449,7 +449,6 @@ def _retry(o, qty_left, now, why, retries):
 
 
 # ---------------------------------------------------------------- symbols the broker refuses
-BLOCK_S = 6 * 3600
 
 
 def _session_over(o, now) -> bool:
@@ -464,7 +463,7 @@ def _session_over(o, now) -> bool:
 
 def blocked_symbols(mode) -> dict:
     b = db.get_state(f"blocked_sym:{mode}") or {}
-    return {k: v for k, v in b.items() if time.time() - v.get("at", 0) < BLOCK_S}
+    return b                    # kept until you press "try again" (Orders) or a Test trade of the symbol passes
 
 
 def block_symbol(mode, symbol, code, msg, strat=None):
@@ -477,7 +476,7 @@ def block_symbol(mode, symbol, code, msg, strat=None):
         db.add_event("error", "orders", f"Webull refuses {symbol}", f"{msg} · {brokers.PERMANENT_HINTS.get(code, '')}",
                      strategy=strat.id if strat else None, mode=mode)
         notify.send("lot_failed", f"{brokers.MODE_LABEL[mode]} · Webull refuses {symbol}{' (' + name + ')' if name else ''}: {msg}\n"
-                    f"{brokers.PERMANENT_HINTS.get(code, '')} The bot stops trading {symbol} for 6 hours, then tries again.",
+                    f"{brokers.PERMANENT_HINTS.get(code, '')} The bot stops trading {symbol} until you fix it and press 'Try again' on the Orders page (or a Test trade of it passes).",
                     strategy=strat.id if strat else None, critical=True)
 
 
@@ -547,8 +546,8 @@ def poll(mode, now, broker, only_id=None, settings=None):
         new = None
         if status == "FILLED":
             new = "filled"
-        elif status in ("CANCELLED", "FAILED", "REJECTED", "EXPIRED"):
-            new = "partial" if filled > 0 else ("cancelled" if status in ("CANCELLED", "EXPIRED") else "failed")
+        elif status in ("CANCELLED", "CANCELED", "FAILED", "REJECTED", "EXPIRED"):
+            new = "partial" if filled > 0 else ("cancelled" if status in ("CANCELLED", "CANCELED", "EXPIRED") else "failed")
         else:
             new = "submitted" if o["status"] != "submitted" else None
             close = mh.current_close(now, o["session"] or "CORE")

@@ -305,7 +305,7 @@ def _step(t, broker, now):
     status = (st.get("status") or "").upper()
     age = _now() - (t["sent_at"] or _now())
     done = status == "FILLED"
-    dead = status in ("CANCELLED", "FAILED", "REJECTED", "EXPIRED")
+    dead = status in ("CANCELLED", "CANCELED", "FAILED", "REJECTED", "EXPIRED")
     if done or dead:
         t = _get(t["id"])
         raw = _raw(broker, t["cid"]) if dead else t["raw"]

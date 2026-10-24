@@ -57,7 +57,7 @@
       el.innerHTML = `<div class="page-head"><div><div class="eyebrow">Split execution · ${U.modeLabel[mode]}</div><h1 class="h1">Orders</h1>
         <div class="muted" style="margin-top:4px">Every signal becomes a plan: lots of limit orders sent a few minutes apart, from the start time you set.</div></div>
         <a class="btn" href="#/execution">Execution settings</a></div>
-        ${Object.keys(d.blocked || {}).length ? `<div class="note err" style="flex-direction:column;align-items:flex-start;gap:6px"><b>Webull refuses ${Object.keys(d.blocked).join(', ')} — no orders for ${Object.keys(d.blocked).length > 1 ? 'them' : 'it'} for 6 hours</b>
+        ${Object.keys(d.blocked || {}).length ? `<div class="note err" style="flex-direction:column;align-items:flex-start;gap:6px"><b>Webull refuses ${Object.keys(d.blocked).join(', ')} — no orders for ${Object.keys(d.blocked).length > 1 ? 'them' : 'it'} until you press the button below</b>
           ${Object.entries(d.blocked).map(([s, b]) => `<span>${U.esc(s)}: ${U.esc(b.msg)}${b.hint ? ' → ' + U.esc(b.hint) : ''}</span>`).join('')}
           <button class="btn s" id="unb">I fixed it — try again now</button></div>` : ''}
         <div class="seg" style="align-self:flex-start" id="st">${[['all', 'All'], ['queued', 'Queued · ' + d.counts.queued], ['running', 'Running · ' + d.counts.running], ['done', 'Done']].map(([k, l]) => `<button data-s="${k}" class="${status === k ? 'on' : ''}">${l}</button>`).join('')}</div>

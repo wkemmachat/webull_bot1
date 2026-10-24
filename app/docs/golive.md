@@ -38,7 +38,7 @@ correctly — before a strategy needs it.
   press **I sold it** (that sale's cash then stays in Webull, outside the bot).
 - **Refused ETFs:** a refusal for Leveraged & Inverse ETFs (OPENAPI_IS_TH_FIRST_ETF_PLACE) means the account must accept
   that risk notice first. The shared Webull test accounts cannot, so on Webull test those ETFs only pass in Live. A
-  passed test also clears the 6-hour "refused" block for that ETF.
+  passed test also clears the "refused" block for that ETF.
 - In **Live** the checklist item "Every ETF … bought and sold once" is a must: run Test all on the first market day after
   connecting the Live key, before switching strategies on.
 

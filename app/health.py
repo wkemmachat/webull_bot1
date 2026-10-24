@@ -249,7 +249,7 @@ def run(now=None, send=True):
         from . import execution
         blk = execution.blocked_symbols(mode)
         _item(items, f"refused_{mode}", label, f"{label}: Webull accepts every traded symbol", "error" if blk else "ok",
-              "; ".join(f"{k}: {v['msg']}" for k, v in blk.items()) if blk else "No symbol refused in the last 6 hours.",
+              "; ".join(f"{k}: {v['msg']}" for k, v in blk.items()) if blk else "No symbol is refused by Webull.",
               "; ".join(v.get("hint", "") for v in blk.values()) if blk else "", "#/orders")
         floor = float(settings.get(f"protect_floor_{mode}") or 0)
         gb = db.get_state(f"guard_block:{mode}") or {}

@@ -129,3 +129,41 @@ def test_uncancellable_order_expires_after_its_session(clean, clock):
     nxt = db.one("SELECT * FROM orders WHERE plan_id=? AND retry=1 AND symbol='SGOV'", (pid,))
     assert nxt and nxt["status"] == "scheduled" and nxt["scheduled_at"] > clock.dt.timestamp()   # next session
     assert db.one("SELECT COUNT(*) n FROM line_queue WHERE critical=1")["n"] == 0
+
+
+def test_webull_spells_canceled_with_one_l():
+    js = {"client_order_id": "c2", "orders": [{"client_order_id": "c2", "symbol": "SGOV", "side": "BUY", "status": "CANCELED",
+          "filled_quantity": "0.000000", "filled_price": "0.000000", "commission": {"actual_commission": "0"}, "fees": [],
+          "time_in_force": "DAY", "limit_price": "100.750000"}]}           # real answer from th-api.uat, 24 Oct 2026
+    assert brokers.WebullBroker.parse_detail(js, "c2")["status"] == "CANCELLED"
+
+
+class CancelsLikeWebull(brokers.PaperBroker):
+    """Never fills; cancelling works but the status reads CANCELED; a 2nd cancel is refused."""
+    def _try_fill(self, a, o):
+        return
+
+    def cancel(self, cid):
+        a = self._acct()
+        o = a["orders"][cid]
+        if o["status"] != "SUBMITTED":
+            raise brokers.BrokerError(CANNOT)
+        o["status"] = "CANCELED"
+        self._save(a)
+        return True
+
+
+def test_canceled_lot_is_retried_not_stuck(clean, clock):
+    b = CancelsLikeWebull()
+    brokers.set_override("paper", b)
+    s = S.get("gold_sta")
+    pid = X.build_plan("paper", s, {"SGOV": 0.99}, "signal", NOW, b)
+    db.run("UPDATE orders SET scheduled_at=? WHERE plan_id=?", (int(NOW.timestamp()), pid))
+    X.process(NOW)
+    first = db.one("SELECT * FROM orders WHERE plan_id=? AND status='submitted'", (pid,))
+    for _ in range(8):
+        clock.advance(minutes=2)
+        X.process(clock.dt)
+    assert db.one("SELECT status FROM orders WHERE id=?", (first["id"],))["status"] == "cancelled"
+    assert db.one("SELECT COUNT(*) n FROM orders WHERE plan_id=? AND retry>0", (pid,))["n"] >= 1
+    assert db.one("SELECT COUNT(*) n FROM line_queue WHERE text LIKE '%Could not cancel%'")["n"] == 0

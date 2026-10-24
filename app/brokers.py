@@ -456,7 +456,7 @@ class WebullBroker:
     def parse_detail(js, cid):
         """Webull TH order detail: {client_order_id, combo_type, orders: [{status, filled_quantity, filled_price,
         commission: {actual_commission}, fees: [{type, actual_value}], ...}]}. Status: PENDING, SUBMITTED,
-        PARTIAL_FILLED, FILLED, CANCELLED, FAILED."""
+        PARTIAL_FILLED, FILLED, CANCELED (one L, seen on the TH test server), FAILED."""
         js = js.get("data", js) if isinstance(js, dict) and "orders" not in js and isinstance(js.get("data"), dict) else js
         items = js.get("orders") if isinstance(js, dict) else (js if isinstance(js, list) else None)
         items = [x for x in (items or []) if isinstance(x, dict)]
@@ -465,7 +465,9 @@ class WebullBroker:
             raise BrokerError("order not found at Webull")
         fee = _num((it.get("commission") or {}).get("actual_commission")) if isinstance(it.get("commission"), dict) else _num(it.get("commission"))
         fee = (fee or 0.0) + sum((_num(f.get("actual_value")) or 0.0) for f in (it.get("fees") or []) if isinstance(f, dict))
-        return {"status": str(it["status"]).upper(), "filled_qty": _num(it.get("filled_quantity")) or 0.0,
+        status = str(it["status"]).upper()
+        status = {"CANCELED": "CANCELLED", "PARTIALLY_FILLED": "PARTIAL_FILLED"}.get(status, status)   # Webull TH spells CANCELED
+        return {"status": status, "filled_qty": _num(it.get("filled_quantity")) or 0.0,
                 "avg_price": _num(it.get("filled_price")), "fee": fee}
 
     def cancel(self, cid):
