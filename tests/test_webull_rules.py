@@ -112,3 +112,20 @@ def test_repair_rechecks_orders_wrongly_marked_refused(clean, clock):
     o = db.one("SELECT * FROM orders WHERE id=?", (o["id"],))
     assert o["status"] == "filled" and o["applied_qty"] == 5                  # the fill is booked now
     assert ledger.get("paper", s.id)["holdings"].get("SGOV") == 5
+
+
+def test_uncancellable_order_expires_after_its_session(clean, clock):
+    b = StuckAtWebull()
+    brokers.set_override("paper", b)
+    s = S.get("gold_sta")
+    pid = X.build_plan("paper", s, {"SGOV": 0.99}, "signal", NOW, b)
+    db.run("UPDATE orders SET scheduled_at=? WHERE plan_id=?", (int(NOW.timestamp()), pid))
+    X.process(NOW)
+    first = db.one("SELECT * FROM orders WHERE plan_id=? AND status='submitted'", (pid,))
+    clock.set(NOW.replace(hour=20, minute=10))                       # 16:10 New York: the session is over
+    X.process(clock.dt)
+    o = db.one("SELECT * FROM orders WHERE id=?", (first["id"],))
+    assert o["status"] == "cancelled" and o["error"].startswith("expired")
+    nxt = db.one("SELECT * FROM orders WHERE plan_id=? AND retry=1 AND symbol='SGOV'", (pid,))
+    assert nxt and nxt["status"] == "scheduled" and nxt["scheduled_at"] > clock.dt.timestamp()   # next session
+    assert db.one("SELECT COUNT(*) n FROM line_queue WHERE critical=1")["n"] == 0

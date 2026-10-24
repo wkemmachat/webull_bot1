@@ -452,6 +452,16 @@ def _retry(o, qty_left, now, why, retries):
 BLOCK_S = 6 * 3600
 
 
+def _session_over(o, now) -> bool:
+    """Has the trading session this order was sent in closed (plus 5 minutes)?"""
+    sent = _dt(o["submitted_at"] or _ts(now))
+    close = mh.current_close(sent, o["session"] or "CORE")
+    if close is None:                                      # sent outside the session: the next one counts
+        nxt = mh.next_open(sent, o["session"] or "CORE")
+        close = mh.current_close(nxt, o["session"] or "CORE")
+    return close is not None and now >= close + timedelta(minutes=5)
+
+
 def blocked_symbols(mode) -> dict:
     b = db.get_state(f"blocked_sym:{mode}") or {}
     return {k: v for k, v in b.items() if time.time() - v.get("at", 0) < BLOCK_S}
@@ -548,12 +558,22 @@ def poll(mode, now, broker, only_id=None, settings=None):
                     broker.cancel(o["client_order_id"])
                 except brokers.BrokerError as e:
                     log.warning("cancel %s: %s", o["client_order_id"], e)
-                    checks = (o["checks"] or 0) + 1
-                    db.run("UPDATE orders SET checks=?, error=? WHERE id=?", (checks, f"cancel failed: {e}"[:300], o["id"]))
-                    if checks == 5:
-                        notify.send("lot_failed", f"{brokers.MODE_LABEL[mode]} · Could not cancel {o['side']} {o['qty']:.0f} "
-                                    f"{o['symbol']} (lot {o['lot']}/{o['lots']}): {e}. The bot will not send a replacement "
-                                    "while it may still be open. Please check it in the Webull app.", strategy=o["strategy"], critical=True)
+                    if "CANNOT_OPERATE" in str(e) and _session_over(o, now):
+                        # a DAY order cannot fill after its session closed: it expired, whatever Webull's detail says
+                        new = "partial" if filled > 0 else "cancelled"
+                        db.run("UPDATE orders SET error=? WHERE id=?",
+                               ("expired: day order from a closed session (Webull would not cancel it)", o["id"]))
+                        db.add_event("info", "orders", f"Old order treated as expired: {o['side']} {o['qty']:.0f} {o['symbol']}",
+                                     f"Sent {local(_dt(o['submitted_at'] or _ts(now)))}; its trading session is over, so it can no "
+                                     f"longer fill. Filled before: {filled:.0f}.", strategy=o["strategy"], mode=mode)
+                        status = "EXPIRED"
+                    else:
+                        checks = (o["checks"] or 0) + 1
+                        db.run("UPDATE orders SET checks=?, error=? WHERE id=?", (checks, f"cancel failed: {e}"[:300], o["id"]))
+                        if checks == 5:
+                            notify.send("lot_failed", f"{brokers.MODE_LABEL[mode]} · Could not cancel {o['side']} {o['qty']:.0f} "
+                                        f"{o['symbol']} (lot {o['lot']}/{o['lots']}): {e}. The bot will not send a replacement "
+                                        "while it may still be open. Please check it in the Webull app.", strategy=o["strategy"], critical=True)
         db.run("UPDATE orders SET filled_qty=?, avg_price=?, status=COALESCE(?,status), updated_at=? WHERE id=?",
                (filled, avg if filled else o["avg_price"], new, int(time.time()), o["id"]))
         if new in ("partial", "cancelled", "failed"):

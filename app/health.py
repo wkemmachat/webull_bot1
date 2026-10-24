@@ -135,7 +135,22 @@ def indicator_table(s, now=None, rows=12):
             out["rows"].append({"t": int(pd.Timestamp(fr.index[i]).timestamp()), "vals": [closes[i], a, sl, v * 100, vol * 100, fr["state"].iloc[i]],
                                 "ok": diff < 1e-9})
     out["rows"].reverse()
-    return out
+    return _plain(out)
+
+
+def _plain(x):
+    """numpy numbers / bools and NaN → plain JSON values (a numpy bool made the page spin forever)."""
+    if isinstance(x, dict):
+        return {k: _plain(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [_plain(v) for v in x]
+    if isinstance(x, (bool, np.bool_)):
+        return bool(x)
+    if isinstance(x, (int, np.integer)):
+        return int(x)
+    if isinstance(x, (float, np.floating)):
+        return None if math.isnan(x) or math.isinf(x) else float(x)
+    return x
 
 
 # ---------------------------------------------------------------- the check

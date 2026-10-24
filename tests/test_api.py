@@ -198,3 +198,13 @@ def test_testtrade_api(client):
     assert s["last"]["status"] in ("buying", "selling", "ok")
     g = client.get("/api/golive?mode=paper").json()
     assert any(i["key"] == "t_symbols" for sec in g["sections"] for i in sec["items"])
+
+
+def test_indicator_crosscheck_returns_json_for_every_strategy(client):
+    sign_in(client)
+    from app import strategies as S
+    for s in S.all_instances():
+        r = client.get(f"/api/health/indicators?strategy={s.id}")
+        assert r.status_code == 200, (s.id, r.text[:200])
+        d = r.json()
+        assert d.get("error") or (d["rows"] and all(isinstance(x["ok"], bool) for x in d["rows"])), s.id
