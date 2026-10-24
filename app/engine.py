@@ -31,12 +31,27 @@ def _needs():
     return sorted(out)
 
 
+RETRY_MAX_S = 30 * 60          # after failures: retry after 1, 2, 4 … minutes, at most every 30 minutes
+ALERT_AFTER_S = 30 * 60        # only tell LINE when a feed has been failing this long while it matters
+
+
+def _matters(sym, tf, now):
+    """Is fresh data needed right now? 1h futures: COMEX open. Daily ETFs: a US trading day."""
+    if tf == "1h":
+        return metals.last_close(now) is None
+    return mh.is_trading_day(now.astimezone(NY).date())
+
+
 def refresh_data(now, force=False):
     status = db.get_state("data_status") or {}
-    errors = []
+    errors, alerts, fixed = [], [], []
     for sym, tf in _needs():
         key = f"{sym}:{tf}"
         last = md.last_update(sym, tf) or 0
+        prev = status.get(key) or {}
+        fails = int(prev.get("fails") or 0) if not prev.get("ok", True) else 0
+        if fails and not force and time.time() - (prev.get("at") or 0) < min(RETRY_MAX_S, 60 * 2 ** (fails - 1)):
+            continue                                  # back off: Yahoo is having a bad moment
         try:
             if tf == "1h":
                 if force or metals.due(sym, now):
@@ -48,18 +63,27 @@ def refresh_data(now, force=False):
                     status[key] = {"ok": True, "at": int(time.time()), "bars": n}
         except Exception as e:
             log.warning("data %s: %s", key, e)
-            status[key] = {"ok": False, "at": int(time.time()), "error": str(e)[:300], "last_ok": (status.get(key) or {}).get("last_ok") or last}
+            since = prev.get("since") if fails else int(time.time())
+            status[key] = {"ok": False, "at": int(time.time()), "error": str(e)[:300], "fails": fails + 1, "since": since,
+                           "alerted": prev.get("alerted") if fails else None, "last_ok": prev.get("last_ok") or last}
             errors.append(f"{key}: {e}")
+            if time.time() - since >= ALERT_AFTER_S and _matters(sym, tf, now) and not status[key]["alerted"]:
+                status[key]["alerted"] = int(time.time())
+                alerts.append(f"{key}: failing for {int((time.time() - since) // 60)} min ({e})")
         else:
+            if prev.get("alerted"):
+                fixed.append(key)
             if key in status and status[key].get("ok"):
                 status[key]["last_ok"] = int(time.time())
     db.set_state("data_status", status)
     if errors:
-        last_alert = db.get_state("data_alert_at", 0)
-        if time.time() - last_alert > 6 * 3600:
-            notify.send("data", "Price data problem:\n" + "\n".join(errors[:6]))
-            db.add_event("warn", "data", "Price data problem", "\n".join(errors[:10]))
-            db.set_state("data_alert_at", int(time.time()))
+        db.add_event("warn", "data", "Price data problem (retrying)", "\n".join(errors[:10]))
+    if alerts:
+        notify.send("data", "Price data problem — the bot keeps retrying and does not trade on old prices:\n" + "\n".join(alerts[:6]))
+        db.set_state("data_alert_at", int(time.time()))
+    if fixed:
+        notify.send("data", "Price data OK again: " + ", ".join(fixed))
+        db.add_event("info", "data", "Price data OK again", ", ".join(fixed))
     return errors
 
 

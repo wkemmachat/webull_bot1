@@ -13,7 +13,7 @@ import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from . import brokers, db, markethours as mh, notify
+from . import brokers, db, markethours as mh, notify, testtrade
 from .config import BACKUP_DIR
 
 NY = ZoneInfo("America/New_York")
@@ -153,6 +153,22 @@ def report(mode="test"):
     def test(key, title, at, how, link, must=True):
         _item(tests, key, title, bool(at), _ny(at).strftime("done %d %b %H:%M") if at else "not yet", "", how, link, must, at=at)
 
+    tt = testtrade.status_for_golive(mode)
+    okk = [s for s, v in tt.items() if v == "ok"]
+    perm = [s for s, v in tt.items() if v == "permission"]
+    bad = [s for s, v in tt.items() if v in ("refused", "failed")]
+    todo = [s for s, v in tt.items() if v is None]
+    det = " · ".join(x for x in (
+        ("OK: " + ", ".join(okk)) if okk else "",
+        ("needs Leveraged ETF permission: " + ", ".join(perm)) if perm else "",
+        ("refused / not filled: " + ", ".join(bad)) if bad else "",
+        ("not tested: " + ", ".join(todo)) if todo else "") if x)
+    last = db.one("SELECT MAX(finished_at) t FROM test_trades WHERE mode=? AND status='ok'", (mode,))
+    _item(tests, "t_symbols", "Every ETF the strategies use: bought and sold once (Test trade below)",
+          bool(tt) and len(okk) == len(tt), f"{len(okk)} / {len(tt)} OK", det,
+          "Use the Test trade box on this page: it buys 1 share and sells it back, paid from bot unassigned."
+          + (" The shared test accounts refuse leveraged ETFs: those pass only in Live (or your own test account)." if mode == "test" else ""),
+          "#/golive", must=(mode == "live"), warn=bool(okk) and not bad and not todo, at=last and last["t"])
     test("t_withdraw", "Withdraw from a strategy that holds ETFs (it sells evenly)",
          first("SELECT MIN(t) t FROM money WHERE mode=? AND kind='withdraw' AND plan_id IS NOT NULL AND status='done' AND t>=?", (mode, t0)),
          "Money → − Withdraw on a strategy with shares, more than its cash. The sale goes back to bot unassigned.", "#/money")

@@ -182,7 +182,7 @@ def run(now=None, send=True):
             if now.timestamp() - r["bar_time"] > lim and open_mkt and md.source() != "csv":
                 stale.append(f"{s.name}: last bar {datetime.fromtimestamp(r['bar_time']).strftime('%d %b %H:%M')}")
     _item(items, "data", "Data", "Prices are fresh", "warn" if stale else "ok", "; ".join(stale[:5]) if stale else
-          "Futures and ETF bars updated on time.", "Yahoo sometimes fails for a while; the bot retries every tick." if stale else "",
+          "Futures and ETF bars updated on time.", "Yahoo sometimes fails for a while; the bot retries (1, 2, 4 … up to 30 minutes apart) and does not trade on old prices. LINE is told after 30 minutes of failures while the market is open." if stale else "",
           "#/settings")
 
     worst, names = 0.0, []

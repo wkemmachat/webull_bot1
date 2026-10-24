@@ -65,7 +65,7 @@
     document.getElementById('ver').textContent = `v${top.version}${top.data_source !== 'yahoo' ? ' · data: ' + top.data_source : ''}`;
     document.getElementById('pausedbar').classList.toggle('hidden', !top.paused);
     const pb = document.getElementById('pauseall');
-    pb.textContent = top.paused ? 'Resume trading' : 'Pause all trading';
+    pb.innerHTML = top.paused ? 'Resume<span class="hide-s"> trading</span>' : 'Pause<span class="hide-s"> all trading</span>';
     pb.className = top.paused ? 'btn p s' : 'btn d s';
     const cp = document.getElementById('cnt-plans');
     cp.textContent = top.issues.plans; cp.classList.toggle('hidden', !top.issues.plans);

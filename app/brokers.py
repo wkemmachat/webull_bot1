@@ -446,6 +446,12 @@ class WebullBroker:
         js = self._json(self._call(lambda: trade.order_v3.get_order_detail(aid, cid), "order status"), "order status")
         return self.parse_detail(js, cid)
 
+    def order_raw(self, cid):
+        """Webull's own order detail, unchanged (shown on the Go-live page when a test order does not fill)."""
+        trade, _ = self._clients()
+        aid = self._acct_id()
+        return self._json(self._call(lambda: trade.order_v3.get_order_detail(aid, cid), "order status"), "order status")
+
     @staticmethod
     def parse_detail(js, cid):
         """Webull TH order detail: {client_order_id, combo_type, orders: [{status, filled_quantity, filled_price,

@@ -22,6 +22,26 @@ Withdraw from a strategy that holds ETFs · Move money · Stop & sell · Pause a
 server during a plan (`systemctl restart th-strategy-bot`) · Disconnect and reconnect Webull · Money guard blocks a buy (set the
 protected floor above your free cash, see the next buy blocked, set it back) · Return money to Webull.
 
+## Test trade: buy 1 share, sell it back
+
+On the Go-live page, **Test trade** checks every ETF the strategies use (QLD, USD, UGL, AGQ, SGOV, BIL, GLD) one by one:
+the bot buys 1 share (a limit order a little above the ask, like a strategy lot), waits for the fill, sells it straight
+back and shows the cost, the fees and how long the fill took. It proves Webull accepts the symbol, fills it and reports it
+correctly — before a strategy needs it.
+
+- **Money:** paid from **bot unassigned** only. No strategy's cash or shares change. Keep about $200 there
+  (Money → Webull → bot). The money guard and the protected floor check the buy like any other.
+- **Cost:** the spread plus Webull's fees, usually under $0.50 a test.
+- **When:** US market hours only. Tests queued while the market is closed start at the open. "Test all" runs them one at a time.
+- **If the buy does not fill** in 3 tries (2 minutes each) the test stops; "Webull's own answer" shows Webull's order detail.
+- **If the sale does not fill** in 5 tries the share stays: LINE alert, then **Sell again**, or sell it in the Webull app and
+  press **I sold it** (that sale's cash then stays in Webull, outside the bot).
+- **Refused ETFs:** a refusal for Leveraged & Inverse ETFs (OPENAPI_IS_TH_FIRST_ETF_PLACE) means the account must accept
+  that risk notice first. The shared Webull test accounts cannot, so on Webull test those ETFs only pass in Live. A
+  passed test also clears the 6-hour "refused" block for that ETF.
+- In **Live** the checklist item "Every ETF … bought and sold once" is a must: run Test all on the first market day after
+  connecting the Live key, before switching strategies on.
+
 ## Your checks (you tick them)
 
 Compare the bot's Trades with Webull's order history on 3 days · indicator values vs TradingView · LINE alerts on your phone ·

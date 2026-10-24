@@ -2,6 +2,7 @@
 (function () {
   const V = window.Views || (window.Views = {});
   let gmode = null;
+  let ttTimer = null;
 
   V.golive = async function (el) {
     gmode = gmode || (U.mode() === 'paper' ? 'test' : U.mode());
@@ -22,6 +23,7 @@
           <div class="row sb small"><span>${d.passed} of ${d.total} items · <b>${d.must_ok} of ${d.must_total}</b> must-items</span><span class="muted">target 90% ▸</span></div>
           <div>${d.ready ? U.pill('ok big', 'Ready for a small Live start') : U.pill('warn big', 'Not ready yet — keep testing')}</div></div>
       </section>
+      <section class="card col" style="gap:10px" id="tt"><span class="spin"></span></section>
       ${d.sections.map((s) => `<section class="card col" style="gap:4px">
         <div class="row sb" style="margin-bottom:6px"><h2 class="h2">${U.esc(s.title)}</h2><span class="muted small">${U.esc(s.sub)} · ${s.items.filter((i) => i.status === 'ok').length}/${s.items.length}</span></div>
         ${s.items.map((i) => row(i, s.id === 'mine' && i.key !== 'm_floor')).join('')}</section>`).join('')}
@@ -35,6 +37,80 @@
       U.on(el, '[data-tick]', 'change', async (e, c) => {
         load(await U.api('/api/golive/tick', { body: { key: c.dataset.tick, done: c.checked, mode: gmode } }));
       });
+      ttLoad();
+    }
+
+    /* ---- Test trade: buy 1 share of an ETF and sell it back (paid from bot unassigned) */
+    let ttQty = 1, ttRunning = false;
+    async function ttLoad(d) {
+      const box = el.querySelector('#tt');
+      if (!box) return;
+      try { d = d || await U.api('/api/testtrade?mode=' + gmode); } catch (e) { box.innerHTML = `<div class="note err">${U.esc(e.message)}</div>`; return; }
+      ttRender(box, d);
+      clearTimeout(ttTimer);
+      if (d.running) ttTimer = setTimeout(() => { if (document.body.contains(box)) ttLoad(); }, 4000);
+      if (ttRunning && !d.running) { ttRunning = false; load().catch(() => {}); }
+      ttRunning = d.running;
+    }
+    function ttState(r) {
+      if (!r) return '<span class="muted small">not tested</span>';
+      const when = U.dt(r.finished_at || r.updated_at);
+      if (r.status === 'ok') return `${U.pill('ok', 'OK')} <span class="muted small">${U.esc(when)}</span>`;
+      if (r.status === 'queued') return `${U.pill('', 'Queued')} <span class="muted small">${U.esc(r.error || '')}</span>`;
+      if (r.status === 'buying' || r.status === 'selling') return `${U.pill('warn', r.status === 'buying' ? 'Buying…' : 'Selling…')} <span class="spin"></span>`;
+      if (r.status === 'holding') return `${U.pill('err', `Holding ${r.left} share${r.left > 1 ? 's' : ''}`)}`;
+      return `${U.pill('err', r.code === 'OPENAPI_IS_TH_FIRST_ETF_PLACE' ? 'Needs permission' : r.code ? 'Refused' : 'Failed')} <span class="muted small">${U.esc(when)}</span>`;
+    }
+    function ttRender(box, d) {
+      const lowPool = d.pool < 150;
+      const live = gmode === 'live';
+      box.innerHTML = `
+        <div class="row sb" style="flex-wrap:wrap;gap:8px"><div><h2 class="h2">Test trade: buy ${ttQty} share${ttQty > 1 ? 's' : ''}, sell it straight back</h2>
+          <div class="muted small" style="max-width:760px;margin-top:4px">Proves that Webull accepts, fills and reports every ETF the strategies use — before a strategy needs it.
+          Paid from <b>bot unassigned</b> (${U.usd(d.pool)} now) — no strategy's money or shares are touched. You lose only the spread + fees (usually under $0.50 a test).
+          US market hours only; the money guard and protected floor apply.</div></div>
+          <div>${d.market_open ? U.pill('ok', 'Market open') : U.pill('', 'Market closed: tests wait for the open')}</div></div>
+        ${lowPool ? `<div class="note warn">Bot unassigned has ${U.usd(d.pool)}. Put about $200 there first: <a href="#/money">Money → Webull → bot</a> (one share of QLD ≈ $90–110).</div>` : ''}
+        ${live ? '<div class="note warn">Live mode: these are real orders on your own Webull account.</div>' : ''}
+        <div class="tw"><table class="t"><thead><tr><th>ETF</th><th>Used by</th><th>Last test</th><th class="r">Cost</th><th class="r">Buy fill</th><th></th></tr></thead><tbody>
+        ${d.symbols.map((s) => {
+          const r = s.last, ok = s.last_ok;
+          const busy = r && ['queued', 'buying', 'selling', 'holding'].includes(r.status);
+          return `<tr><td><b class="mono">${U.esc(s.symbol)}</b></td>
+            <td class="small muted" style="white-space:normal;min-width:170px;max-width:280px">${s.strategies.map((n) => U.esc(n)).join('<br>')}</td>
+            <td style="white-space:nowrap">${ttState(r)}${ok && r && r.status !== 'ok' ? `<div class="small muted">last OK ${U.esc(U.dt(ok.finished_at))}</div>` : ''}</td>
+            <td class="r num small">${ok ? U.usd(ok.cost) : '—'}</td>
+            <td class="r num small">${ok && ok.buy_secs != null ? ok.buy_secs + ' s' : '—'}</td>
+            <td class="r" style="white-space:nowrap">${r && r.status === 'holding'
+              ? `<button class="btn s" data-sell="${r.id}">Sell again</button> <button class="btn s" data-gone="${r.id}">I sold it</button>`
+              : `<button class="btn s" data-tt="${U.esc(s.symbol)}" ${busy ? 'disabled' : ''}>Test</button>`}</td></tr>
+            ${r && ['failed', 'holding'].includes(r.status) ? `<tr><td></td><td colspan="5" class="small" style="padding-top:0;white-space:normal">
+              <div style="color:var(--text2)">${U.esc(r.result || r.error || '')}</div>
+              ${s.blocked && s.blocked.hint ? `<div class="muted">→ ${U.esc(s.blocked.hint)}</div>` : ''}
+              ${r.raw ? `<details><summary class="muted" style="cursor:pointer">Webull's own answer</summary><pre class="mono small" style="white-space:pre-wrap;word-break:break-all;margin:6px 0">${U.esc(r.raw)}</pre></details>` : ''}</td></tr>` : ''}
+            ${r && ['queued', 'buying', 'selling'].includes(r.status) ? `<tr><td></td><td colspan="5" class="small muted" style="padding-top:0;white-space:normal">${(r.log || []).slice(-3).map((l) => `${U.esc(U.time(l[0]))} ${U.esc(l[1])}`).join('<br>')}</td></tr>` : ''}`;
+        }).join('')}</tbody></table></div>
+        <div class="row" style="gap:10px;flex-wrap:wrap;align-items:center">
+          <label class="small muted" for="ttq">Shares per test</label>
+          <select class="in" id="ttq" style="width:auto">${Array.from({ length: d.max_qty }, (_, i) => i + 1).map((n) => `<option ${n === ttQty ? 'selected' : ''}>${n}</option>`).join('')}</select>
+          <button class="btn p" id="ttall" ${d.running ? 'disabled' : ''}>Test all ${d.symbols.length} ETFs</button>
+          <span class="muted small">One at a time; each takes about 10–60 seconds when the market is open.</span></div>`;
+      box.querySelector('#ttq').onchange = (e) => { ttQty = +e.target.value; ttRender(box, d); };
+      const go = async (syms, btn) => {
+        const what = syms.length === 1 ? syms[0] : `${syms.length} ETFs (${syms.join(', ')})`;
+        const ok = await U.confirm(`Test trade in ${U.modeLabel[gmode]}?`,
+          `Buy ${ttQty} share${ttQty > 1 ? 's' : ''} of ${U.esc(what)}, then sell straight back. Paid from bot unassigned; you lose the spread + fees.`
+          + (live ? '<br><br><b>These are real orders on your Webull account.</b>' : ''), { ok: 'Buy and sell', word: live ? 'TEST' : undefined });
+        if (!ok) return;
+        await U.busy(btn, async () => { ttLoad(await U.api('/api/testtrade/start', { body: { mode: gmode, symbols: syms, qty: ttQty } })); U.toast('Test trade started'); });
+      };
+      U.on(box, '[data-tt]', 'click', (e, b) => go([b.dataset.tt], b));
+      box.querySelector('#ttall').onclick = (e) => go(d.symbols.filter((s) => !(s.last && ['queued', 'buying', 'selling', 'holding'].includes(s.last.status))).map((s) => s.symbol), e.target);
+      U.on(box, '[data-sell]', 'click', (e, b) => U.busy(b, async () => ttLoad(await U.api('/api/testtrade/sell', { body: { id: +b.dataset.sell } }))));
+      U.on(box, '[data-gone]', 'click', async (e, b) => {
+        if (!(await U.confirm('You sold it in the Webull app?', 'The test is closed. The sale\'s cash stays in Webull outside the bot; move it back with Money → Webull → bot if you want.', { ok: 'Yes, I sold it' }))) return;
+        U.busy(b, async () => ttLoad(await U.api('/api/testtrade/closed', { body: { id: +b.dataset.gone } })));
+      });
     }
     function row(i, manual) {
       const icon = i.status === 'ok' ? '<span class="gl ok">✓</span>' : i.status === 'warn' ? '<span class="gl warn">!</span>' : '<span class="gl">○</span>';
@@ -47,6 +123,6 @@
           ${i.link ? `<a class="small" href="${U.esc(i.link)}">Open →</a>` : ''}</div></div>`;
     }
     await load();
-    return { cleanup: () => {}, refresh: () => load().catch(() => {}), every: 60000 };
+    return { cleanup: () => clearTimeout(ttTimer), refresh: () => load().catch(() => {}), every: 60000 };
   };
 })();

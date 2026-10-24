@@ -192,7 +192,7 @@ table.t { width: 100%; border-collapse: collapse; }
 
 /* ---------- modal + toast ---------- */
 .modal-bg { position: fixed; inset: 0; background: rgba(4, 6, 9, .72); z-index: 100; display: flex; align-items: flex-start; justify-content: center;
-  padding: 40px 16px; overflow-y: auto; }
+  padding: calc(40px + env(safe-area-inset-top)) 16px calc(40px + env(safe-area-inset-bottom)); overflow-y: auto; }
 .modal { width: 100%; max-width: 600px; background: var(--panel); border: 1px solid var(--border); border-radius: 18px; box-shadow: 0 30px 80px rgba(0,0,0,.5); }
 .modal-h { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px 8px; }
 .modal-b { padding: 8px 22px 22px; display: flex; flex-direction: column; gap: 16px; }
@@ -240,11 +240,26 @@ table.t { width: 100%; border-collapse: collapse; }
   .span2 { grid-column: auto; }
   .huge { font-size: 34px; }
   .lg { grid-template-columns: 1fr; gap: 4px; }
-  .tabbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; background: var(--side); border-top: 1px solid var(--line); padding: 6px 4px 22px; z-index: 50; }
+  .tabbar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; background: var(--side); border-top: 1px solid var(--line); z-index: 50;
+    padding: 6px max(4px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-left)); }
   .tabbar a { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; color: var(--muted); min-height: 48px; justify-content: center; }
   .tabbar a.on { color: var(--accent); }
   .tabbar svg { width: 22px; height: 22px; }
-  .toast { left: 16px; right: 16px; bottom: 90px; }
+  .toast { left: 16px; right: 16px; bottom: calc(80px + env(safe-area-inset-bottom)); }
+  /* iPhone "Add to Home Screen": the page runs under the status bar / Dynamic Island, so keep the top bar below it */
+  .top { padding: calc(8px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left)); }
+  .side { height: 100dvh; padding-top: calc(18px + env(safe-area-inset-top)); padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  .content { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right));
+    padding-bottom: calc(86px + env(safe-area-inset-bottom)); }
+  #pausedbar { margin: 10px 16px 0 !important; }
+}
+#clock { margin-left: auto; }
+@media (max-width: 600px) {
+  .top { flex-wrap: nowrap; gap: 8px; }
+  #clock, .hide-s { display: none; }
+  #pauseall { margin-left: auto; flex: none; }
+  .top .seg { flex-wrap: nowrap; }
+  .top .seg button { padding: 6px 9px; white-space: nowrap; }
 }
 
 /* Money: Webull → bot → strategies */

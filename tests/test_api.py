@@ -182,3 +182,19 @@ def test_golive_detects_planned_tests(clean, clock):
 def brokers_get(m):
     from app import brokers
     return brokers.get(m)
+
+
+def test_testtrade_api(client):
+    sign_in(client)
+    from app import brokers, ledger
+    ledger.fund_in("paper", 300, brokers.get("paper").account()["cash"])
+    d = client.get("/api/testtrade?mode=paper").json()
+    assert {s["symbol"] for s in d["symbols"]} >= {"QLD", "SGOV"} and d["pool"] == 300
+    r = client.post("/api/testtrade/start", json={"mode": "paper", "symbols": ["TSLA"]})
+    assert r.status_code == 400
+    r = client.post("/api/testtrade/start", json={"mode": "paper", "symbols": ["SGOV"], "qty": 1})
+    assert r.status_code == 200
+    s = next(x for x in r.json()["symbols"] if x["symbol"] == "SGOV")
+    assert s["last"]["status"] in ("buying", "selling", "ok")
+    g = client.get("/api/golive?mode=paper").json()
+    assert any(i["key"] == "t_symbols" for sec in g["sections"] for i in sec["items"])

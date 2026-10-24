@@ -22,7 +22,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 
-from . import brokers, db, ledger, marketdata as md, markethours as mh, notify
+from . import brokers, db, ledger, marketdata as md, markethours as mh, notify, testtrade
 from . import strategies as S
 
 log = logging.getLogger("execution")
@@ -749,7 +749,7 @@ def process(now=None, settings=None):
         modes = brokers.enabled_modes(s)
         for m in brokers.MODES:
             busy = db.one(f"SELECT COUNT(*) n FROM orders WHERE mode=? AND status IN ({_q(len(OPEN))})", (m, *OPEN))["n"]
-            if m not in modes and not busy:
+            if m not in modes and not busy and not testtrade.working(m):
                 continue
             try:
                 broker = brokers.get(m, s)
@@ -776,6 +776,10 @@ def process(now=None, settings=None):
                         positions = {} if m != "paper" else None
                 sent = send_due(m, now, broker, s, positions, acct)
                 finish_plans(m)
+                try:
+                    testtrade.tick(m, now)
+                except Exception as e:
+                    log.warning("test trades %s: %s", m, e)
                 try:
                     record_equity(m, now)
                 except Exception as e:

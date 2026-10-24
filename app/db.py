@@ -79,6 +79,14 @@ CREATE TABLE IF NOT EXISTS line_queue (
   id INTEGER PRIMARY KEY AUTOINCREMENT, t INTEGER, event TEXT, strategy TEXT, title TEXT, text TEXT,
   critical INTEGER DEFAULT 0, delivery TEXT, status TEXT, sent_at INTEGER, attempts INTEGER DEFAULT 0, error TEXT);
 CREATE INDEX IF NOT EXISTS line_status ON line_queue(status);
+CREATE TABLE IF NOT EXISTS test_trades (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, mode TEXT, symbol TEXT, qty REAL, status TEXT, created_at INTEGER,
+  updated_at INTEGER, finished_at INTEGER, side TEXT, cid TEXT, limit_price REAL, sent_at INTEGER, tries INTEGER DEFAULT 0,
+  bought REAL DEFAULT 0, buy_value REAL DEFAULT 0, buy_fee REAL DEFAULT 0, buy_secs REAL,
+  sold REAL DEFAULT 0, sell_value REAL DEFAULT 0, sell_fee REAL DEFAULT 0, sell_secs REAL,
+  o_filled REAL DEFAULT 0, o_value REAL DEFAULT 0, o_fee REAL DEFAULT 0, first_sent INTEGER,
+  result TEXT, error TEXT, code TEXT, raw TEXT, log TEXT);
+CREATE INDEX IF NOT EXISTS test_trades_mode ON test_trades(mode, status);
 CREATE TABLE IF NOT EXISTS health_runs (id INTEGER PRIMARY KEY AUTOINCREMENT, t INTEGER, ok INTEGER, warn INTEGER,
   err INTEGER, report TEXT);
 """

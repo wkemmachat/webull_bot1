@@ -17,7 +17,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import auth, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, views
+from . import auth, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views
 from . import strategies as S
 from .config import APP_NAME, BASE_DIR, COOKIE_SECURE, DISPLAY_TZ, PUBLIC_URL, SCHEDULER_ENABLED
 
@@ -468,6 +468,36 @@ def health_indicators(strategy: str, u=Depends(user)):
         return health.indicator_table(s, rows=12)
     except Exception as e:
         return {"rows": [], "cols": [], "error": str(e)}
+
+
+@app.get("/api/testtrade")
+def testtrade_get(mode: str = "test", u=Depends(user)):
+    m = mode_of(mode)
+    try:
+        testtrade.tick(m)
+    except Exception as e:
+        log.warning("test trade tick: %s", e)
+    return testtrade.view(m)
+
+
+@app.post("/api/testtrade/{action}")
+async def testtrade_action(action: str, request: Request, u=Depends(user)):
+    b = await body(request)
+    try:
+        if action == "start":
+            m = mode_of(b.get("mode"))
+            testtrade.start(m, b.get("symbols") or [], b.get("qty", 1))
+        elif action in ("sell", "closed"):
+            t = db.one("SELECT mode FROM test_trades WHERE id=?", (int(b.get("id") or 0),))
+            if not t:
+                raise HTTPException(404, "Unknown test")
+            m = t["mode"]
+            (testtrade.sell_again if action == "sell" else testtrade.forget)(int(b["id"]))
+        else:
+            raise HTTPException(404, "Unknown action")
+    except testtrade.TestTradeError as e:
+        raise HTTPException(400, str(e))
+    return testtrade.view(m)
 
 
 @app.get("/api/golive")

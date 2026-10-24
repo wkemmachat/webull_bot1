@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 from . import db, marketdata as md
-from .bars import last_closed_bucket_end, next_bucket_end, to_4h
+from .bars import last_closed_bucket_end, market_open_ny, next_bucket_end, to_4h
 from .rolls import apply_rolls, detect_rolls, find_roll_bar
 
 log = logging.getLogger("metals")
@@ -26,10 +26,28 @@ def delay_min() -> int:
     return 0 if md.source() == "csv" else DELAY_MIN
 
 
+def last_close(now: datetime):
+    """When COMEX last closed (UTC) if it is closed now, else None (weekend, the 17:00-18:00 break)."""
+    t = pd.Timestamp(now).tz_convert("America/New_York")
+    if market_open_ny(t):
+        return None
+    for k in range(0, 72):
+        h = (t - pd.Timedelta(hours=k)).floor("h")
+        if market_open_ny(h):
+            return (h + pd.Timedelta(hours=1)).tz_convert("UTC")
+    return None
+
+
 def due(sym: str, now: datetime) -> bool:
-    """True when a new 4H bar should be available, or the data is older than 10 minutes."""
+    """True when a new 4H bar should be available, or the data is older than 10 minutes.
+    While COMEX is closed (weekend, daily break) nothing new can arrive: one download after the close is enough."""
+    if md.source() == "csv":
+        return True
     last = md.last_update(sym, "1h") or 0
-    if time.time() - last > 600 or md.source() == "csv":
+    lc = last_close(now)
+    if lc is not None and last >= lc.timestamp() + (DELAY_MIN + 20) * 60:
+        return False
+    if time.time() - last > 600:
         return True
     end = last_closed_bucket_end(now, delay_min())
     if end is None:
