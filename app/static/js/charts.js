@@ -38,6 +38,8 @@
 
   const fmtV = (v) => v == null ? '—' : Number(v).toLocaleString('en-US', { maximumFractionDigits: Math.abs(v) < 100 ? 3 : 2 });
 
+  C.base = base;
+
   C.render = function (host, spec, opts) {
     opts = opts || {};
     const charts = [];

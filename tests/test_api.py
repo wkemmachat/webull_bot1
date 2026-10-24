@@ -82,7 +82,7 @@ def test_manual_pages(client):
     docs = client.get("/api/docs").json()
     names = [d["name"] for d in (docs.get("docs") if isinstance(docs, dict) else docs)]
     from app.main import DOC_ORDER
-    assert len(names) == len(DOC_ORDER) == 27
+    assert len(names) == len(DOC_ORDER) == 28
     for n in names:
         r = client.get(f"/api/docs/{n}")
         assert r.status_code == 200 and len(r.json()["markdown"]) > 100, n
@@ -225,3 +225,14 @@ def test_indicator_crosscheck_returns_json_for_every_strategy(client):
         assert r.status_code == 200, (s.id, r.text[:200])
         d = r.json()
         assert d.get("error") or (d["rows"] and all(isinstance(x["ok"], bool) for x in d["rows"])), s.id
+
+
+def test_backtest_api(client):
+    sign_in(client)
+    r = client.get("/api/backtest/gold_sta")
+    assert r.status_code == 200 and r.json()["ok"]
+    r = client.post("/api/backtest/gold_sta", json={"params": {"atr": 12}})
+    assert r.status_code == 200 and r.json()["custom"]
+    r = client.post("/api/backtest/gold_sta", json={"params": {"atr": 1}})
+    assert r.status_code == 400
+    assert client.get("/api/backtest/nope").status_code == 404

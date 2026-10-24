@@ -72,7 +72,7 @@
 
   V.strategy = async function (el, params) {
     const sid = params[0], mode = U.mode();
-    let tab = 'overview', chartObj = null, spec = null;
+    let tab = 'overview', chartObj = null, spec = null, btClean = null;
     const cs = { range: null, hideLines: [], hidePanes: [], hideMarkers: false };
     const d = await U.api(`/api/strategies/${sid}?mode=${mode}`);
     const c = d.card, st = d.state || {}, fam = c.family;
@@ -89,7 +89,7 @@
         <div class="row"><button class="btn" data-money="withdraw">Withdraw</button><button class="btn" data-money="add">Add money</button>
           <button class="btn" data-ctl="${c.control === 'paused' ? 'active' : 'paused'}">${c.control === 'paused' ? 'Resume buys' : 'Pause buys'}</button>
           <button class="btn d" data-ctl="stopping">Stop &amp; sell</button></div></div>
-      <nav class="tabs">${[['overview', 'Overview'], ['params', 'Parameters'], ['exec', 'Execution'], ['history', 'History']].map(([k, l]) =>
+      <nav class="tabs">${[['overview', 'Overview'], ['backtest', 'Backtest'], ['params', 'Parameters'], ['exec', 'Execution'], ['history', 'History']].map(([k, l]) =>
         `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</nav>`;
     }
 
@@ -252,7 +252,9 @@
 
     async function render() {
       if (chartObj) { chartObj.destroy(); chartObj = null; }
-      el.innerHTML = header() + (tab === 'overview' ? overview() : tab === 'params' ? paramsForm() : tab === 'exec' ? execForm() : history());
+      if (btClean) { btClean(); btClean = null; }
+      el.innerHTML = header() + (tab === 'overview' ? overview() : tab === 'backtest' ? '<div id="bt" class="col" style="gap:20px"></div>' : tab === 'params' ? paramsForm() : tab === 'exec' ? execForm() : history());
+      if (tab === 'backtest') btClean = V.backtestTab(el.querySelector('#bt'), sid, d);
       U.on(el, '[data-tab]', 'click', (e, b) => { tab = b.dataset.tab; render(); });
       U.on(el, '[data-money]', 'click', (e, b) => V.moneyDialog(b.dataset.money, sid, () => V.strategy(el, params)));
       U.on(el, '[data-ctl]', 'click', async (e, b) => {
@@ -290,7 +292,7 @@
       }
     }
     await render();
-    return () => { if (chartObj) chartObj.destroy(); };
+    return () => { if (chartObj) chartObj.destroy(); if (btClean) btClean(); };
   };
 
   function field(p, val) {

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import io
+import asyncio
 import json
 import logging
 import math
@@ -17,7 +18,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import auth, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views
+from . import auth, backtest, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views
 from . import strategies as S
 from .config import APP_NAME, BASE_DIR, COOKIE_SECURE, DISPLAY_TZ, PUBLIC_URL, SCHEDULER_ENABLED
 
@@ -484,6 +485,28 @@ def health_indicators(strategy: str, u=Depends(user)):
         return {"rows": [], "cols": [], "error": str(e)}
 
 
+@app.get("/api/backtest/{sid}")
+def backtest_get(sid: str, u=Depends(user)):
+    if not S.row(sid):
+        raise HTTPException(404, "No such strategy")
+    return backtest.run(sid)
+
+
+@app.post("/api/backtest/{sid}")
+async def backtest_try(sid: str, request: Request, u=Depends(user)):
+    """Backtest other settings without saving them."""
+    b = await body(request)
+    row = S.row(sid)
+    if not row:
+        raise HTTPException(404, "No such strategy")
+    params = b.get("params") or {}
+    try:
+        S.instance({**row, "params": {**row["params"], **params}})          # validates the values
+        return await asyncio.to_thread(backtest.run, sid, params)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
 @app.get("/api/testtrade")
 def testtrade_get(mode: str = "test", u=Depends(user)):
     m = mode_of(mode)
@@ -802,7 +825,7 @@ def data_refresh(u=Depends(user)):
 
 
 # ---------------------------------------------------------------- docs
-DOC_ORDER = ["overview", "quick-start-mac", "first-day", "modes", "dashboard", "strategies", "money", "orders", "line", "health", "golive",
+DOC_ORDER = ["overview", "quick-start-mac", "first-day", "modes", "dashboard", "strategies", "backtest", "money", "orders", "line", "health", "golive",
              "strategy-gold1", "strategy-gold2", "strategy-silver1", "strategy-silver2", "strategy-qld", "strategy-semis", "strategy-qld-tbd",
              "deploy", "update", "backups", "plugins", "layout", "tests", "troubleshooting", "glossary", "decisions"]
 
