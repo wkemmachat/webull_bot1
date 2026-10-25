@@ -436,10 +436,13 @@ def _run_basket(strat, now, cost):
             o, c = real[s][2][d]
             return (o / real[s][2][prev][1] - 1) if part == "on" else (c / o - 1)
         px = stock[s]
-        if d not in px or prev not in px:
+        if d not in px:
             return None
         o, c = px[d]
-        r = (o / px[prev][1] - 1) if part == "on" else (c / o - 1)
+        base = px[prev][1] if prev in px else last_c.get(s)
+        if part == "on" and not base:
+            return None
+        r = (o / base - 1) if part == "on" else (c / o - 1)
         if not lev2 or s not in emap:
             return r
         rfd = (rf[d][1] / rf[prev][1] - 1) if (d in rf and prev in rf) else 0.04 / 252
@@ -447,6 +450,13 @@ def _run_basket(strat, now, cost):
 
     def cost_of(s):
         return COST_PARK if s in park else (COST_2X if (lev2 and s in emap) else cost)
+
+    last_day = {s: max(v) for s, v in stock.items() if v}
+    last_c = {}                                             # last close seen of each stock (bridges a missing day)
+
+    def delisted(s, d):
+        """No price on day d: delisted (sold at the last close) only if the stock never trades again."""
+        return d >= last_day.get(s, d)
 
     pos, cash, fees, trades = {}, START_CASH, 0.0, []
     eq, expo, sts = [], [], []
@@ -458,9 +468,10 @@ def _run_basket(strat, now, cost):
         if prev:
             for s in list(pos):
                 r = ret(s, d, prev, "on") if s not in park else (pk[s][d][0] / pk[s][prev][1] - 1 if prev in pk[s] else 0.0)
-                if r is None:                               # no price any more (delisted): sold at the last close
-                    cash += pos.pop(s)
-                    continue
+                if r is None:
+                    if s not in park and delisted(s, d):        # no price any more (delisted): sold at the last close
+                        cash += pos.pop(s)
+                    continue                                # a missing day (holiday, data gap): held unchanged
                 pos[s] *= 1 + r
         if pending is not None:
             before = {name(k) if k not in park else k: v for k, v in pos.items()}
@@ -504,9 +515,13 @@ def _run_basket(strat, now, cost):
             else:
                 r = ret(s, d, d, "id") if d in stock.get(s, {}) or s in real else None
                 if r is None:
-                    cash += pos.pop(s)
+                    if delisted(s, d):
+                        cash += pos.pop(s)
                     continue
                 pos[s] *= 1 + r
+        for s in stock:
+            if d in stock[s]:
+                last_c[s] = stock[s][d][1]
         E = cash + sum(pos.values())
         eq.append(E)
         expo.append(sum(v for k, v in pos.items() if k not in park) / E if E > 0 else 0.0)
@@ -661,7 +676,7 @@ def _build(strat, now, cost):
                        "expo": [round(float(x), 3) for x in r["expo"]],
                        "bench": {s: [None if x is None else round(x, 2) for x in v] for s, v in bench.items()}},
             "stats": stats, "ranges": [k for k, _ in RANGES if k in stats], "years": years,
-            "trades": [x for x in r["trades"]][-400:], "round_trips": _round_trips(r["trades"], r["main"], r.get("parking"))[-200:],
+            "trades": [x for x in r["trades"]][-1500:], "round_trips": _round_trips(r["trades"], r["main"], r.get("parking"))[-200:],
             "vs": r.get("vs") or r["main"], "parking": r.get("parking"), "holding": r.get("holding"),
             "fees": round(r["fees"], 2), "cost_pct": cost * 100, "data": {"from": r["data_from"], "to": str(days[-1]), "note": r["data_note"],
                                                                           "source": md.source()},

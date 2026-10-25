@@ -72,7 +72,7 @@
 
   V.strategy = async function (el, params) {
     const sid = params[0], mode = U.mode();
-    let tab = 'overview', chartObj = null, spec = null, btClean = null;
+    let tab = 'overview', chartObj = null, spec = null, btClean = null, chartSym = null;
     const cs = { range: null, hideLines: [], hidePanes: [], hideMarkers: false };
     const d = await U.api(`/api/strategies/${sid}?mode=${mode}`);
     const c = d.card, st = d.state || {}, fam = c.family;
@@ -80,16 +80,16 @@
 
     function header() {
       return `<div class="crumb"><a href="#/strategies">Strategies</a> / ${U.esc(c.name)}</div>
-      <div class="page-head" style="align-items:flex-start"><div class="col" style="gap:8px">
+      <div class="page-head" style="align-items:flex-start"><div class="col" style="gap:8px;min-width:0;max-width:100%">
         <div class="row">${U.dot(c.color, 14)}<h1 class="h1">${U.esc(c.name)}</h1></div>
-        <div class="row" style="gap:8px">${U.pill('', c.type === 'momentum_basket' ? 'Stock basket' : fam === 'regime' ? 'Daily regime' : '4H signal')}${U.pill('', c.flow)}
+        <div class="row" style="gap:8px">${U.pill('', c.type === 'momentum_basket' ? 'Stock basket' : fam === 'regime' ? 'Daily regime' : '4H signal')}<span class="pill" style="white-space:normal;max-width:100%">${U.esc(c.flow)}</span>
           ${U.pill(c.control === 'active' ? 'ok' : 'warn', c.control === 'active' ? 'Active' : c.control === 'paused' ? 'Buys paused' : c.control)}
           ${U.pill(c.line_on ? 'info' : '', c.line_on ? 'LINE on' : 'LINE off')}</div>
         <div class="muted small">${U.esc(d.describe.rule || '')}</div></div>
         <div class="row"><button class="btn" data-money="withdraw">Withdraw</button><button class="btn" data-money="add">Add money</button>
           <button class="btn" data-ctl="${c.control === 'paused' ? 'active' : 'paused'}">${c.control === 'paused' ? 'Resume buys' : 'Pause buys'}</button>
           <button class="btn d" data-ctl="stopping">Stop &amp; sell</button></div></div>
-      <nav class="tabs">${[['overview', 'Overview'], ['backtest', 'Backtest'], ['params', 'Parameters'], ['exec', 'Execution'], ['history', 'History']].map(([k, l]) =>
+      <nav class="tabs">${[['overview', 'Overview'], ['backtest', 'Backtest']].concat(c.type === 'momentum_basket' ? [['charts', 'Stock charts']] : [], [['params', 'Parameters'], ['exec', 'Execution'], ['history', 'History']]).map(([k, l]) =>
         `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</nav>`;
     }
 
@@ -134,10 +134,11 @@
       return `<section class="card col" style="gap:8px"><div class="row sb"><h2 class="h2">This week's list</h2>
         <span class="muted small">Ranking of ${U.esc(b.week)} · strongest ${U.esc(d.row.params.hold)} of the ${U.esc(d.row.params.pool)} largest by ${U.esc(d.row.params.lookback)}-day return</span></div>
         <div class="tw"><table class="t"><thead><tr><th class="r">Size rank</th><th>Stock</th><th class="r">Market cap</th><th class="r">${U.esc(d.row.params.lookback)}-day return</th><th>On the list</th>${b.leverage === '2x' ? '<th>Held as</th>' : ''}</tr></thead><tbody>
-        ${rows.map((r) => `<tr><td class="r num">${r.rank}</td><td><b>${U.esc(r.symbol)}</b></td><td class="r num">${r.mcap != null ? '$' + U.n(r.mcap, 0) + ' bn' : '—'}</td>
+        ${rows.map((r) => `<tr><td class="r num">${r.rank}</td><td><a href="#" data-symc="${U.esc(r.picked && r.inst ? r.inst : r.symbol)}" title="Candle chart with every buy and sell"><b>${U.esc(r.symbol)}</b> <span class="small">📈</span></a></td><td class="r num">${r.mcap != null ? '$' + U.n(r.mcap, 0) + ' bn' : '—'}</td>
           <td class="r num ${U.cls(r.mom)}">${r.mom == null ? '—' : U.pct(r.mom)}</td><td>${r.picked ? U.pill('ok', 'yes') : '<span class="muted">—</span>'}</td>
           ${b.leverage === '2x' ? `<td class="mono">${U.esc(r.inst || '')}${r.picked && r.inst === r.symbol ? ' <span class="muted small">(no 2x ETF)</span>' : ''}</td>` : ''}</tr>`).join('')}</tbody></table></div>
-        <div class="muted small">The list is fixed for the week after each Friday's ranking. Held only while the signal is in; names already held are never topped up.</div></section>`;
+        <div class="muted small">The list is fixed for the week after each Friday's ranking. Held only while the signal is in; names already held are never topped up.
+          Tap a stock for its candle chart with every buy and sell (Stock charts tab).</div></section>`;
     }
 
     function chartToolbar() {
@@ -265,8 +266,10 @@
     async function render() {
       if (chartObj) { chartObj.destroy(); chartObj = null; }
       if (btClean) { btClean(); btClean = null; }
-      el.innerHTML = header() + (tab === 'overview' ? overview() : tab === 'backtest' ? '<div id="bt" class="col" style="gap:20px"></div>' : tab === 'params' ? paramsForm() : tab === 'exec' ? execForm() : history());
+      el.innerHTML = header() + (tab === 'overview' ? overview() : tab === 'backtest' || tab === 'charts' ? '<div id="bt" class="col" style="gap:20px"></div>' : tab === 'params' ? paramsForm() : tab === 'exec' ? execForm() : history());
       if (tab === 'backtest') btClean = V.backtestTab(el.querySelector('#bt'), sid, d);
+      if (tab === 'charts') { btClean = V.symbolChartsTab(el.querySelector('#bt'), sid, d, chartSym); chartSym = null; }
+      U.on(el, '[data-symc]', 'click', (e, b) => { e.preventDefault(); chartSym = b.dataset.symc; tab = 'charts'; render(); window.scrollTo(0, 0); });
       U.on(el, '[data-tab]', 'click', (e, b) => { tab = b.dataset.tab; render(); });
       U.on(el, '[data-money]', 'click', (e, b) => V.moneyDialog(b.dataset.money, sid, () => V.strategy(el, params)));
       U.on(el, '[data-ctl]', 'click', async (e, b) => {

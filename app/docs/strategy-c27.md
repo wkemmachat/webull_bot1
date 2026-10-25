@@ -151,6 +151,23 @@ differences come from the QQQ prices (Yahoo vs the research's dividend-adjusted 
   at least $7,000–$10,000.
 - The ranking needs Yahoo market caps every weekend; if it fails, the bot keeps last week's list and retries hourly.
 
+## Stock charts: every trade on its chart
+
+The **Stock charts** tab on this strategy's page has a candle chart for **each symbol it trades**: QQQ (the signal), every stock or
+2x ETF it has held, and the parking ETFs (GLD, SGOV). Tap a symbol, or tap a stock in *This week's list* on the Overview tab.
+
+| On the chart | Meaning |
+|---|---|
+| ▲ green **Buy** / ▼ red **Sell** | The backtest bought or sold this symbol at that day's open |
+| ▲ **On** / ▼ **Off** (QQQ only) | The close where the signal changed; the stocks trade at the next open |
+| ● blue / orange **Bot** | The bot's own fills for this strategy (Paper, Webull test or Live) |
+| *2x sim* | A trade from before the 2x ETF existed: the backtest used 2× the stock's daily move, so it is drawn on the stock |
+
+Below the chart, **Round trips** lists each buy and sell with price, change, days held and why it went in and out (signal on/off, joined
+or left the weekly list). Tap a row to zoom the chart to that trade. Candles are Yahoo daily prices, split-adjusted but **without dividends**,
+the same as TradingView and Webull, so you can put the two side by side. The backtest itself counts dividends, so its numbers differ slightly.
+Use **Open in TradingView** to check the same day there.
+
 ## Check it on TradingView
 
 QQQ daily: **Supertrend** (ATR length 14, factor 4), **Moving Average** 200 and 5, **Relative Strength Index** length 2. The

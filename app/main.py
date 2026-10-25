@@ -18,7 +18,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import auth, backtest, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views
+from . import auth, backtest, symcharts, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views
 from . import strategies as S
 from .config import APP_NAME, BASE_DIR, COOKIE_SECURE, DISPLAY_TZ, PUBLIC_URL, SCHEDULER_ENABLED
 
@@ -490,6 +490,15 @@ def backtest_get(sid: str, u=Depends(user)):
     if not S.row(sid):
         raise HTTPException(404, "No such strategy")
     return backtest.run(sid)
+
+
+@app.get("/api/backtest/{sid}/chart")
+async def backtest_symbol_chart(sid: str, sym: str = "", u=Depends(user)):
+    """Candles of one symbol the strategy trades, with the backtest's buys/sells and the bot's own fills."""
+    try:
+        return await asyncio.to_thread(symcharts.build, sid, sym or None)
+    except symcharts.ChartError as e:
+        return {"ok": False, "error": str(e)}
 
 
 @app.post("/api/backtest/{sid}")

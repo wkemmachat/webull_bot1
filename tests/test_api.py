@@ -236,3 +236,11 @@ def test_backtest_api(client):
     r = client.post("/api/backtest/gold_sta", json={"params": {"atr": 1}})
     assert r.status_code == 400
     assert client.get("/api/backtest/nope").status_code == 404
+
+
+def test_symbol_chart_api(client):
+    sign_in(client)
+    r = client.get("/api/backtest/c27_mom/chart?sym=QQQ").json()
+    assert r["ok"] and r["sym"] == "QQQ" and r["symbols"]
+    assert client.get("/api/backtest/c27_mom/chart?sym=ZZZZ").json()["ok"] is False
+    assert client.get("/api/backtest/qld_regime/chart").json()["ok"] is False

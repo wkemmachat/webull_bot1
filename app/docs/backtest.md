@@ -16,6 +16,7 @@ and shows what $10,000 would have become, next to simply holding the ETF (and th
 | Year by year | Calendar-year returns; the current year is marked *part* |
 | Trades | Every buy, sell and rebalance with the reason (the same text as the live signal) |
 | Try other settings | Change the rules and run again. **Nothing is saved or traded** — the Parameters tab saves |
+| Stock charts (C2-7 only) | A separate tab: a candle chart of every stock or ETF the strategy traded, with each backtest buy and sell (and the bot's own fills) marked, to cross-check trades |
 
 ## How it is simulated
 
