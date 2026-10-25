@@ -52,6 +52,12 @@ RESEARCH = {
     "c27_mom2x": {"source": "Research on single Stock Nasdaq · C2-7 Momentum 2x (model before 2022, real 2x ETFs after)",
                   "period": "Oct 2016 – Oct 2026", "cagr": 59.6, "maxdd": -37.7, "sharpe": 1.31,
                   "bench": "last 5 years with real 2x ETFs: 72.7% a year, worst fall −30.6%"},
+    "qld_ibs": {"source": "Research on single Stock Nasdaq · strategy 2 (QLD own-price + vol cap, 50/50 gold & T-bill parking)",
+                "period": "Oct 2016 – Oct 2026", "cagr": 37.7, "maxdd": -31.6, "sharpe": 1.27,
+                "bench": "1999-2026 with rebuilt QLD: 30.1% a year, worst fall −31.7%"},
+    "usd_ibs": {"source": "Research on single Stock Nasdaq · USD own-price strategy C (Trend + IBS-dip, aggressive), resized every day",
+                "period": "Oct 2016 – Oct 2026", "cagr": 66.8, "maxdd": -36.7, "sharpe": 1.38,
+                "bench": "2001-2026 with USD rebuilt from SMH: 38.6% a year, worst fall −45.8%"},
     "qld_tbd": {"source": "ETF Strategy Lab, 23 Oct 2026", "period": "Oct 2007 – Oct 2026", "cagr": 32.9, "maxdd": -42.5, "sharpe": 0.95,
                 "bench": "QQQ held: 15.1% a year, worst fall −53.3%"},
 }
@@ -223,12 +229,16 @@ class Book:
 # ---------------------------------------------------------------- daily strategies
 def _run_daily(strat, now, cost):
     p = strat.params
-    sig = p["signal"]
-    ensure_signal_history(sig)
+    sig = p.get("signal") or p["trade"]                 # Trend + IBS-dip reads its signal from the traded ETF itself
+    for s in (strat.history_symbols() if hasattr(strat, "history_symbols") else [sig]):
+        ensure_signal_history(s)
     fr = strat.frame(now)
     fr = fr[fr["state"] != ""]
+    sized = "size" in fr.columns                        # position size decided by the strategy (volatility cap)
+    sizes = {pd.Timestamp(t).date(): float(v) for t, v in zip(fr.index, fr["size"].values)} if sized else {}
+    extra = strat.bench_extra() if hasattr(strat, "bench_extra") else []
     syms = [s for s in strat.trade_symbols() if s]
-    daily = {s: daily_tr(s) for s in set(syms) | {sig, RF_SYMBOL}}
+    daily = {s: daily_tr(s) for s in set(syms) | {sig, RF_SYMBOL} | set(extra)}
     for s in syms:
         if daily[s] is None or daily[s].empty:
             raise BacktestError(f"No price history for {s}")
@@ -256,7 +266,7 @@ def _run_daily(strat, now, cost):
         expo.append(w.get(trade, 0.0))
         st = states[d]
         held_state.append(st)
-        target = strat.target_for(st)
+        target = strat.target_for(st, sizes[d]) if sized else strat.target_for(st)
         if target != last_target:                    # like the bot: a plan only when the target changes (trend ↔ dip: no trade)
             kind = "START" if last_target is None else ("BUY" if target.get(trade, 0) > last_target.get(trade, 0) else "SELL")
             why = f"{sig} close {fr.loc[pd.Timestamp(d).tz_localize('UTC'), 'c']:,.2f}: state {last_state or 'start'} → {st}"
@@ -273,8 +283,10 @@ def _run_daily(strat, now, cost):
         if w and max(abs(w.get(k, 0.0) - target.get(k, 0.0)) for k in set(w) | set(target)) > band:
             pending = (target, f"rebalance: a holding drifted more than {band * 100:g}% from its target", "REBALANCE")
     return {"days": days, "eq": eq, "expo": expo, "trades": B.trades, "fees": B.fees, "state": held_state,
-            "bench": {trade: daily[trade], sig: daily[sig]}, "rf": daily.get(RF_SYMBOL), "main": trade, "index": sig,
-            "data_from": str(days[0]), "data_note": f"{sig} daily closes (signal) · {', '.join(syms)} daily total-return prices"}
+            "bench": {trade: daily[trade], sig: daily[sig], **{s: daily[s] for s in extra if daily.get(s) is not None and not daily[s].empty}},
+            "rf": daily.get(RF_SYMBOL), "main": trade, "index": extra[0] if extra else sig,
+            "data_from": str(days[0]), "data_note": f"{sig} daily bars (signal) · {', '.join(syms)} daily total-return prices"
+                                                     + (f" · size from {p['vol_symbol']} volatility" if sized and p.get("vol_symbol") else "")}
 
 
 # ---------------------------------------------------------------- 4H metals strategies

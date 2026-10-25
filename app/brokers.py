@@ -88,7 +88,7 @@ class PaperBroker:
     def _acct(self):
         a = db.get_state(self.KEY)
         if not a:
-            cash = float(self.settings.get("paper_start_cash") or 100000)
+            cash = float(self.settings.get("paper_start_cash") or 150000)
             a = {"cash": cash, "start_cash": cash, "positions": {}, "orders": {}, "created": int(time.time())}
             db.set_state(self.KEY, a)
         return a

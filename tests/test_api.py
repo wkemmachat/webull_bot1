@@ -82,7 +82,7 @@ def test_manual_pages(client):
     docs = client.get("/api/docs").json()
     names = [d["name"] for d in (docs.get("docs") if isinstance(docs, dict) else docs)]
     from app.main import DOC_ORDER
-    assert len(names) == len(DOC_ORDER) == 30
+    assert len(names) == len(DOC_ORDER) == 32
     for n in names:
         r = client.get(f"/api/docs/{n}")
         assert r.status_code == 200 and len(r.json()["markdown"]) > 100, n

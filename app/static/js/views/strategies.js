@@ -118,6 +118,7 @@
         <div class="grid" style="--min:240px;gap:12px">${(det.checks || []).map((g) => `<div class="card" style="padding:12px 14px;background:var(--panel2)">
           <div class="muted small">${U.esc(g.k)}</div><div class="num ${g.cls || ''}" style="font-size:16px;font-weight:600">${U.esc(g.v)}</div><div class="muted small">${U.esc(g.h || '')}</div></div>`).join('')}</div>
       </section>`;
+      if (c.type !== 'regime') return `<section class="card"><h2 class="h2">${U.esc(det.title || 'Position')}</h2><div class="muted" style="margin-top:6px">Waiting for the first evaluation — the bot reads the latest close within a minute of starting.</div></section>`;
       const tiles = [['2x', 'Trend on, confirmed, calm', `${p.calm_weight}% ${p.trade}`], ['0.5x', `Trend on, confirmed, jumpy (vol ≥ ${p.vol_gate_pct}%)`, `${p.jumpy_weight}% ${p.trade} · rest ${p.cash_symbol}`],
         ['1x', `Trend on, not confirmed (SMA${p.confirm_days} ≤ SMA${p.ma_days})`, `${p.unconfirmed_weight}% ${p.trade} · rest ${p.cash_symbol}`], ['off', `${p.signal} at or below SMA${p.ma_days}`, `100% ${p.off_symbol}`]];
       const colors = { '2x': '#5B8DEF', '1x': '#34508A', '0.5x': '#F5C76B', off: '#B9852C' };
@@ -192,7 +193,7 @@
           <div class="tw"><table class="t"><thead><tr><th>Holding</th><th class="r">Shares</th><th class="r">Value</th><th class="r">Now</th><th class="r">Target</th></tr></thead><tbody>
           ${d.holdings.map((h) => `<tr><td>${U.esc(h.symbol)}</td><td class="r num">${h.qty == null ? '—' : U.n(h.qty, 0)}</td><td class="r num">${U.usd(h.value)}</td>
             <td class="r num">${(h.now * 100).toFixed(1)}%</td><td class="r num">${(h.target * 100).toFixed(1)}%</td></tr>`).join('')}</tbody></table></div>
-          <div class="muted small">${c.type === 'momentum_basket' ? 'Trades when the signal turns on or off, or when the weekly list changes. Names already held are never topped up or trimmed; new names get 1/' + U.esc(d.row.params.hold) + ' of the money.' : 'Trades on a new signal, or when a holding drifts more than ' + U.esc(d.row.params.rebalance_band_pct) + '% from target (e.g. after Add money).'}</div></section>
+          <div class="muted small">${c.type === 'momentum_basket' ? 'Trades when the signal turns on or off, or when the weekly list changes. Names already held are never topped up or trimmed; new names get 1/' + U.esc(d.row.params.hold) + ' of the money.' : c.type === 'ibs_dip' ? 'Trades when the signal turns on or off (a dip day is a one-day trade), or when the volatility-capped size moves more than ' + U.esc(d.row.params.size_band_pct) + ' points.' : 'Trades on a new signal, or when a holding drifts more than ' + U.esc(d.row.params.rebalance_band_pct) + '% from target (e.g. after Add money).'}</div></section>
         ${fam === 'regime' ? `<section class="card"><h2 class="h2" style="margin-bottom:6px">State changes</h2>${sig.slice(0, 7).map((x) => `<div class="list-row" style="align-items:center">
           <span class="num muted small" style="width:64px;flex:none">${U.day(x.t)}</span>${x.kind === 'LIST' ? U.pill('', 'list') : U.pill('', x.from_state) + '<span class="muted">→</span>' + U.pill('info', x.to_state)}
           <span class="muted small wrap" style="margin-left:auto;text-align:right;min-width:0">${U.esc(x.text)}</span></div>`).join('') || '<div class="muted">None yet</div>'}</section>` : ''}
@@ -219,12 +220,13 @@
       const p = d.row.params;
       const cols = st.detail && st.detail.log_cols;
       if (cols) {
-        const f = (v, k) => k === 'n1' ? U.n(v, 1) : U.n(v, 2);
+        const f = (v, k) => k === 'n0' ? U.n(v, 0) : k === 'n1' ? U.n(v, 1) : U.n(v, 2);
         return `<section class="card"><div class="row sb" style="margin-bottom:6px"><h2 class="h2">Daily log — the numbers each decision used</h2></div>
         <div class="tw"><table class="t"><thead><tr><th>Date (NY)</th>${cols.map((c) => `<th class="r">${U.esc(c.label)}</th>`).join('')}<th>State</th><th>Action</th></tr></thead><tbody>
         ${log.slice(0, 15).map((r) => `<tr><td class="num">${U.esc(r.date)}</td>${cols.map((c) => `<td class="r num">${f(r[c.k], c.fmt)}</td>`).join('')}
-          <td>${U.pill(r.state === 'out' ? '' : r.state === 'dip' ? 'warn' : 'ok', r.state)}</td><td class="muted">${r.changed ? U.esc(r.from) + ' → ' + U.esc(r.state) + ' · ' + (r.state === 'out' ? 'sell plan' : 'buy plan') : 'no trade'}</td></tr>`).join('')}</tbody></table></div></section>`;
+          <td>${U.pill(r.state === 'out' || r.state === 'off' ? '' : r.state === 'dip' ? 'warn' : 'ok', r.state)}</td><td class="muted">${r.action ? U.esc(r.action) : r.changed ? U.esc(r.from) + ' → ' + U.esc(r.state) + ' · ' + (r.state === 'out' || r.state === 'off' ? 'sell plan' : 'buy plan') : 'no trade'}</td></tr>`).join('')}</tbody></table></div></section>`;
       }
+      if (c.type !== 'regime') return '';
       return `<section class="card"><div class="row sb" style="margin-bottom:6px"><h2 class="h2">Daily log — the numbers each decision used</h2></div>
         <div class="tw"><table class="t"><thead><tr><th>Date (NY)</th><th class="r">${U.esc(p.signal)}</th><th class="r">SMA${p.ma_days}</th><th class="r">SMA${p.confirm_days}</th><th class="r">Vol ${p.vol_days}d</th><th>State</th><th>Action</th></tr></thead><tbody>
         ${log.slice(0, 15).map((r) => `<tr><td class="num">${U.esc(r.date)}</td><td class="r num">${U.n(r.close, 2)}</td><td class="r num">${U.n(r.sma_long, 2)}</td><td class="r num">${U.n(r.sma_short, 2)}</td>

@@ -79,5 +79,5 @@ Also:
   **Health check** reports a problem on LINE. Return money to Webull or withdraw from a strategy to fix it.
 - Returns are measured on **net money in** (in − out), and *Today* on the Dashboard leaves out money added that day, so adding money
   never looks like profit.
-- In **Paper** mode the account is $100,000; each strategy starts with $10,000 and the rest is *not for the bot* until you
+- In **Paper** mode the account is $150,000 on a new install ($100,000 on older ones); each strategy starts with $10,000 and the rest is *not for the bot* until you
   allocate it.

@@ -3,7 +3,7 @@
 
 | Mode | Money | Orders go to | Use it for |
 |---|---|---|---|
-| Paper | pretend, $100,000 account, $10,000 per strategy | nowhere (filled inside the bot at live prices + 0.05% spread) | watching the logic |
+| Paper | pretend, $150,000 account (new installs), $10,000 per strategy | nowhere (filled inside the bot at live prices + 0.05% spread) | watching the logic |
 | Webull test | Webull's test account | th-api.uat.webullbroker.com | checking the API connection and order flow |
 | Live | your money | your Webull Thailand account | real trading |
 

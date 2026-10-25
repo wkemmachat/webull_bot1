@@ -20,7 +20,7 @@ and shows what $10,000 would have become, next to simply holding the ETF (and th
 
 ## How it is simulated
 
-- **Daily strategies** (QLD regime, 2x Semis regime, QLD + Trend + bear-dip): decided on each US close, traded at the **next
+- **Daily strategies** (QLD regime, 2x Semis regime, QLD + Trend + bear-dip, QLD and USD Trend + IBS-dip): decided on each US close, traded at the **next
   day's open** (as in the research and the bot). Trades happen only when the target changes, or when a holding drifts more than the
   rebalance band.
 - **4H metals strategies** (Gold #1/#2, Silver #1/#2): a signal counts when its 4H futures bar closes (plus Yahoo's ~11-minute delay).
@@ -34,6 +34,8 @@ and shows what $10,000 would have become, next to simply holding the ETF (and th
 | Strategies | Data | Period |
 |---|---|---|
 | QLD regime, QLD + Trend + bear-dip | QQQ daily (signal), QLD, BIL, GLD daily | from mid-2007 (when BIL and QLD both exist) |
+| QLD Trend + IBS-dip | QLD daily (signal), QQQ daily (size), QLD, GLD, BIL daily | from mid-2007 |
+| USD Trend + IBS-dip | USD daily (signal and size), USD, GLD, BIL daily; SMH for comparison | from November 2007 (USD started in February 2007, plus 200 days for its average) |
 | 2x Semis regime | SMH daily, USD, BIL, GLD daily | from mid-2007 |
 | C2-7 Momentum 1x / 2x | QQQ daily (signal), weekly Nasdaq-100 ranking and stock prices from the research (2016–2026, then the bot's own), 2x ETFs, GLD, SGOV | from late October 2016 (the research's ranking file) |
 | Gold #1/#2, Silver #1/#2 | GC=F / SI=F hourly futures, UGL / AGQ / SGOV | about 2 years: Yahoo keeps only 2 years of hourly futures |

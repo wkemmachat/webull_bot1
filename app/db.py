@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS health_runs (id INTEGER PRIMARY KEY AUTOINCREMENT, t 
 DEFAULTS = {
     # trading modes: paper runs inside the bot; test = Webull test server; live = your real Webull account
     "mode_paper": "1", "mode_test": "0", "mode_live": "0",
-    "paper_start_cash": "100000", "paper_strategy_cash": "10000", "paper_fee_pct": "0.0", "paper_spread_pct": "0.05",
+    "paper_start_cash": "150000", "paper_strategy_cash": "10000", "paper_fee_pct": "0.0", "paper_spread_pct": "0.05",
     "follow_current_signal": "1",            # (old setting, replaced by new_money_start)
     "new_money_start": "now",
     "protect_floor_paper": "0", "protect_floor_test": "0", "protect_floor_live": "0",   # Webull cash the bot never spends below                # new money: "now" = follow today's signal · "buy" = keep cash until the next BUY signal

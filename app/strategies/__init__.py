@@ -29,6 +29,12 @@ DEFAULTS = [
      {"signal": "QQQ", "trade": "QLD", "cash_symbol": "BIL", "ma_days": 200, "rsi_len": 2, "rsi_buy": 5.0, "exit_ma": 5}, {}),
     ("c27_mom", "momentum_basket", "C2-7 Momentum 1x", "#E8875A", {"leverage": "1x"}, {}),
     ("c27_mom2x", "momentum_basket", "C2-7 Momentum 2x", "#9BCB4E", {"leverage": "2x"}, {}),
+    ("qld_ibs", "ibs_dip", "QLD Trend + IBS-dip", "#E46AA8",
+     {"trade": "QLD", "vol_symbol": "QQQ", "gold_etf": "GLD", "cash_symbol": "BIL", "ibs_max": 0.2, "adx_min": 20, "target_vol_pct": 50}, {}),
+    ("usd_ibs", "ibs_dip", "USD Trend + IBS-dip", "#4FC3F7",
+     {"trade": "USD", "vol_symbol": "USD", "compare_symbol": "SMH", "gold_etf": "GLD", "cash_symbol": "BIL", "st_atr": 20, "st_mult": 4.5,
+      "ma_days": 200, "ibs_max": 0.15, "adx_min": 0, "target_vol_pct": 40, "leverage": 1, "vol_days": 20, "dip_full_size": True,
+      "size_band_pct": 20}, {}),
 ]
 PALETTE = ["#3DC9C0", "#E8875A", "#E46AA8", "#9BCB4E", "#F2C14E", "#5B8DEF", "#B084F5"]
 

@@ -1,7 +1,7 @@
 <!--{"title": "What this bot does", "group": "Start here"}-->
 # What this bot does
 
-TH Strategy Bot runs **seven research strategies** on **one Webull Thailand account**, keeps a separate book for each,
+TH Strategy Bot runs **eleven research strategies** on **one Webull Thailand account**, keeps a separate book for each,
 sends every order as **split lots from a start time you choose**, tells you on **LINE**, and **cross-checks itself every night**.
 
 | Strategy | Reads | Trades | Timeframe |
@@ -13,6 +13,10 @@ sends every order as **split lots from a start time you choose**, tells you on *
 | QLD regime | QQQ daily | QLD (2x Nasdaq) · BIL · GLD | daily, after the US close |
 | 2x Semis regime | SMH daily | USD (2x semis) · BIL · GLD | daily, after the US close |
 | QLD + Trend + bear-dip | QQQ daily | QLD · BIL | daily, after the US close |
+| QLD Trend + IBS-dip | QLD daily (own price) + QQQ volatility | QLD (size capped) · GLD · BIL | daily, after the US close |
+| USD Trend + IBS-dip | USD daily (own price and volatility) | USD (2x chips, size capped, 100% on dip days) · GLD · BIL | daily, after the US close |
+| C2-7 Momentum 1x | QQQ daily + weekly Nasdaq-100 ranking | 7 Nasdaq stocks · GLD · SGOV | daily signal, weekly list |
+| C2-7 Momentum 2x | QQQ daily + weekly Nasdaq-100 ranking | 7 stocks via 2x ETFs · GLD · SGOV | daily signal, weekly list |
 
 ## How a trade happens
 

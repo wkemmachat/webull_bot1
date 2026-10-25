@@ -8,11 +8,11 @@ from conftest import NOW
 
 def test_paper_start(clean):
     acct = brokers.get("paper").account()
-    assert acct["cash"] == 100000
+    assert acct["cash"] == 150000
     for r in S.rows():
         assert ledger.get("paper", r["id"])["cap_in"] == 10000
     assert ledger.pool_cash("paper") == 0                                          # bot unassigned starts empty
-    assert ledger.outside_cash("paper", acct["cash"]) == pytest.approx(100000 - 10000 * len(S.rows()))   # not for the bot
+    assert ledger.outside_cash("paper", acct["cash"]) == pytest.approx(150000 - 10000 * len(S.rows()))   # not for the bot
 
 
 def test_three_layers(clean):

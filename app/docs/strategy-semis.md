@@ -70,6 +70,15 @@ Numbers from the bot's own **Backtest** tab on 25 Oct 2026: the strategy's live 
 
 Strategy **U** of the *Strategy to beat QQQ* research: the semiconductor sleeve on its own. Worst fall in the research about −46%.
 
+## An alternative on the same ETF
+
+**USD Trend + IBS-dip** also holds USD, but reads USD's own chart instead of SMH: a Supertrend + SMA200 trend leg sized by USD's
+volatility, plus one-day full-size trades after weak closes. Over 10 years it earned more (+62.5% a year vs +57.3%) with a smaller
+worst fall (−37.0% vs −45.9%), and it made money in 2018 (+34% vs −8%) and 2022 (+32% vs −41%). 2x Semis regime earned more over the
+last 2–3 years of the chip rally (+111% a year vs +74% over 3 years) and trades far less (about 9 times a year vs 62). The two move
+together (monthly correlation about 0.6), so running both is mostly the same bet: choose one, or split the money between them.
+See **USD Trend + IBS-dip**.
+
 ## Risks and what to expect
 
 - **Concentrated:** one sector, 2x. Falls of −40% to −47% happened (2022: about −41%).
