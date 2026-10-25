@@ -19,7 +19,7 @@
       destroyCharts();
       host.innerHTML = `<section class="card col" style="gap:10px;align-items:center;padding:40px 20px"><span class="spin"></span>
         <div class="muted small" style="text-align:center;max-width:460px">Running ${U.esc(c.name)} over past prices with the same code that trades.
-        The first run downloads the price history and can take up to half a minute.</div></section>`;
+        The first run downloads the price history and can take up to a minute.</div></section>`;
       try {
         st.data = params ? await U.api(`/api/backtest/${sid}`, { body: { params } }) : await U.api(`/api/backtest/${sid}`);
         st.custom = params || null;

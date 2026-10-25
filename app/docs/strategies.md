@@ -20,6 +20,6 @@ Each strategy is a **sub-account**: its own money, holdings, plans, LINE switch 
 
 ## Adding a strategy
 
-**Strategies → + Add strategy** offers every strategy type: Supertrend (with optional ADX filter), Donchian breakout and
-Regime. For example a *TQQQ regime* or a *Supertrend on silver with different settings*. New strategies start with paper money
+**Strategies → + Add strategy** offers every strategy type: Supertrend (with optional ADX filter), Donchian breakout, Regime,
+Trend + bear-dip and Momentum basket (C2-7: the strongest of the largest Nasdaq-100 stocks, 1x or 2x). For example a *TQQQ regime* or a *Supertrend on silver with different settings*. New strategies start with paper money
 only. Completely new rule types are Python plugins (see *Add a strategy plugin*).
