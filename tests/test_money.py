@@ -22,23 +22,23 @@ def test_three_layers(clean):
     free = ledger.outside_cash("paper", cash())                                     # 100k − 10k per strategy
     with pytest.raises(ValueError):                                                 # cannot give the bot more than is free
         moneyops.to_bot("paper", free + 0.01)
-    moneyops.to_bot("paper", 20000)                                                 # Webull → bot
-    assert ledger.pool_cash("paper") == 20000 and ledger.outside_cash("paper", cash()) == pytest.approx(free - 20000)
-    moneyops.add("paper", "gold_sta", 5000)                                         # bot → one strategy
-    assert ledger.value("paper", "gold_sta")["net_in"] == 15000 and ledger.pool_cash("paper") == 15000
-    r = moneyops.split("paper", moneyops.equal_split(10000, ["silver_dc", "silver_st", "qld_regime"]))
-    assert r["pool"] == pytest.approx(5000)
-    assert ledger.value("paper", "silver_dc")["net_in"] == pytest.approx(13333.34)
-    assert ledger.value("paper", "qld_regime")["net_in"] == pytest.approx(13333.33)
+    moneyops.to_bot("paper", 8000)                                                  # Webull → bot
+    assert ledger.pool_cash("paper") == 8000 and ledger.outside_cash("paper", cash()) == pytest.approx(free - 8000)
+    moneyops.add("paper", "gold_sta", 2000)                                         # bot → one strategy
+    assert ledger.value("paper", "gold_sta")["net_in"] == 12000 and ledger.pool_cash("paper") == 6000
+    r = moneyops.split("paper", moneyops.equal_split(4000, ["silver_dc", "silver_st", "qld_regime"]))
+    assert r["pool"] == pytest.approx(2000)
+    assert ledger.value("paper", "silver_dc")["net_in"] == pytest.approx(11333.34)
+    assert ledger.value("paper", "qld_regime")["net_in"] == pytest.approx(11333.33)
     with pytest.raises(ValueError):
-        moneyops.split("paper", {"gold_sta": 6000})                                 # more than bot unassigned
+        moneyops.split("paper", {"gold_sta": 3000})                                 # more than bot unassigned
     moneyops.withdraw("paper", "gold_sta", 1000)                                    # strategy → bot unassigned
-    assert ledger.pool_cash("paper") == pytest.approx(6000)
+    assert ledger.pool_cash("paper") == pytest.approx(3000)
     with pytest.raises(ValueError):
-        moneyops.to_webull("paper", 6000.5)
-    moneyops.to_webull("paper", 6000)                                               # bot → Webull
+        moneyops.to_webull("paper", 3000.5)
+    moneyops.to_webull("paper", 3000)                                               # bot → Webull
     assert ledger.pool_cash("paper") == 0
-    assert ledger.outside_cash("paper", cash()) == pytest.approx(free - 20000 + 6000)
+    assert ledger.outside_cash("paper", cash()) == pytest.approx(free - 8000 + 3000)
     kinds = [m["kind"] for m in ledger.moves("paper")]
     assert {"to_bot", "to_webull", "add", "withdraw"} <= set(kinds)
 

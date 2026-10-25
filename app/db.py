@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS test_trades (
   o_filled REAL DEFAULT 0, o_value REAL DEFAULT 0, o_fee REAL DEFAULT 0, first_sent INTEGER,
   result TEXT, error TEXT, code TEXT, raw TEXT, log TEXT);
 CREATE INDEX IF NOT EXISTS test_trades_mode ON test_trades(mode, status);
+CREATE TABLE IF NOT EXISTS c27_rank (week TEXT, rank INTEGER, symbol TEXT, mcap REAL, created_at INTEGER, PRIMARY KEY (week, symbol));
 CREATE TABLE IF NOT EXISTS health_runs (id INTEGER PRIMARY KEY AUTOINCREMENT, t INTEGER, ok INTEGER, warn INTEGER,
   err INTEGER, report TEXT);
 """
@@ -136,7 +137,7 @@ def con():
 
 
 # columns added after the first release: (table, column, definition)
-MIGRATIONS = [("ledger", "hold_amt", "REAL DEFAULT 0"), ("orders", "fee", "REAL DEFAULT 0")]
+MIGRATIONS = [("ledger", "hold_amt", "REAL DEFAULT 0"), ("orders", "fee", "REAL DEFAULT 0"), ("plans", "goal", "TEXT")]
 
 
 def init():

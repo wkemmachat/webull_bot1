@@ -45,7 +45,7 @@
     }
 
     function tiles(S, B) {
-      const main = st.data.main, idx = st.data.index;
+      const main = st.data.vs || st.data.main, idx = st.data.index !== main ? st.data.index : null;
       const bm = B[main], bi = idx ? B[idx] : null;
       const tile = (k, v, sub, cls) => `<div class="card" style="padding:14px 16px"><div class="eyebrow">${k}</div>
         <div class="num big ${cls || ''}" style="margin-top:6px">${v}</div><div class="muted small" style="margin-top:2px">${sub}</div></div>`;
@@ -54,7 +54,7 @@
         ${tile('Worst fall', PP(S.maxdd), `${U.esc(main)} held ${PP(bm && bm.maxdd)} · ${dayTxt(S.dd_peak)} → ${dayTxt(S.dd_trough)}`, 'dn')}
         ${tile('$10,000 became', U.usd(S.end_value, 0), `${P(S.total, 0)} in ${S.years.toFixed(1)} years`)}
         ${tile('Sharpe', S.sharpe == null ? '—' : S.sharpe.toFixed(2), `${U.esc(main)} held ${bm && bm.sharpe != null ? bm.sharpe.toFixed(2) : '—'} · above T-bills`)}
-        ${tile('In the market', PP(S.exposure, 0), `of the days in ${U.esc(main)}`)}
+        ${tile('In the market', PP(S.exposure, 0), `of the days in ${U.esc(st.data.main)}`)}
         ${tile('Trades', S.trades, `${S.per_year} a year${S.win_rate != null ? ` · ${PP(S.win_rate, 0)} of round trips won` : ''}`)}</div>`;
     }
 
@@ -112,13 +112,14 @@
       const n = tr.filter((x) => x.kind !== 'START').length, full = tr.length;
       if (!st.allTrades) tr = tr.slice(0, 25);
       const pos = (o) => Object.entries(o).sort((a, b) => b[1] - a[1]).map(([s, w]) => `${(w * 100).toFixed(0)}% ${s}`).join(' + ') || 'cash';
-      const kind = { BUY: ['ok', 'Buy'], SELL: ['err', 'Sell'], REBALANCE: ['info', 'Rebalance'], START: ['', 'Start'] };
+      const kind = { BUY: ['ok', 'Buy'], SELL: ['err', 'Sell'], REBALANCE: ['info', 'Rebalance'], START: ['', 'Start'], LIST: ['info', 'List change'] };
+      const px = r.main !== 'stocks';
       return `<section class="card col" style="gap:8px"><div class="row sb"><h2 class="h2">Trades in this period (${n})</h2>
         ${full > 25 ? `<button class="btn s" id="bt-all">${st.allTrades ? 'Show the last 25' : 'Show all ' + n}</button>` : ''}</div>
-        <div class="tw"><table class="t"><thead><tr><th>When (Bangkok)</th><th></th><th>From</th><th>To</th><th class="r">${U.esc(r.main)}</th><th class="r">Value</th><th>Why</th></tr></thead><tbody>
+        <div class="tw"><table class="t"><thead><tr><th>When (Bangkok)</th><th></th><th>From</th><th>To</th>${px ? `<th class="r">${U.esc(r.main)}</th>` : ''}<th class="r">Value</th><th>Why</th></tr></thead><tbody>
         ${tr.map((x) => { const k = kind[x.kind] || ['', x.kind]; return `<tr><td class="num">${U.esc(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(x.t * 1000)))}</td>
           <td>${U.pill(k[0], k[1])}</td><td class="small">${U.esc(pos(x.from))}</td><td class="small">${U.esc(pos(x.to))}</td>
-          <td class="r num">${x.prices[r.main] != null ? U.usd(x.prices[r.main]) : '—'}</td><td class="r num">${U.usd(x.value, 0)}</td>
+          ${px ? `<td class="r num">${x.prices[r.main] != null ? U.usd(x.prices[r.main]) : '—'}</td>` : ''}<td class="r num">${U.usd(x.value, 0)}</td>
           <td class="muted small wrap" style="max-width:340px">${U.esc(x.why || '')}</td></tr>`; }).join('') || '<tr><td colspan="7" class="muted">No trades in this period: the position did not change.</td></tr>'}
         </tbody></table></div></section>`;
     }
@@ -135,7 +136,9 @@
 
     function assumptions() {
       const r = st.data, e = r.exec || {};
-      const timing = r.family === 'regime'
+      const timing = r.parking
+        ? 'The on/off signal is decided on each US close; the list of stocks comes from each Friday\'s Nasdaq-100 ranking. Trades happen at the next day\'s open: sell names that left the list, buy new names with 1/' + (d.row.params.hold || 7) + ' of the money, no top-ups; when off, everything goes to the parking ETFs. Costs: stocks ' + r.cost_pct.toFixed(2) + '%, 2x ETFs 0.10%, parking ETFs 0.02% per side.'
+        : r.family === 'regime'
         ? 'Decided on each US close (same code as the bot), traded at the next day\'s open. Rebalanced when a holding drifts more than the rebalance band.'
         : `A signal counts when its 4H futures bar closes (+ Yahoo's delay). Entries start ${e.start_mode === 'time' ? 'not before ' + U.esc(e.start_time) + ' Bangkok' : 'at the market open'}, exits ${e.exit_mode === 'asap' ? 'as soon as the US market is open' : 'at the same time as entries'}; priced as ${e.lots} lots every ${e.interval_min} min from hourly ETF prices.`;
       return `<section class="card col" style="gap:6px"><h2 class="h2">How this backtest works</h2><ul class="muted small" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">

@@ -185,6 +185,23 @@ def daily_jobs(now):
             db.add_event("error", "server", "Backup failed", str(e))
     if _once("prune", local.strftime("%Y-%W")):
         db.prune()
+    # weekly Nasdaq-100 ranking for the momentum baskets, after the Friday close
+    if (ny.weekday() == 5 or (ny.weekday() == 4 and hh >= "17:30") or ny.weekday() == 6) and \
+            any(s.type == "momentum_basket" for s in S.all_instances()):
+        fri = (ny.date() - timedelta(days=(ny.weekday() - 4) % 7)).isoformat()
+        if time.time() >= (db.get_state("c27rank_retry_at") or 0) and _once("c27rank", fri):
+            threading.Thread(target=_rank_job, daemon=True).start()
+
+
+def _rank_job():
+    from . import basket
+    try:
+        basket.update_live()
+    except Exception as e:
+        log.warning("nasdaq-100 ranking: %s", e)
+        db.set_state("job:c27rank", None)                    # try again in an hour
+        db.set_state("c27rank_retry_at", int(time.time()) + 3600)
+        db.add_event("warn", "data", "Nasdaq-100 ranking failed (retrying in 1 h)", str(e)[:300])
 
 
 def queue_reports(now):

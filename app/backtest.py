@@ -47,6 +47,11 @@ RESEARCH = {
     "silver_st": {"source": "Gold & Silver research · 10-year ETF test", "period": "Apr 2016 – Oct 2026", "cagr": 17.2, "maxdd": -34.3},
     "qld_regime": {"source": "Strategy to beat QQQ · strategy F (next-open fills)", "period": "2016 – 2026", "cagr": 39.7},
     "semis_regime": {"source": "Strategy to beat QQQ · strategy U", "period": "2007 – 2026", "maxdd": -46.0},
+    "c27_mom": {"source": "Research on single Stock Nasdaq · C2-7 Momentum, 50/50 gold & T-bill parking", "period": "Oct 2016 – Oct 2026",
+                "cagr": 34.7, "maxdd": -19.7, "sharpe": 1.50, "bench": "20 years (2006-26): 27.4% a year, worst fall −19.7%"},
+    "c27_mom2x": {"source": "Research on single Stock Nasdaq · C2-7 Momentum 2x (model before 2022, real 2x ETFs after)",
+                  "period": "Oct 2016 – Oct 2026", "cagr": 59.6, "maxdd": -37.7, "sharpe": 1.31,
+                  "bench": "last 5 years with real 2x ETFs: 72.7% a year, worst fall −30.6%"},
     "qld_tbd": {"source": "ETF Strategy Lab, 23 Oct 2026", "period": "Oct 2007 – Oct 2026", "cagr": 32.9, "maxdd": -42.5, "sharpe": 0.95,
                 "bench": "QQQ held: 15.1% a year, worst fall −53.3%"},
 }
@@ -370,6 +375,172 @@ def _run_metals(strat, now, cost, cfg):
             "data_note": f"{strat.sym}=F hourly futures → 4H bars (Yahoo keeps about 2 years) · {', '.join(syms)} hourly + daily total-return prices"}
 
 
+# ---------------------------------------------------------------- momentum basket (C2-7)
+COST_2X, COST_PARK, COST_2X_MODEL_Y = 0.0010, 0.0002, 0.069
+
+
+def _oc(df):
+    if df is None or df.empty:
+        return {}
+    return {pd.Timestamp(t).date(): (float(r.o), float(r.c)) for t, r in df.iterrows()}
+
+
+def _run_basket(strat, now, cost):
+    from . import basket
+    p = strat.params
+    sig = p["signal"]
+    ensure_signal_history(sig)
+    fr = strat.frame(now)
+    fr = fr[fr["state"] != ""]
+    states = {pd.Timestamp(t).date(): s for t, s in zip(fr.index, fr["state"].values)}
+    R = basket.ranks()
+    weeks = sorted(R["week"].unique())
+    if not weeks:
+        raise BacktestError("No Nasdaq-100 ranking data")
+    pool_syms = sorted(set(R.loc[R["rank"] <= p["pool"], "symbol"]))
+    stock = {s: _oc(basket.prices(s)) for s in pool_syms}
+    park = strat.parking()
+    lev2 = p["leverage"] == "2x"
+    emap = strat.etf_map() if lev2 else {}
+    daily = {s: daily_tr(s) for s in set(park) | {RF_SYMBOL, sig, "QLD"}}
+    pk = {s: _oc(daily.get(s)) for s in park}
+    if "SGOV" in pk and RF_SYMBOL in daily:                 # SGOV exists only since 2020: T-bills via BIL before
+        bil = _oc(daily[RF_SYMBOL])
+        pk["SGOV"] = {**{d: v for d, v in bil.items() if not pk["SGOV"] or d < min(pk["SGOV"])}, **pk["SGOV"]}
+    rf = _oc(daily.get(RF_SYMBOL))
+    real = {}
+    for st_, etf in emap.items():
+        if st_ in stock:
+            e = _oc(daily_tr(etf))
+            if len(e) > 12:
+                d0 = sorted(e)[10]                         # used from 10 trading days after launch (as the research)
+                real[st_] = (etf, d0, e)
+    days = [pd.Timestamp(t).date() for t in fr.index]
+    days = [d for d in days if d > weeks[0] and all(d in pk[s] for s in pk)]
+    if len(days) < 30:
+        raise BacktestError("Not enough overlapping history yet")
+    picks_cache = {}
+
+    def picks_for(d):
+        w = max(x for x in weeks if x <= d)
+        if w not in picks_cache:
+            picks_cache[w] = basket.momentum_list(d, p["pool"], p["hold"], p["lookback"])[1]
+        return picks_cache[w]
+
+    def name(s):
+        return emap.get(s, s) if lev2 else s
+
+    def ret(s, d, prev, part):
+        """Return of holding stock s (through its instrument) over part 'on' (prev close → open) or 'id' (open → close)."""
+        if s in real and d >= real[s][1] and d in real[s][2] and prev in real[s][2]:
+            o, c = real[s][2][d]
+            return (o / real[s][2][prev][1] - 1) if part == "on" else (c / o - 1)
+        px = stock[s]
+        if d not in px or prev not in px:
+            return None
+        o, c = px[d]
+        r = (o / px[prev][1] - 1) if part == "on" else (c / o - 1)
+        if not lev2 or s not in emap:
+            return r
+        rfd = (rf[d][1] / rf[prev][1] - 1) if (d in rf and prev in rf) else 0.04 / 252
+        return 2 * r if part == "on" else 2 * r - (rfd + COST_2X_MODEL_Y / 252)
+
+    def cost_of(s):
+        return COST_PARK if s in park else (COST_2X if (lev2 and s in emap) else cost)
+
+    pos, cash, fees, trades = {}, START_CASH, 0.0, []
+    eq, expo, sts = [], [], []
+    pending, last_on, held_list = None, None, None
+    buf = strat.buffer()
+    hold = max(1, p["hold"])
+    for i, d in enumerate(days):
+        prev = days[i - 1] if i else None
+        if prev:
+            for s in list(pos):
+                r = ret(s, d, prev, "on") if s not in park else (pk[s][d][0] / pk[s][prev][1] - 1 if prev in pk[s] else 0.0)
+                if r is None:                               # no price any more (delisted): sold at the last close
+                    cash += pos.pop(s)
+                    continue
+                pos[s] *= 1 + r
+        if pending is not None:
+            before = {name(k) if k not in park else k: v for k, v in pos.items()}
+            E = cash + sum(pos.values())
+            on, lst, why, kind = pending
+            for s in [k for k in pos if k not in park and (not on or k not in lst)]:
+                fee = pos[s] * cost_of(s)
+                cash += pos.pop(s) - fee
+                fees += fee
+            old_park = {k: pos.pop(k) for k in list(pos) if k in park}
+            cash += sum(old_park.values())
+            if on:
+                for s in lst:
+                    if s in pos:
+                        continue
+                    amt = min(E * (1 - buf) / hold, cash - buf * E)
+                    if amt <= 1:
+                        break
+                    fee = amt * cost_of(s)
+                    pos[s] = amt - fee
+                    cash -= amt
+                    fees += fee
+            spare = max(0.0, cash - buf * E)
+            tot = sum(park.values()) or 1
+            for k, w in park.items():
+                new = spare * w / tot
+                fee = abs(new - old_park.get(k, 0.0)) * COST_PARK
+                pos[k] = new - fee
+                cash -= new
+                fees += fee
+            E2 = cash + sum(pos.values())
+            trades.append({"t": int(pd.Timestamp(datetime.combine(d, datetime.min.time())).tz_localize(NY).replace(hour=9, minute=30).timestamp()),
+                           "kind": kind, "why": why, "from": {k: round(v / E, 4) for k, v in before.items() if v / E > 0.0005},
+                           "to": {(name(k) if k not in park else k): round(v / E2, 4) for k, v in pos.items() if v / E2 > 0.0005},
+                           "prices": {}, "value": round(E2, 2)})
+            pending = None
+        for s in list(pos):
+            if s in park:
+                o, c = pk[s][d]
+                pos[s] *= c / o
+            else:
+                r = ret(s, d, d, "id") if d in stock.get(s, {}) or s in real else None
+                if r is None:
+                    cash += pos.pop(s)
+                    continue
+                pos[s] *= 1 + r
+        E = cash + sum(pos.values())
+        eq.append(E)
+        expo.append(sum(v for k, v in pos.items() if k not in park) / E if E > 0 else 0.0)
+        stt = states.get(d, "out")
+        sts.append(stt)
+        on = stt in ("trend", "dip")
+        lst = picks_for(d) if on else []
+        held_stocks = {k for k in pos if k not in park}
+        if last_on is None or on != last_on:
+            kind = "START" if last_on is None else ("BUY" if on else "SELL")
+            try:
+                why = strat.why(fr, fr.index.get_loc(pd.Timestamp(d).tz_localize("UTC"))) if last_on is not None else f"start · signal {stt}"
+            except Exception:
+                why = f"signal {stt}"
+            pending = (on, lst, why, kind)
+        elif on and set(lst) != held_stocks:
+            gone, new = sorted(held_stocks - set(lst)), sorted(set(lst) - held_stocks)
+            pending = (on, lst, f"list change: out {', '.join(name(x) for x in gone) or '—'} · in {', '.join(name(x) for x in new) or '—'}", "LIST")
+        last_on = on
+        held_list = lst
+    bench = {sig: daily[sig]}
+    if lev2 and daily.get("QLD") is not None and not daily["QLD"].empty:
+        bench["QLD"] = daily["QLD"]
+    note = ("Nasdaq-100 weekly ranking: research file (Oct 2016 – Oct 2026), then the bot's own · stock prices: research "
+            "(Alpaca, total return) then Yahoo")
+    if lev2:
+        note += (" · 2x: real ETF prices from 10 trading days after launch, before that 2× the stock's daily move minus "
+                 "T-bill + 6.9% a year; stocks without a 2x ETF held 1x")
+    return {"days": days, "eq": eq, "expo": expo, "trades": trades, "fees": fees, "state": sts, "bench": bench,
+            "rf": daily.get(RF_SYMBOL), "main": "stocks", "index": sig, "vs": "QLD" if "QLD" in bench else sig,
+            "parking": list(park), "data_from": str(days[0]), "data_note": note,
+            "holding": [name(s) for s in (held_list or [])]}
+
+
 # ---------------------------------------------------------------- statistics
 def _stats(t, v, rf=None, expo=None):
     v = np.asarray(v, dtype=float)
@@ -399,11 +570,16 @@ def _stats(t, v, rf=None, expo=None):
     return out
 
 
-def _round_trips(trades, main):
-    """In → out pairs of the main (leveraged) ETF with the result of each."""
+def _round_trips(trades, main, parking=None):
+    """In → out pairs of the main (leveraged) ETF — or, for a basket, of any stock — with the result of each."""
     out, entry = [], None
+
+    def isin(w):
+        if parking is not None:
+            return sum(v for k, v in w.items() if k not in parking) > 0.005
+        return w.get(main, 0) > 0.005
     for tr in trades:
-        was, now_ = tr["from"].get(main, 0) > 0.005, tr["to"].get(main, 0) > 0.005
+        was, now_ = isin(tr["from"]), isin(tr["to"])
         if not was and now_:
             entry = tr
         elif was and not now_ and entry:
@@ -426,7 +602,12 @@ def _series_on(days, df):
 def _build(strat, now, cost):
     from . import execution
     cfg = execution.exec_cfg(strat)
-    r = _run_daily(strat, now, cost) if strat.family == "regime" else _run_metals(strat, now, cost, cfg)
+    if strat.type == "momentum_basket":
+        r = _run_basket(strat, now, cost)
+    elif strat.family == "regime":
+        r = _run_daily(strat, now, cost)
+    else:
+        r = _run_metals(strat, now, cost, cfg)
     days, eq = r["days"], r["eq"]
     t = [int(datetime.combine(d, datetime.min.time(), timezone.utc).timestamp()) for d in days]
     strat_v = [x / eq[0] * START_CASH for x in eq]
@@ -454,7 +635,7 @@ def _build(strat, now, cost):
                 st[s] = _stats(dd_, vv, rf[i0:] if rf is not None else None)
         t0 = t[i0]
         trs = [x for x in r["trades"] if x["t"] >= t0 and x["kind"] != "START"]
-        rts = [x for x in _round_trips(r["trades"], r["main"]) if x["in"] >= t0]
+        rts = [x for x in _round_trips(r["trades"], r["main"], r.get("parking")) if x["in"] >= t0]
         st["strategy"]["trades"] = len(trs)
         st["strategy"]["per_year"] = round(len(trs) / max(st["strategy"]["years"], 0.1), 1)
         st["strategy"]["round_trips"] = len(rts)
@@ -480,7 +661,8 @@ def _build(strat, now, cost):
                        "expo": [round(float(x), 3) for x in r["expo"]],
                        "bench": {s: [None if x is None else round(x, 2) for x in v] for s, v in bench.items()}},
             "stats": stats, "ranges": [k for k, _ in RANGES if k in stats], "years": years,
-            "trades": [x for x in r["trades"]][-400:], "round_trips": _round_trips(r["trades"], r["main"])[-200:],
+            "trades": [x for x in r["trades"]][-400:], "round_trips": _round_trips(r["trades"], r["main"], r.get("parking"))[-200:],
+            "vs": r.get("vs") or r["main"], "parking": r.get("parking"), "holding": r.get("holding"),
             "fees": round(r["fees"], 2), "cost_pct": cost * 100, "data": {"from": r["data_from"], "to": str(days[-1]), "note": r["data_note"],
                                                                           "source": md.source()},
             "exec": {k: cfg.get(k) for k in ("lots", "interval_min", "start_mode", "start_time", "exit_mode")},

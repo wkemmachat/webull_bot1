@@ -16,7 +16,7 @@
         <a class="btn p" href="#/strategies/new">+ Add strategy</a></div>
       <div class="seg" id="fam" style="align-self:flex-start"><button data-f="all" class="${filter === 'all' ? 'on' : ''}">All ${fam.all}</button>
         <button data-f="signal" class="${filter === 'signal' ? 'on' : ''}">Gold &amp; silver · 4H signal · ${fam.signal}</button>
-        <button data-f="regime" class="${filter === 'regime' ? 'on' : ''}">US regime · daily · ${fam.regime}</button></div>
+        <button data-f="regime" class="${filter === 'regime' ? 'on' : ''}">US · daily · ${fam.regime}</button></div>
       <section class="card flush" style="overflow-x:auto">
         <div class="srow head"><span>Strategy</span><span>Signal → trades</span><span>Now</span><span>Value · return</span><span>Control · LINE</span></div>
         ${rows.map((s) => `
@@ -82,7 +82,7 @@
       return `<div class="crumb"><a href="#/strategies">Strategies</a> / ${U.esc(c.name)}</div>
       <div class="page-head" style="align-items:flex-start"><div class="col" style="gap:8px">
         <div class="row">${U.dot(c.color, 14)}<h1 class="h1">${U.esc(c.name)}</h1></div>
-        <div class="row" style="gap:8px">${U.pill('', fam === 'regime' ? 'Daily regime' : '4H signal')}${U.pill('', c.flow)}
+        <div class="row" style="gap:8px">${U.pill('', c.type === 'momentum_basket' ? 'Stock basket' : fam === 'regime' ? 'Daily regime' : '4H signal')}${U.pill('', c.flow)}
           ${U.pill(c.control === 'active' ? 'ok' : 'warn', c.control === 'active' ? 'Active' : c.control === 'paused' ? 'Buys paused' : c.control)}
           ${U.pill(c.line_on ? 'info' : '', c.line_on ? 'LINE on' : 'LINE off')}</div>
         <div class="muted small">${U.esc(d.describe.rule || '')}</div></div>
@@ -129,6 +129,17 @@
       </section>`;
     }
 
+    function basketTable(b) {
+      const rows = b.rows || [];
+      return `<section class="card col" style="gap:8px"><div class="row sb"><h2 class="h2">This week's list</h2>
+        <span class="muted small">Ranking of ${U.esc(b.week)} · strongest ${U.esc(d.row.params.hold)} of the ${U.esc(d.row.params.pool)} largest by ${U.esc(d.row.params.lookback)}-day return</span></div>
+        <div class="tw"><table class="t"><thead><tr><th class="r">Size rank</th><th>Stock</th><th class="r">Market cap</th><th class="r">${U.esc(d.row.params.lookback)}-day return</th><th>On the list</th>${b.leverage === '2x' ? '<th>Held as</th>' : ''}</tr></thead><tbody>
+        ${rows.map((r) => `<tr><td class="r num">${r.rank}</td><td><b>${U.esc(r.symbol)}</b></td><td class="r num">${r.mcap != null ? '$' + U.n(r.mcap, 0) + ' bn' : '—'}</td>
+          <td class="r num ${U.cls(r.mom)}">${r.mom == null ? '—' : U.pct(r.mom)}</td><td>${r.picked ? U.pill('ok', 'yes') : '<span class="muted">—</span>'}</td>
+          ${b.leverage === '2x' ? `<td class="mono">${U.esc(r.inst || '')}${r.picked && r.inst === r.symbol ? ' <span class="muted small">(no 2x ETF)</span>' : ''}</td>` : ''}</tr>`).join('')}</tbody></table></div>
+        <div class="muted small">The list is fixed for the week after each Friday's ranking. Held only while the signal is in; names already held are never topped up.</div></section>`;
+    }
+
     function chartToolbar() {
       const toggles = [];
       if (spec && spec.charts && spec.charts[0]) {
@@ -167,6 +178,7 @@
       const sig = d.signals || [];
       return `${kpis()}
       ${fam === 'regime' ? regimeTiles() : ''}
+      ${st.detail && st.detail.basket ? basketTable(st.detail.basket) : ''}
       <section class="card col" style="gap:12px;padding:16px"><div id="ctool"></div><div id="chart" class="col" style="gap:18px"><div class="empty"><span class="spin"></span></div></div>
         <div class="muted small">Built with TradingView Lightweight Charts™. Lines are the bot's own calculations, the numbers the strategy trades on${fam === 'signal' ? '; futures prices are back-adjusted for contract rolls in the indicators.' : '.'}</div></section>
       <div class="grid" style="--min:360px">
@@ -177,10 +189,10 @@
           <div class="tw"><table class="t"><thead><tr><th>Holding</th><th class="r">Shares</th><th class="r">Value</th><th class="r">Now</th><th class="r">Target</th></tr></thead><tbody>
           ${d.holdings.map((h) => `<tr><td>${U.esc(h.symbol)}</td><td class="r num">${h.qty == null ? '—' : U.n(h.qty, 0)}</td><td class="r num">${U.usd(h.value)}</td>
             <td class="r num">${(h.now * 100).toFixed(1)}%</td><td class="r num">${(h.target * 100).toFixed(1)}%</td></tr>`).join('')}</tbody></table></div>
-          <div class="muted small">Trades on a new signal, or when a holding drifts more than ${U.esc(d.row.params.rebalance_band_pct)}% from target (e.g. after Add money).</div></section>
+          <div class="muted small">${c.type === 'momentum_basket' ? 'Trades when the signal turns on or off, or when the weekly list changes. Names already held are never topped up or trimmed; new names get 1/' + U.esc(d.row.params.hold) + ' of the money.' : 'Trades on a new signal, or when a holding drifts more than ' + U.esc(d.row.params.rebalance_band_pct) + '% from target (e.g. after Add money).'}</div></section>
         ${fam === 'regime' ? `<section class="card"><h2 class="h2" style="margin-bottom:6px">State changes</h2>${sig.slice(0, 7).map((x) => `<div class="list-row" style="align-items:center">
-          <span class="num muted small" style="width:64px">${U.day(x.t)}</span>${U.pill('', x.from_state)}<span class="muted">→</span>${U.pill('info', x.to_state)}
-          <span class="muted small" style="margin-left:auto;text-align:right">${U.esc(x.text)}</span></div>`).join('') || '<div class="muted">None yet</div>'}</section>` : ''}
+          <span class="num muted small" style="width:64px;flex:none">${U.day(x.t)}</span>${x.kind === 'LIST' ? U.pill('', 'list') : U.pill('', x.from_state) + '<span class="muted">→</span>' + U.pill('info', x.to_state)}
+          <span class="muted small wrap" style="margin-left:auto;text-align:right;min-width:0">${U.esc(x.text)}</span></div>`).join('') || '<div class="muted">None yet</div>'}</section>` : ''}
       </div>
       ${fam === 'regime' ? regimeLog() : signalsTable()}`;
     }

@@ -73,7 +73,7 @@
       <div class="row sb"><h2 class="h2" style="font-size:18px">Strategies</h2><a href="#/strategies" class="small">All strategies →</a></div>
       <div class="grid" style="--min:300px">${d.strategies.map((s) => `
         <a class="card scard" href="#/strategies/${s.id}">
-          <div class="row" style="gap:10px">${U.dot(s.color, 10)}<b style="font-size:15px">${U.esc(s.name)}</b><span class="pill" style="margin-left:auto">${s.family === 'regime' ? 'Daily regime' : '4H signal'}</span></div>
+          <div class="row" style="gap:10px">${U.dot(s.color, 10)}<b style="font-size:15px">${U.esc(s.name)}</b><span class="pill" style="margin-left:auto">${s.type === 'momentum_basket' ? 'Stock basket' : s.family === 'regime' ? 'Daily regime' : '4H signal'}</span></div>
           <div class="row sb" style="align-items:flex-end">
             <div><div class="num big" style="font-size:22px">${U.usd(s.value, 0)}</div><div class="num small ${U.cls(s.pnl)}">${U.sgnUsd(s.pnl, 0)} · ${U.pct(s.ret)}</div></div>
             ${U.spark(s.spark, s.color)}</div>

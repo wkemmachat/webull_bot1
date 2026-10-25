@@ -91,7 +91,7 @@ def _insert_order(c, plan_id, mode, sid, step, lot, lots, symbol, side, when, se
 
 
 def build_plan(mode, strat, target: dict, reason: str, now, broker=None, buys=True, sell_override: dict | None = None,
-               on_done: dict | None = None, note: str = "", signal_id=None, settings=None):
+               on_done: dict | None = None, note: str = "", signal_id=None, settings=None, goal: dict | None = None):
     """Create a plan that moves `strat` toward `target`. Returns plan id, or None when nothing needs trading."""
     c_ = exec_cfg(strat, settings)
     broker = broker or brokers.get(mode)
@@ -133,10 +133,11 @@ def build_plan(mode, strat, target: dict, reason: str, now, broker=None, buys=Tr
     resume = (lambda t: mh.start_time(t, smode, c_["start_time"], sess)) if smode == "time" else None
     times = mh.spread_lots(start, lots, c_["interval_min"], sess, resume)
     with db.tx() as c:
-        cur = c.execute("INSERT INTO plans(mode,strategy,reason,status,created_at,start_at,target,note,on_done,lots,interval_min,signal_id) "
-                        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+        cur = c.execute("INSERT INTO plans(mode,strategy,reason,status,created_at,start_at,target,note,on_done,lots,interval_min,signal_id,goal) "
+                        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
                         (mode, strat.id, reason, "active", int(time.time()), _ts(start), json.dumps(target), note,
-                         json.dumps(on_done) if on_done else None, lots, c_["interval_min"], signal_id))
+                         json.dumps(on_done) if on_done else None, lots, c_["interval_min"], signal_id,
+                         json.dumps(goal) if goal is not None else None))
         pid = cur.lastrowid
         split = {s: _split(q, lots) for s, q in sells.items()}
         for k, t in enumerate(times):
@@ -614,7 +615,7 @@ def finish_plans(mode):
         strat = S.get(p["strategy"])
         name = strat.name if strat else p["strategy"]
         if p["reason"] not in ("withdraw", "move"):
-            ledger.set_applied_target(mode, p["strategy"], json.loads(p["target"] or "{}"))
+            ledger.set_applied_target(mode, p["strategy"], json.loads(p.get("goal") or p["target"] or "{}"))
         od = json.loads(p["on_done"] or "null")
         if od:
             _on_done(mode, p, od)
@@ -671,6 +672,12 @@ def reconcile(mode, strat, ev, now, broker, settings):
     if (L["cap_in"] or 0) <= 0 and L["cash"] <= 0 and not L["holdings"]:
         return None
     target = dict(ev["target"])
+    if hasattr(strat, "fallback_for"):                  # e.g. a 2x ETF Webull refuses → hold the stock itself
+        blk0 = blocked_symbols(mode)
+        for sym in [x for x in target if x in blk0]:
+            alt = strat.fallback_for(sym)
+            if alt and alt not in blk0:
+                target[alt] = round(target.get(alt, 0) + target.pop(sym), 4)
     reason = "signal"
     buys = control == "active"
     if control == "stopping":
@@ -690,7 +697,7 @@ def reconcile(mode, strat, ev, now, broker, settings):
     ap = active_plan(mode, strat.id)
     tkey = json.dumps(target, sort_keys=True)
     if ap:
-        if ap["reason"] in ("withdraw", "move") or json.dumps(json.loads(ap["target"] or "{}"), sort_keys=True) == tkey:
+        if ap["reason"] in ("withdraw", "move") or json.dumps(json.loads(ap.get("goal") or ap["target"] or "{}"), sort_keys=True) == tkey:
             return None
         cancel_plan(ap["id"], "the target changed", broker)
     applied = L["applied_target"]
@@ -709,10 +716,19 @@ def reconcile(mode, strat, ev, now, broker, settings):
     blk = blocked_symbols(mode)
     if buys and any(s in blk for s in target if target.get(s, 0) > 0):
         return None                                     # Webull refuses one of the target symbols: wait (see block_symbol)
-    pid = build_plan(mode, strat, target, reason, now, broker, buys=buys, settings=settings)
+    goal = None
+    if buys and hasattr(strat, "adjust_target"):
+        # basket strategies keep what they hold (no top-ups / trims) and only buy what is new; the plan remembers the goal
+        syms = set(L["holdings"]) | set(target)
+        prices = md.prices(syms) if syms else {}
+        if any(prices.get(s) is None for s in syms):
+            return None
+        w, _ = ledger.weights(mode, strat.id, prices)
+        goal, target = target, strat.adjust_target(target, w)
+    pid = build_plan(mode, strat, target, reason, now, broker, buys=buys, settings=settings, goal=goal)
     if pid is None:
         if changed:
-            ledger.set_applied_target(mode, strat.id, target)
+            ledger.set_applied_target(mode, strat.id, goal if goal is not None else target)
         db.set_state(f"noplan:{mode}:{strat.id}", {"k": tkey, "t": int(time.time())})
     return pid
 
