@@ -18,7 +18,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import auth, backtest, symcharts, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views
+from . import auth, backtest, expected, symcharts, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views
 from . import strategies as S
 from .config import APP_NAME, BASE_DIR, COOKIE_SECURE, DISPLAY_TZ, PUBLIC_URL, SCHEDULER_ENABLED
 
@@ -516,6 +516,42 @@ async def backtest_try(sid: str, request: Request, u=Depends(user)):
         raise HTTPException(400, str(e))
 
 
+@app.get("/api/expected")
+async def expected_get(mode: str = "paper", u=Depends(user)):
+    """Expected return of the money in the strategies (research − haircut), its range and real vs expected."""
+    return await asyncio.to_thread(expected.view, mode_of(mode))
+
+
+@app.post("/api/expected/haircut")
+async def expected_haircut(request: Request, u=Depends(user)):
+    b = await body(request)
+    try:
+        expected.set_haircut(b.get("pct"))
+    except (TypeError, ValueError) as e:
+        raise HTTPException(400, str(e) or "Enter a number")
+    db.add_event("info", "settings", f"Planning haircut for expected returns: {float(b.get('pct')):.0f}%", "")
+    return {"ok": True, "haircut_pct": expected.haircut() * 100}
+
+
+@app.post("/api/expected/plan")
+async def expected_plan(request: Request, u=Depends(user)):
+    """Save (or clear, with an empty pct) the ratio planned in the Expected return panel. Nothing is traded."""
+    b = await body(request)
+    try:
+        plan = expected.set_plan(b.get("pct"), b.get("total"))
+    except (TypeError, ValueError) as e:
+        raise HTTPException(400, str(e) or "Check the ratios")
+    db.add_event("info", "settings", "Planned ratio saved" if plan else "Planned ratio cleared",
+                 ", ".join(f"{k} {v:g}%" for k, v in (plan or {}).get("pct", {}).items()))
+    return {"ok": True, "plan": plan}
+
+
+@app.post("/api/expected/check")
+def expected_check(u=Depends(user)):
+    """Re-run every strategy's backtest for the expected-return ranges (takes about a minute)."""
+    return expected.start_check("manual", send_line=True)
+
+
 @app.get("/api/testtrade")
 def testtrade_get(mode: str = "test", u=Depends(user)):
     m = mode_of(mode)
@@ -835,7 +871,7 @@ def data_refresh(u=Depends(user)):
 
 # ---------------------------------------------------------------- docs
 DOC_ORDER = ["overview", "quick-start-mac", "first-day", "modes", "dashboard", "strategies", "backtest", "money", "orders", "line", "health", "golive",
-             "strategy-compare", "strategy-gold1", "strategy-gold2", "strategy-silver1", "strategy-silver2", "strategy-qld", "strategy-semis",
+             "strategy-compare", "expected-returns", "strategy-gold1", "strategy-gold2", "strategy-silver1", "strategy-silver2", "strategy-qld", "strategy-semis",
              "strategy-qld-tbd", "strategy-qld-ibs", "strategy-usd-ibs", "strategy-c27",
              "deploy", "update", "backups", "plugins", "layout", "tests", "troubleshooting", "glossary", "decisions"]
 
@@ -862,4 +898,6 @@ def doc(name: str, u=Depends(user)):
     if txt.startswith("<!--"):
         head, txt = txt.split("\n", 1)
         meta = json.loads(head[4:-3])
+    if "<!--expected:" in txt:
+        txt = expected.fill_doc(txt)
     return {"name": name, "meta": meta, "markdown": txt, "updated": int(p.stat().st_mtime)}

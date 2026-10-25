@@ -71,6 +71,15 @@ Numbers from the bot's own **Backtest** tab on 25 Oct 2026: the strategy's live 
 
 Strategy **F** of the *Strategy to beat QQQ* research (AI x Alpaca): **39.7% a year in 2016–2026** with fills at the next open (37.4% at the same close).
 
+## Expected return
+
+What the bot plans with for this strategy (the Dashboard's *Expected return* panel uses the same numbers). The research
+return minus the planning haircut is the typical case; the weak and good cases are about 1 period in 10 worse or better.
+
+<!--expected:qld_regime-->
+
+How it is worked out and how the yearly review keeps it current: [Expected returns](#/docs/expected-returns).
+
 ## Risks and what to expect
 
 - **2022-type years:** a slow bear market with sharp rallies flips the state often; 2022 was about −25%.

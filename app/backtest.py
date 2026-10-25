@@ -20,6 +20,7 @@ import math
 import threading
 import time
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -39,28 +40,10 @@ RF_SYMBOL = "BIL"
 _cache: dict = {}
 _lock = threading.Lock()
 
-# Headline numbers of the research behind each default strategy (Docs → The strategies).
-RESEARCH = {
-    "gold_sta": {"source": "Gold & Silver research · 10-year ETF test", "period": "Apr 2016 – Oct 2026", "cagr": 10.3, "maxdd": -13.2},
-    "gold_st30": {"source": "Gold & Silver research · 10-year ETF test", "period": "Apr 2016 – Oct 2026", "cagr": 11.5, "maxdd": -13.4},
-    "silver_dc": {"source": "Gold & Silver research · 10-year ETF test", "period": "Apr 2016 – Oct 2026", "cagr": 15.5, "maxdd": -33.9},
-    "silver_st": {"source": "Gold & Silver research · 10-year ETF test", "period": "Apr 2016 – Oct 2026", "cagr": 17.2, "maxdd": -34.3},
-    "qld_regime": {"source": "Strategy to beat QQQ · strategy F (next-open fills)", "period": "2016 – 2026", "cagr": 39.7},
-    "semis_regime": {"source": "Strategy to beat QQQ · strategy U", "period": "2007 – 2026", "maxdd": -46.0},
-    "c27_mom": {"source": "Research on single Stock Nasdaq · C2-7 Momentum, 50/50 gold & T-bill parking", "period": "Oct 2016 – Oct 2026",
-                "cagr": 34.7, "maxdd": -19.7, "sharpe": 1.50, "bench": "20 years (2006-26): 27.4% a year, worst fall −19.7%"},
-    "c27_mom2x": {"source": "Research on single Stock Nasdaq · C2-7 Momentum 2x (model before 2022, real 2x ETFs after)",
-                  "period": "Oct 2016 – Oct 2026", "cagr": 59.6, "maxdd": -37.7, "sharpe": 1.31,
-                  "bench": "last 5 years with real 2x ETFs: 72.7% a year, worst fall −30.6%"},
-    "qld_ibs": {"source": "Research on single Stock Nasdaq · strategy 2 (QLD own-price + vol cap, 50/50 gold & T-bill parking)",
-                "period": "Oct 2016 – Oct 2026", "cagr": 37.7, "maxdd": -31.6, "sharpe": 1.27,
-                "bench": "1999-2026 with rebuilt QLD: 30.1% a year, worst fall −31.7%"},
-    "usd_ibs": {"source": "Research on single Stock Nasdaq · USD own-price strategy C (Trend + IBS-dip, aggressive), resized every day",
-                "period": "Oct 2016 – Oct 2026", "cagr": 66.8, "maxdd": -36.7, "sharpe": 1.38,
-                "bench": "2001-2026 with USD rebuilt from SMH: 38.6% a year, worst fall −45.8%"},
-    "qld_tbd": {"source": "ETF Strategy Lab, 23 Oct 2026", "period": "Oct 2007 – Oct 2026", "cagr": 32.9, "maxdd": -42.5, "sharpe": 0.95,
-                "bench": "QQQ held: 15.1% a year, worst fall −53.3%"},
-}
+# Headline numbers of the research behind each default strategy (Docs → The strategies). One file holds them for
+# the backtest, the expected returns and the docs: app/research/expected.json (reviewed once a year).
+RESEARCH = {k: v["research"] for k, v in json.loads((Path(__file__).parent / "research" / "expected.json").read_text(encoding="utf-8"))
+            ["strategies"].items() if v.get("research")}
 
 
 class BacktestError(Exception):

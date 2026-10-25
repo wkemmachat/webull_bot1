@@ -10,11 +10,13 @@
       const d = await U.api('/api/strategies?mode=' + mode);
       const fam = { all: d.strategies.length, signal: d.strategies.filter((s) => s.family === 'signal').length, regime: d.strategies.filter((s) => s.family === 'regime').length };
       const rows = d.strategies.filter((s) => filter === 'all' || s.family === filter);
+      const oldExp = el.querySelector('#expect');          // keep the expected-return panel (and a split being tried) across refreshes
       el.innerHTML = `
       <div class="page-head"><div><div class="eyebrow">${d.strategies.length} active · ${d.archived.length} archived · ${U.modeLabel[mode]}</div><h1 class="h1">Strategies</h1>
         <div class="muted" style="margin-top:4px">Each strategy is a sub-account inside your Webull account: its own money, positions, orders and LINE switch.</div></div>
         <a class="btn p" href="#/strategies/new">+ Add strategy</a></div>
       <div id="alloc"></div>
+      <div id="expect"></div>
       <div class="seg" id="fam" style="align-self:flex-start"><button data-f="all" class="${filter === 'all' ? 'on' : ''}">All ${fam.all}</button>
         <button data-f="signal" class="${filter === 'signal' ? 'on' : ''}">Gold &amp; silver · 4H signal · ${fam.signal}</button>
         <button data-f="regime" class="${filter === 'regime' ? 'on' : ''}">US · daily · ${fam.regime}</button></div>
@@ -48,6 +50,7 @@
         </section>
       </div>`;
       V.renderAlloc(el.querySelector('#alloc'), d.strategies);
+      if (oldExp && oldExp.firstChild) { el.querySelector('#expect').replaceWith(oldExp); if (oldExp._expRefresh) oldExp._expRefresh(); } else V.renderExpected(el.querySelector('#expect'));
       U.on(el, '#fam button', 'click', (e, b) => { filter = b.dataset.f; load(); });
       U.on(el, '.seg[data-id] button', 'click', async (e, b) => {
         const id = b.parentElement.dataset.id, c = b.dataset.c;

@@ -81,6 +81,15 @@ dip days on IBS < 0.15 held at 100%, size from USD's own 20-day volatility with 
 (10 years: +62.5% a year, worst fall −37.0%). Monthly correlation between the two is about 0.5, so together they spread the risk
 better than either QLD strategy next to 2x Semis.
 
+## Expected return
+
+What the bot plans with for this strategy (the Dashboard's *Expected return* panel uses the same numbers). The research
+return minus the planning haircut is the typical case; the weak and good cases are about 1 period in 10 worse or better.
+
+<!--expected:qld_ibs-->
+
+How it is worked out and how the yearly review keeps it current: [Expected returns](#/docs/expected-returns).
+
 ## Risks and what to expect
 
 - **Gives up the big rallies:** the volatility cap and the quick exits leave money on the table in strong years (2021 +10% vs QLD +55%, 2024 +15% vs +43%, 2019 +24% vs +82%).

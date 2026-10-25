@@ -43,6 +43,8 @@ EVENTS = {
     "broker": ("Webull disconnected or token expiring", "Webull's login token is ending or was refused; approve again in the Webull app.", "instant", True),
     "login": ("Sign-in from a new device", "Or 5 wrong passwords in a row.", "instant", True),
     "system": ("Bot started / stopped / updated", "Server restarts and settings changes.", "digest", False),
+    "review": ("Expected returns: yearly check", "The yearly backtest check of every strategy's expected return, and a monthly "
+               "reminder while the research review is due.", "instant", False),
 }
 
 

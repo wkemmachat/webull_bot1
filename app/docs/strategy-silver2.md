@@ -47,6 +47,15 @@ Yahoo keeps only about **2 years** of hourly futures prices, so the bot's backte
 
 10-year ETF test (Apr 2016 – Oct 2026): **17.2% a year, worst fall −34.3%**: the highest return of the metals strategies in the research, with the deepest falls.
 
+## Expected return
+
+What the bot plans with for this strategy (the Dashboard's *Expected return* panel uses the same numbers). The research
+return minus the planning haircut is the typical case; the weak and good cases are about 1 period in 10 worse or better.
+
+<!--expected:silver_st-->
+
+How it is worked out and how the yearly review keeps it current: [Expected returns](#/docs/expected-returns).
+
 ## Risks and what to expect
 
 - The same silver crash risk as Silver #1 (about −60% in the bot's 2-year backtest, January 2026).

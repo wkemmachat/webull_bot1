@@ -79,6 +79,15 @@ last 2–3 years of the chip rally (+111% a year vs +74% over 3 years) and trade
 together (monthly correlation about 0.6), so running both is mostly the same bet: choose one, or split the money between them.
 See **USD Trend + IBS-dip**.
 
+## Expected return
+
+What the bot plans with for this strategy (the Dashboard's *Expected return* panel uses the same numbers). The research
+return minus the planning haircut is the typical case; the weak and good cases are about 1 period in 10 worse or better.
+
+<!--expected:semis_regime-->
+
+How it is worked out and how the yearly review keeps it current: [Expected returns](#/docs/expected-returns).
+
 ## Risks and what to expect
 
 - **Concentrated:** one sector, 2x. Falls of −40% to −47% happened (2022: about −41%).

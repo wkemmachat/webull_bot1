@@ -185,6 +185,13 @@ def daily_jobs(now):
             db.add_event("error", "server", "Backup failed", str(e))
     if _once("prune", local.strftime("%Y-%W")):
         db.prune()
+    # expected returns: first / yearly backtest check and the review reminder (real prices only)
+    if md.source() != "csv" and _once("expected", local.strftime("%Y-%m-%d")):
+        from . import expected
+        try:
+            expected.daily(now)
+        except Exception as e:
+            log.warning("expected returns: %s", e)
     # weekly Nasdaq-100 ranking for the momentum baskets, after the Friday close
     if (ny.weekday() == 5 or (ny.weekday() == 4 and hh >= "17:30") or ny.weekday() == 6) and \
             any(s.type == "momentum_basket" for s in S.all_instances()):

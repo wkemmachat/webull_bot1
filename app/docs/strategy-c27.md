@@ -136,6 +136,17 @@ differences come from the QQQ prices (Yahoo vs the research's dividend-adjusted 
 - 1x has the best risk-adjusted result (Sharpe 1.34); 2x adds about 18 points a year but doubles the falls and lowers the Sharpe.
 - The 6-month lookback matters: 3 and 12 months were only as good as plain "7 largest".
 
+## Expected return
+
+What the bot plans with for this strategy (the Dashboard's *Expected return* panel uses the same numbers). The research
+return minus the planning haircut is the typical case; the weak and good cases are about 1 period in 10 worse or better.
+
+<!--expected:c27_mom-->
+
+<!--expected:c27_mom2x-->
+
+How it is worked out and how the yearly review keeps it current: [Expected returns](#/docs/expected-returns).
+
 ## Risks and what to expect
 
 - **Chosen on 2016–2026,** the best decade ever for mega-caps. The research's planning number for a normal decade is about **20% a

@@ -17,6 +17,15 @@
   its own volatility (leverage 1, 40% cap, 20 days), Supertrend 20 × 4.5, dips on IBS < 0.15 without an ADX filter held at **100%**
   (option *Dip days at full size*). The research resized every day (~134 trades a year); the bot uses the 20-point resize rule
   (~62 a year, same 10-year result). Backtest compares with SMH (option *Compare with*).
+- **Expected returns** (added 25 Oct 2026): the plan per strategy is the research yearly return minus a 30% planning haircut
+  (0/15/30/50% selectable). The weak / good cases are the 10th / 90th percentiles from the strategy's volatility in the bot's
+  10-year backtest. The total is each strategy's own money compounding at its own plan (sub-accounts are never rebalanced);
+  the total's range uses the correlations of weekly backtest returns. The research numbers live in one file,
+  `app/research/expected.json`, read by the Backtest tab, the strategy pages and the Dashboard. The bot re-runs the backtests
+  once a year (LINE). The research review is done with Claude, prompted by a monthly LINE reminder while it is due.
+- **Ratio planner** (25 Oct 2026): set a % per strategy, see 1/2/3 years live, save the ratio on the server (`expected_plan`),
+  and give bot-unassigned money by it through the usual Give-to-strategies dialog, prefilled. The target is (money in strategies +
+  unassigned) × ratio. Only gaps are filled (scaled down when unassigned is short); nothing is sold automatically.
 - **Regime timing**: decided after the US close, traded from the next market open with split lots (the research filled at the next
   open, which tested better than the same close).
 - **UGL in Gold #1 and Gold #2**: each strategy keeps its own orders and books; orders are not merged (simpler and easier to audit).

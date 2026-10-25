@@ -31,6 +31,7 @@
       const tot = acct.total || split.reduce((x, y) => x + y.v, 0);
       const today = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' }).format(new Date());
       const h = d.health;
+      const oldExp = el.querySelector('#expect');          // keep the expected-return panel (and a split being tried) across refreshes
       el.innerHTML = `
       <div class="page-head"><div><div class="eyebrow">${U.esc(today)} · ${U.modeLabel[mode]} account</div><h1 class="h1">Dashboard</h1></div>
         <div class="row"><a class="btn" href="#/health">Run cross-check</a><button class="btn p" type="button" id="add">Add money</button></div></div>
@@ -61,6 +62,7 @@
         </section>
       </div>
       <div id="alloc"></div>
+      <div id="expect"></div>
       <div class="grid" style="--min:230px">
         <a class="card" href="#/money" style="color:var(--text)"><div class="eyebrow">Bot unassigned</div><div class="num big" style="margin-top:6px">${U.usd(d.unassigned)}</div><div class="muted small">Given to the bot, not yet to a strategy${d.not_bot != null ? ' · ' + U.usd(d.not_bot, 0) + ' not for the bot' : ''}</div></a>
         <a class="card" href="#/orders" style="color:var(--text)"><div class="eyebrow">Order plans</div><div class="num big" style="margin-top:6px">${d.plans.length} active</div>
@@ -93,6 +95,7 @@
       </div>`;
       if (chart) chart.remove();
       V.renderAlloc(el.querySelector('#alloc'), d.strategies);
+      if (oldExp && oldExp.firstChild) { el.querySelector('#expect').replaceWith(oldExp); if (oldExp._expRefresh) oldExp._expRefresh(); } else V.renderExpected(el.querySelector('#expect'));
       chart = equityChart(el.querySelector('#eq'), d.series, range);
       el.querySelector('#rng').onclick = (e) => {
         const btn = e.target.closest('button'); if (!btn) return;

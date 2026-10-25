@@ -48,6 +48,15 @@ Yahoo keeps only about **2 years** of hourly futures prices, so the bot's backte
 
 10-year ETF test (Apr 2016 – Oct 2026): **11.5% a year, worst fall −13.4%**. Slightly more return than Gold #1 with about the same worst fall, but more trades.
 
+## Expected return
+
+What the bot plans with for this strategy (the Dashboard's *Expected return* panel uses the same numbers). The research
+return minus the planning haircut is the typical case; the weak and good cases are about 1 period in 10 worse or better.
+
+<!--expected:gold_st30-->
+
+How it is worked out and how the yearly review keeps it current: [Expected returns](#/docs/expected-returns).
+
 ## Risks and what to expect
 
 - More trades than Gold #1, so more whipsaw losses in sideways markets.

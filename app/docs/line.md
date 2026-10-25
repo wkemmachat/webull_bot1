@@ -25,3 +25,10 @@ connected, a new sign-in, a health-check problem. Critical alerts cannot be swit
 
 The page shows the monthly quota from LINE's API. Above 90% of the quota, non-critical instant alerts move to the digest.
 Every strategy also has its own LINE switch.
+
+## Expected returns: yearly check
+
+Event *Expected returns: yearly check* (instant by default). Once a year the bot re-runs every strategy's backtest and sends
+the research return, the plan (after the haircut) and the bot backtest now for each strategy. It names any strategy whose
+backtest fell below its plan. While the research review is due, a reminder comes once a month. See
+[Expected returns](#/docs/expected-returns).

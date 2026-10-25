@@ -87,6 +87,15 @@ Numbers from the bot's own **Backtest** tab on 25 Oct 2026: the strategy's live 
 
 **Checked in this bot (25 Oct 2026):** the bot's signals match the research rules day for day (same in and out days on every day since 2016). The research rebuilt with daily resizing gives 64.0% a year over 10 years (research 66.8%); the bot's version with the 20-point rule gives 62.5% with a −37.0% worst fall. Prices from TradingView for USD (no dividends, as in the research); the same method reproduces the server's 2x Semis backtest within half a point.
 
+## Expected return
+
+What the bot plans with for this strategy (the Dashboard's *Expected return* panel uses the same numbers). The research
+return minus the planning haircut is the typical case; the weak and good cases are about 1 period in 10 worse or better.
+
+<!--expected:usd_ibs-->
+
+How it is worked out and how the yearly review keeps it current: [Expected returns](#/docs/expected-returns).
+
 ## Risks and what to expect
 
 - **2x chips:** worst falls of −37% (Nov 2017 – Jun 2018), −31% (Jan – Jun 2025) and −43% (2015 – 16). In the research's long test −46% (2001).

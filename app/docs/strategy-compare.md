@@ -38,6 +38,8 @@ Bot backtests on real prices, 25 Oct 2026. † Gold and silver: the research's 1
 - **Sharpe** is return per unit of risk (above T-bills): above 1 is very good for a single strategy.
 - Gold and silver use the research's 10-year numbers (Yahoo has only 2 years of hourly futures prices).
 - All numbers are backtests: the rules were chosen on this history, so the future will usually be worse.
+- For planning, the bot takes 30% off the research returns and shows what your own split of money could become in 1–3 years:
+  [Expected returns](#/docs/expected-returns) (Dashboard → *Expected return*).
 
 ## Which ones move together
 

@@ -48,6 +48,15 @@ Yahoo keeps only about **2 years** of hourly futures prices, so the bot's backte
 
 10-year ETF test (Apr 2016 – Oct 2026): **15.5% a year, worst fall −33.9%**.
 
+## Expected return
+
+What the bot plans with for this strategy (the Dashboard's *Expected return* panel uses the same numbers). The research
+return minus the planning haircut is the typical case; the weak and good cases are about 1 period in 10 worse or better.
+
+<!--expected:silver_dc-->
+
+How it is worked out and how the yearly review keeps it current: [Expected returns](#/docs/expected-returns).
+
 ## Risks and what to expect
 
 - **Crash risk:** in late January 2026 silver fell about 30% within a few days; AGQ lost more than half its value in under a week, far faster than any 4-hour exit. The bot's 2-year backtest shows a worst fall of about −70% (the crash plus the slide that followed until September 2026). Size this strategy so that such a fall is bearable.

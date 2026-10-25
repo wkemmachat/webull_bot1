@@ -67,6 +67,15 @@ Numbers from the bot's own **Backtest** tab on 25 Oct 2026: the strategy's live 
 
 **ETF Strategy Lab (23 Oct 2026)**, Oct 2007 – Oct 2026: **32.9% a year, worst fall −42.5%, Sharpe 0.95** (QQQ held: 15.1%, −53.3%). 60 neighbouring settings gave 22–33% a year (median 27.6%), so expect less than the best case. The bot's backtest over the same years: 33.0% a year, −42.3%, Sharpe 0.96.
 
+## Expected return
+
+What the bot plans with for this strategy (the Dashboard's *Expected return* panel uses the same numbers). The research
+return minus the planning haircut is the typical case; the weak and good cases are about 1 period in 10 worse or better.
+
+<!--expected:qld_tbd-->
+
+How it is worked out and how the yearly review keeps it current: [Expected returns](#/docs/expected-returns).
+
 ## Risks and what to expect
 
 - **2x Nasdaq:** a fast crash before QQQ crosses its SMA200 costs about twice the drop (worst fall −42%, February–April 2020).

@@ -1,0 +1,78 @@
+{
+  "about": "Expected yearly return of each default strategy: the research number the bot plans with (minus the planning haircut). Review once a year: update cagr, reviewed and add a line to log. Docs and the Dashboard read this file.",
+  "reviewed": "2026-10-25",
+  "review_every_days": 365,
+  "haircut_pct": 30,
+  "strategies": {
+    "qld_regime": {
+      "doc": "strategy-qld", "reviewed": "2026-10-25",
+      "expect": {"cagr": 39.7, "maxdd": -35.9, "basis": "research", "period": "2016 – 2026",
+                 "note": "Strategy F, next-open fills. Worst fall from the bot backtest (the research gave none)."},
+      "research": {"source": "Strategy to beat QQQ · strategy F (next-open fills)", "period": "2016 – 2026", "cagr": 39.7}
+    },
+    "semis_regime": {
+      "doc": "strategy-semis", "reviewed": "2026-10-25",
+      "expect": {"cagr": 57.3, "maxdd": -45.9, "basis": "bot backtest", "period": "Oct 2016 – Oct 2026",
+                 "note": "The research gave no 10-year return for this sleeve alone, so the bot's own 10-year backtest is used."},
+      "research": {"source": "Strategy to beat QQQ · strategy U", "period": "2007 – 2026", "maxdd": -46.0}
+    },
+    "qld_tbd": {
+      "doc": "strategy-qld-tbd", "reviewed": "2026-10-25",
+      "expect": {"cagr": 32.9, "maxdd": -42.5, "basis": "research", "period": "Oct 2007 – Oct 2026",
+                 "note": "19-year research figure (lower than the 10-year bot backtest of 37.3%)."},
+      "research": {"source": "ETF Strategy Lab, 23 Oct 2026", "period": "Oct 2007 – Oct 2026", "cagr": 32.9, "maxdd": -42.5, "sharpe": 0.95,
+                   "bench": "QQQ held: 15.1% a year, worst fall −53.3%"}
+    },
+    "c27_mom": {
+      "doc": "strategy-c27", "reviewed": "2026-10-25",
+      "expect": {"cagr": 34.7, "maxdd": -19.7, "basis": "research", "period": "Oct 2016 – Oct 2026"},
+      "research": {"source": "Research on single Stock Nasdaq · C2-7 Momentum, 50/50 gold & T-bill parking", "period": "Oct 2016 – Oct 2026",
+                   "cagr": 34.7, "maxdd": -19.7, "sharpe": 1.50, "bench": "20 years (2006-26): 27.4% a year, worst fall −19.7%"}
+    },
+    "c27_mom2x": {
+      "doc": "strategy-c27", "reviewed": "2026-10-25",
+      "expect": {"cagr": 59.6, "maxdd": -37.7, "basis": "research", "period": "Oct 2016 – Oct 2026"},
+      "research": {"source": "Research on single Stock Nasdaq · C2-7 Momentum 2x (model before 2022, real 2x ETFs after)",
+                   "period": "Oct 2016 – Oct 2026", "cagr": 59.6, "maxdd": -37.7, "sharpe": 1.31,
+                   "bench": "last 5 years with real 2x ETFs: 72.7% a year, worst fall −30.6%"}
+    },
+    "qld_ibs": {
+      "doc": "strategy-qld-ibs", "reviewed": "2026-10-25",
+      "expect": {"cagr": 37.7, "maxdd": -31.6, "basis": "research", "period": "Oct 2016 – Oct 2026"},
+      "research": {"source": "Research on single Stock Nasdaq · strategy 2 (QLD own-price + vol cap, 50/50 gold & T-bill parking)",
+                   "period": "Oct 2016 – Oct 2026", "cagr": 37.7, "maxdd": -31.6, "sharpe": 1.27,
+                   "bench": "1999-2026 with rebuilt QLD: 30.1% a year, worst fall −31.7%"}
+    },
+    "usd_ibs": {
+      "doc": "strategy-usd-ibs", "reviewed": "2026-10-25",
+      "expect": {"cagr": 66.8, "maxdd": -36.7, "basis": "research", "period": "Oct 2016 – Oct 2026",
+                 "note": "The research resized every day; the bot uses the 20-point rule (bot backtest 62.5%)."},
+      "research": {"source": "Research on single Stock Nasdaq · USD own-price strategy C (Trend + IBS-dip, aggressive), resized every day",
+                   "period": "Oct 2016 – Oct 2026", "cagr": 66.8, "maxdd": -36.7, "sharpe": 1.38,
+                   "bench": "2001-2026 with USD rebuilt from SMH: 38.6% a year, worst fall −45.8%"}
+    },
+    "gold_sta": {
+      "doc": "strategy-gold1", "reviewed": "2026-10-25",
+      "expect": {"cagr": 10.3, "maxdd": -13.2, "basis": "research", "period": "Apr 2016 – Oct 2026"},
+      "research": {"source": "Gold & Silver research · 10-year ETF test", "period": "Apr 2016 – Oct 2026", "cagr": 10.3, "maxdd": -13.2}
+    },
+    "gold_st30": {
+      "doc": "strategy-gold2", "reviewed": "2026-10-25",
+      "expect": {"cagr": 11.5, "maxdd": -13.4, "basis": "research", "period": "Apr 2016 – Oct 2026"},
+      "research": {"source": "Gold & Silver research · 10-year ETF test", "period": "Apr 2016 – Oct 2026", "cagr": 11.5, "maxdd": -13.4}
+    },
+    "silver_dc": {
+      "doc": "strategy-silver1", "reviewed": "2026-10-25",
+      "expect": {"cagr": 15.5, "maxdd": -33.9, "basis": "research", "period": "Apr 2016 – Oct 2026"},
+      "research": {"source": "Gold & Silver research · 10-year ETF test", "period": "Apr 2016 – Oct 2026", "cagr": 15.5, "maxdd": -33.9}
+    },
+    "silver_st": {
+      "doc": "strategy-silver2", "reviewed": "2026-10-25",
+      "expect": {"cagr": 17.2, "maxdd": -34.3, "basis": "research", "period": "Apr 2016 – Oct 2026"},
+      "research": {"source": "Gold & Silver research · 10-year ETF test", "period": "Apr 2016 – Oct 2026", "cagr": 17.2, "maxdd": -34.3}
+    }
+  },
+  "log": [
+    {"date": "2026-10-25", "what": "First version: research numbers for all eleven default strategies, 30% planning haircut."}
+  ]
+}

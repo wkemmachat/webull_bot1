@@ -49,6 +49,15 @@ Yahoo keeps only about **2 years** of hourly futures prices, so the bot's backte
 
 10-year ETF test (Apr 2016 – Oct 2026, Gold & Silver research): **10.3% a year, worst fall −13.2%**. It waits for a trending market, so it trades a little less than Gold #2; return and worst fall were similar in the research.
 
+## Expected return
+
+What the bot plans with for this strategy (the Dashboard's *Expected return* panel uses the same numbers). The research
+return minus the planning haircut is the typical case; the weak and good cases are about 1 period in 10 worse or better.
+
+<!--expected:gold_sta-->
+
+How it is worked out and how the yearly review keeps it current: [Expected returns](#/docs/expected-returns).
+
 ## Risks and what to expect
 
 - **Whipsaws:** in sideways gold markets it buys and sells several times at a small loss each; most losing trades are small.
