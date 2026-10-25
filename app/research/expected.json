@@ -38,7 +38,8 @@
     },
     "qld_ibs": {
       "doc": "strategy-qld-ibs", "reviewed": "2026-10-25",
-      "expect": {"cagr": 37.7, "maxdd": -31.6, "basis": "research", "period": "Oct 2016 – Oct 2026"},
+      "expect": {"cagr": 37.7, "maxdd": -31.6, "basis": "research", "period": "Oct 2016 – Oct 2026",
+                 "note": "The research charges 0.05% once per switch; the bot charges it on every ETF traded (bot backtest 34.5%)."},
       "research": {"source": "Research on single Stock Nasdaq · strategy 2 (QLD own-price + vol cap, 50/50 gold & T-bill parking)",
                    "period": "Oct 2016 – Oct 2026", "cagr": 37.7, "maxdd": -31.6, "sharpe": 1.27,
                    "bench": "1999-2026 with rebuilt QLD: 30.1% a year, worst fall −31.7%"}

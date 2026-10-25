@@ -26,6 +26,10 @@
 - **Ratio planner** (25 Oct 2026): set a % per strategy, see 1/2/3 years live, save the ratio on the server (`expected_plan`),
   and give bot-unassigned money by it through the usual Give-to-strategies dialog, prefilled. The target is (money in strategies +
   unassigned) × ratio. Only gaps are filled (scaled down when unassigned is short); nothing is sold automatically.
+- **IBS rounded to 4 decimals** (25 Oct 2026): a true tie (QLD 10 Feb 2022, IBS exactly 0.20) came out as 0.19999… from
+  Yahoo and triggered a dip trade the research does not take. Rounding makes the decision independent of the feed's float noise.
+- **Costs in the backtest** stay realistic: 0.05% on every ETF traded (both the parking legs and QLD). The research charged once
+  per switch, which explains about 2 points a year of the gap on QLD Trend + IBS-dip.
 - **Regime timing**: decided after the US close, traded from the next market open with split lots (the research filled at the next
   open, which tested better than the same close).
 - **UGL in Gold #1 and Gold #2**: each strategy keeps its own orders and books; orders are not merged (simpler and easier to audit).

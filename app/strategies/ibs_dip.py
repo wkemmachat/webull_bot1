@@ -35,6 +35,9 @@ def states(h, l, c, atr=14, mult=4.0, ma=200, ibs_max=0.2, adx_min=20.0):
     rng = h - l
     with np.errstate(invalid="ignore", divide="ignore"):
         ibs = np.where(rng > 0, (c - l) / np.where(rng > 0, rng, 1.0), 0.5)
+    # 4 decimals: the data feed's float noise must not decide a tie. Real prices are in cents, so a true IBS of exactly 0.2
+    # (QLD on 10 Feb 2022) can come out as 0.19999… from one feed and 0.20000… from another.
+    ibs = np.round(ibs, 4)
     out = np.array([""] * len(c), dtype=object)
     for i in range(len(c)):
         if np.isnan(sma[i]) or np.isnan(st["atr"][i]):
@@ -361,7 +364,7 @@ class IbsDipStrategy(RegimeStrategy):
         for i in range(len(c) - rows, len(c)):
             sl = sum(c[i - ma + 1:i + 1]) / ma
             rg = h[i] - l[i]
-            ibs = (c[i] - l[i]) / rg if rg > 0 else 0.5
+            ibs = round((c[i] - l[i]) / rg, 4) if rg > 0 else 0.5
             st_chk = "trend" if (up[i] and c[i] > sl) else ("dip" if (ibs < p["ibs_max"] and adx[i] > p["adx_min"]) else "off")
             a, b = float(fr["st_line"].iloc[i]), line[i]
             d1, d2 = float(fr["adx"].iloc[i]), adx[i]

@@ -72,7 +72,27 @@ Numbers from the bot's own **Backtest** tab on 25 Oct 2026: the strategy's live 
 
 ## The research
 
-**Research on single Stock Nasdaq · strategy 2** (QLD own-price + vol cap, 50/50 gold & T-bill parking), Oct 2016 – Oct 2026: **37.7% a year, worst fall −31.6%, Sharpe 1.27**. Over 1999–2026, with QLD rebuilt from the Nasdaq-100 before it existed: **30.1% a year, worst fall −32%** — it held up in the dot-com crash (+19.7% a year in 2000–02) when the bot's other QLD strategies lost money. 624 nearby settings had a median of 25% a year with a −37% worst fall, so plan on less than the best case. The bot's backtest is about 3–5 points a year lower than the research because it charges 0.05% on every dollar traded (about 29 trades a year), and it matches the research's signals day for day.
+**Research on single Stock Nasdaq · strategy 2** (QLD own-price + vol cap, 50/50 gold & T-bill parking), Oct 2016 – Oct 2026: **37.7% a year, worst fall −31.6%, Sharpe 1.27**. Over 1999–2026, with QLD rebuilt from the Nasdaq-100 before it existed: **30.1% a year, worst fall −32%** — it held up in the dot-com crash (+19.7% a year in 2000–02) when the bot's other QLD strategies lost money. 624 nearby settings had a median of 25% a year with a −37% worst fall, so plan on less than the best case.
+
+### Why the bot's numbers are lower than the research (checked 25 Oct 2026)
+
+| Period | Research | Bot backtest | Research rules with the research's cost counting |
+|---|---|---|---|
+| 1 year | 55.3% / −12.5% | 49.8% / −12.6% | 52.4% |
+| 3 years | 53.9% / −31.6% | 51.2% / −29.6% | 53.3% |
+| 5 years | 46.9% / −31.6% | 44.9% / −29.6% | 47.3% |
+| 10 years | 37.7% / −31.6% | 34.5% / −29.6% | 36.7% |
+| Since May 2007 | 32.2% / −31.6% | 30.0% / −29.6% | 32.3% |
+
+- **Same signals:** the bot buys and sells on the same days as the research rules, every day since 2007.
+- **Costs, about 2 points a year:** the research charges 0.05% once per switch. The bot charges 0.05% on every ETF it really
+  trades: selling gold and T-bills *and* buying QLD, then the reverse. That doubles the cost. The strategy switches about 29
+  times a year, mostly one-day dip trades, so this adds up. The bot's way is what real trading costs.
+- **The rest, about 1 point a year over 10 years:** small differences in how fills and the gold / T-bill legs are counted.
+  Week by week the two curves agree on average to within half a basis point.
+- **A data tie, fixed:** on 10 Feb 2022 QLD's IBS was exactly 0.20, which is not a dip. Yahoo's prices made it 0.19999…, so the
+  server took a dip trade the research does not take and showed 15% instead of 24% for 2022 (10 years 33.5% instead of 34.5%).
+  The bot now rounds IBS to 4 decimals, so float noise in the data can no longer decide a tie.
 
 ## Sister strategy
 

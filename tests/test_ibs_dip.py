@@ -113,3 +113,17 @@ def test_usd_backtest_runs_with_smh_comparison():
     assert r["ok"], r.get("error")
     assert r["main"] == "USD" and "SMH" in r["series"]["bench"] and r["index"] == "SMH"
     assert r["research"]["cagr"] == 66.8
+
+
+def test_ibs_tie_is_not_decided_by_float_noise():
+    """QLD on 10 Feb 2022: close 35.75, low 35.345, high 37.37 → IBS exactly 0.2, which is not a dip (< 0.2), whatever
+    tiny rounding the data feed adds."""
+    import numpy as np
+    from app.strategies.ibs_dip import states
+    n = 260
+    base = np.linspace(30, 40, n)
+    h, l, c = base + 1, base - 1, base.copy()
+    for hh, ll, cc in ((37.37, 35.345, 35.75), (37.37 + 1e-9, 35.345, 35.75), (37.37, 35.345 + 3e-7, 35.75 - 2e-7)):
+        h[-1], l[-1], c[-1] = hh, ll, cc
+        _, _, _, ibs, _ = states(h, l, c)
+        assert ibs[-1] == 0.2
