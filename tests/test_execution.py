@@ -169,3 +169,35 @@ def test_stop_and_sell(clean, clock):
     assert S.row(s.id)["control"] == "stopped"
     L = ledger.get("paper", s.id)
     assert not any(q for q in L["holdings"].values())
+
+
+def test_one_replacement_per_lot(clean, clock):
+    """An old order read as expired after its session must not add a second copy of a lot that was already retried."""
+    s = S.get("gold_st30")
+    pid = X.build_plan("paper", s, {"UGL": 0.99}, "signal", NOW, brokers.get("paper"))
+    o = db.one("SELECT * FROM orders WHERE plan_id=? ORDER BY step, id LIMIT 1", (pid,))
+    db.run("UPDATE orders SET status='cancelled', qty=10 WHERE id=?", (o["id"],))
+    o = db.one("SELECT * FROM orders WHERE id=?", (o["id"],))
+    X._retry(o, 10, NOW, "test", 3)
+    X._retry(o, 10, NOW, "test again", 3)                                # same order twice: still one replacement
+    reps = db.rows("SELECT * FROM orders WHERE plan_id=? AND step=? AND retry=1", (pid, o["step"]))
+    assert len(reps) == 1
+    # the replacement is cancelled and retried: the first order read late again adds nothing
+    db.run("UPDATE orders SET status='cancelled' WHERE id=?", (reps[0]["id"],))
+    X._retry(db.one("SELECT * FROM orders WHERE id=?", (reps[0]["id"],)), 10, NOW, "r1", 3)
+    X._retry(o, 10, NOW, "late read of r0", 3)
+    assert [r["retry"] for r in db.rows("SELECT retry FROM orders WHERE plan_id=? AND step=? AND status='scheduled'", (pid, o["step"]))] == [2]
+
+
+def test_duplicate_waiting_orders_are_removed(clean, clock):
+    s = S.get("gold_st30")
+    pid = X.build_plan("paper", s, {"UGL": 0.99}, "signal", NOW, brokers.get("paper"))
+    o = db.one("SELECT * FROM orders WHERE plan_id=? ORDER BY step, id LIMIT 1", (pid,))
+    with db.tx() as c:                                                  # what bot 1.0's repair left behind
+        for r in (1, 2, 3):
+            X._insert_order(c, pid, "paper", s.id, o["step"], o["lot"], o["lots"], o["symbol"], o["side"], NOW, o["session"],
+                            plan_qty=5, retry=r, qty=5)
+    assert X.dedupe_retries() == 3
+    left = db.rows("SELECT retry FROM orders WHERE plan_id=? AND step=? AND status='scheduled'", (pid, o["step"]))
+    assert [r["retry"] for r in left] == [3]
+    assert X.dedupe_retries() == 0

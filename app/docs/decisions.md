@@ -45,6 +45,10 @@
   - The Dashboard and each strategy page list the active plans: sells exact, buys estimated as target × the strategy's money
     − what it holds, at the last price (the same sum the plan uses when it sends each lot).
   - LINE event *Orders for the next US open* at 17:30 New York on each trading day; quiet hours hold it until 07:00 Bangkok.
+- **One replacement per lot** (25 Oct 2026): found on the Webull test account. The one-time re-check of 24 Oct read old
+  orders as expired after the session and gave some lots 2–3 replacement orders waiting for Monday's open. A retry is now
+  only created when the lot has no newer attempt and no open order. Each tick also keeps just the newest waiting order per lot
+  and marks the extra copies skipped (with a Logs entry).
 - **Regime timing**: decided after the US close, traded from the next market open with split lots (the research filled at the next
   open, which tested better than the same close).
 - **UGL in Gold #1 and Gold #2**: each strategy keeps its own orders and books; orders are not merged (simpler and easier to audit).

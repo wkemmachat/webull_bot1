@@ -445,6 +445,13 @@ def _retry(o, qty_left, now, why, retries):
         return
     when = mh.next_open(now + timedelta(minutes=1), o["session"] or "CORE")
     with db.tx() as c:
+        # one replacement per lot: skip when this order was already retried, or another order for the same lot is still open
+        # (an old order whose status is read late — e.g. after a restart — must not add a second copy of the lot)
+        dup = c.execute(f"SELECT COUNT(*) n FROM orders WHERE plan_id=? AND step=? AND symbol=? AND side=? AND id<>? "
+                        f"AND (retry>? OR status IN ({_q(len(OPEN))}))",
+                        (o["plan_id"], o["step"], o["symbol"], o["side"], o["id"], o["retry"], *OPEN)).fetchone()["n"]
+        if dup:
+            return
         _insert_order(c, o["plan_id"], o["mode"], o["strategy"], o["step"], o["lot"], o["lots"], o["symbol"], o["side"], when,
                       o["session"], plan_qty=qty_left, retry=o["retry"] + 1, qty=qty_left)
 
@@ -580,6 +587,32 @@ def poll(mode, now, broker, only_id=None, settings=None):
             left = (o["qty"] or 0) - filled
             if left >= 1 and plan and plan["status"] == "active":
                 _retry(o, left, now, f"order {status.lower()} with {left:.0f} left", retries)
+
+
+def dedupe_retries() -> int:
+    """Keep one waiting order per lot. Bot 1.0's one-time re-check (repair_cancel_refusals) could give a lot several
+    replacement orders when old orders were read as expired after the session; they would all have been sent at the
+    next open. The newest attempt of each lot stays, the extra copies are marked skipped."""
+    rows = db.rows("SELECT o.id, o.plan_id, o.step, o.symbol, o.side, o.retry, o.mode, o.strategy FROM orders o JOIN plans p ON p.id=o.plan_id "
+                   "WHERE p.status='active' AND o.status='scheduled' ORDER BY o.plan_id, o.step, o.symbol, o.side, o.retry DESC, o.id DESC")
+    seen, extra = set(), []
+    for r in rows:
+        k = (r["plan_id"], r["step"], r["symbol"], r["side"])
+        if k in seen:
+            extra.append(r)
+        else:
+            seen.add(k)
+    if extra:
+        with db.tx() as c:
+            for r in extra:
+                c.execute("UPDATE orders SET status='skipped', qty=0, error=?, updated_at=? WHERE id=?",
+                          ("duplicate replacement for the same lot (removed)", int(time.time()), r["id"]))
+        for (mode, sid), n in {(r["mode"], r["strategy"]): sum(1 for x in extra if (x["mode"], x["strategy"]) == (r["mode"], r["strategy"]))
+                               for r in extra}.items():
+            db.add_event("warn", "orders", f"Removed {n} duplicate waiting order(s)",
+                         "Several replacement orders were waiting for the same lot; only the newest one is kept, so the lot is "
+                         "bought or sold once.", strategy=sid, mode=mode)
+    return len(extra)
 
 
 def repair_cancel_refusals():
@@ -802,6 +835,7 @@ def process(now=None, settings=None):
         out = {}
         try:
             repair_cancel_refusals()
+            dedupe_retries()
         except Exception as e:
             log.warning("repair: %s", e)
         modes = brokers.enabled_modes(s)
