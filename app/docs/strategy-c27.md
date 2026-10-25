@@ -38,6 +38,31 @@ before it can be picked.
 
 The strategy page shows this week's list: size rank, market cap, 6-month return, and (2x) the ETF used.
 
+### Weekly 2x ETF search (2x only)
+
+After each weekend's Nasdaq-100 ranking the bot looks for a 2x ETF for every stock among the 15 largest (the 12 it picks from,
+plus the next 3, so a newcomer is seen a week early) that it would hold as shares. **It only suggests; it never adds one by itself.**
+
+- **Where it looks:** Yahoo's search for the ticker with "daily", "2x", "bull" and "long". 2x single-stock funds are named like
+  "GraniteShares 2x Long NVDA Daily ETF", "Direxion Daily TSLA Bull 2X Shares" or "Corgi AMD 2x Daily ETF". Short, inverse, 1.5x and
+  3x funds, foreign listings and crypto wrappers are skipped.
+- **What a suggestion must pass:**
+  - it moves like 2x the stock: daily beta 1.7–2.3 and correlation of at least 0.90 over the last 60 trading days;
+  - it has traded at least 63 days (about 3 months);
+  - it trades at least $2 million a day (20-day average);
+  - its spread is under 0.5%, when Yahoo shows one.
+- **When one passes:** a LINE message (event *New 2x ETF found*), and the strategy page's **2x ETF search** card shows it with
+  **Add** and **Dismiss**.
+  - **Add** writes the pair into the strategy's "2x ETFs" setting. From then on, whenever that stock is on the weekly list the bot
+    buys the ETF instead. If the stock is on this week's list, its shares switch to the ETF at the next plan.
+  - **Dismiss** hides that ETF; a different one found later is suggested again.
+- **After adding:** run **Go-live → Test trade** for the ETF on Live. Every ETF in the 2x list now appears there, not only this
+  week's.
+- **The card also lists every stock checked:** what it is held as, and why candidates failed (e.g. "too young").
+  **Search now** runs the search at any time.
+- **Before you add,** look up the ETF yourself: issuer, cost, and whether Webull Thailand offers it. The checks prove it behaves
+  like 2x and trades enough. They don't prove it will last.
+
 ## When it trades
 
 The signal is decided after each US close and the list after each Friday close; orders start at the **next market open**, 10 lots

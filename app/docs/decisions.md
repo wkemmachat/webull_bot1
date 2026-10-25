@@ -30,6 +30,10 @@
   Yahoo and triggered a dip trade the research does not take. Rounding makes the decision independent of the feed's float noise.
 - **Costs in the backtest** stay realistic: 0.05% on every ETF traded (both the parking legs and QLD). The research charged once
   per switch, which explains about 2 points a year of the gap on QLD Trend + IBS-dip.
+- **Weekly 2x ETF search** (25 Oct 2026, C2-7 Momentum 2x): after the weekend ranking, Yahoo is searched for a 2x ETF for
+  each of the 15 largest stocks held as shares. It must pass these checks: beta 1.7–2.3 and correlation ≥ 0.90 over 60 days,
+  63+ trading days, $2M+ a day, spread < 0.5% when known. It is only suggested (LINE + Add/Dismiss on the strategy page), never
+  added automatically, and Add is followed by a Test trade.
 - **Regime timing**: decided after the US close, traded from the next market open with split lots (the research filled at the next
   open, which tested better than the same close).
 - **UGL in Gold #1 and Gold #2**: each strategy keeps its own orders and books; orders are not merged (simpler and easier to audit).

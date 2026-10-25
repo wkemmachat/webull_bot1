@@ -18,7 +18,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import auth, backtest, expected, symcharts, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views
+from . import auth, backtest, etf2x, expected, symcharts, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views
 from . import strategies as S
 from .config import APP_NAME, BASE_DIR, COOKIE_SECURE, DISPLAY_TZ, PUBLIC_URL, SCHEDULER_ENABLED
 
@@ -550,6 +550,27 @@ async def expected_plan(request: Request, u=Depends(user)):
 def expected_check(u=Depends(user)):
     """Re-run every strategy's backtest for the expected-return ranges (takes about a minute)."""
     return expected.start_check("manual", send_line=True)
+
+
+@app.get("/api/etf2x/{sid}")
+def etf2x_get(sid: str, u=Depends(user)):
+    """The weekly 2x ETF search for a C2-7 2x strategy: what each large stock is held as, and any ETF found."""
+    return etf2x.view(sid)
+
+
+@app.post("/api/etf2x/{sid}/{action}")
+async def etf2x_action(sid: str, action: str, request: Request, u=Depends(user)):
+    b = await body(request)
+    try:
+        if action == "scan":
+            return etf2x.start_scan(sid)
+        if action == "add":
+            return etf2x.add(sid, b.get("stock"), b.get("etf"))
+        if action == "dismiss":
+            return etf2x.dismiss(sid, b.get("stock"))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    raise HTTPException(404, "Unknown action")
 
 
 @app.get("/api/testtrade")

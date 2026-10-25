@@ -186,6 +186,7 @@
       return `${kpis()}
       ${fam === 'regime' ? regimeTiles() : ''}
       ${st.detail && st.detail.basket ? basketTable(st.detail.basket) : ''}
+      ${d.row.type === 'momentum_basket' && d.row.params.leverage === '2x' && tab === 'overview' ? '<div id="etf2x"></div>' : ''}
       <section class="card col" style="gap:12px;padding:16px"><div id="ctool"></div><div id="chart" class="col" style="gap:18px"><div class="empty"><span class="spin"></span></div></div>
         <div class="muted small">Built with TradingView Lightweight Charts™. Lines are the bot's own calculations, the numbers the strategy trades on${fam === 'signal' ? '; futures prices are back-adjusted for contract rolls in the indicators.' : '.'}</div></section>
       <div class="grid" style="--min:360px">
@@ -276,6 +277,7 @@
       el.innerHTML = header() + (tab === 'overview' ? overview() : tab === 'backtest' || tab === 'charts' ? '<div id="bt" class="col" style="gap:20px"></div>' : tab === 'params' ? paramsForm() : tab === 'exec' ? execForm() : history());
       if (tab === 'backtest') btClean = V.backtestTab(el.querySelector('#bt'), sid, d);
       if (tab === 'charts') { btClean = V.symbolChartsTab(el.querySelector('#bt'), sid, d, chartSym); chartSym = null; }
+      { const ex = el.querySelector('#etf2x'); if (ex && V.renderEtf2x) V.renderEtf2x(ex, sid); }
       U.on(el, '[data-symc]', 'click', (e, b) => { e.preventDefault(); chartSym = b.dataset.symc; tab = 'charts'; render(); window.scrollTo(0, 0); });
       U.on(el, '[data-tab]', 'click', (e, b) => { tab = b.dataset.tab; render(); });
       U.on(el, '[data-money]', 'click', (e, b) => V.moneyDialog(b.dataset.money, sid, () => V.strategy(el, params)));

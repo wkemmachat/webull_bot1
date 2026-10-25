@@ -26,6 +26,12 @@ connected, a new sign-in, a health-check problem. Critical alerts cannot be swit
 The page shows the monthly quota from LINE's API. Above 90% of the quota, non-critical instant alerts move to the digest.
 Every strategy also has its own LINE switch.
 
+## New 2x ETF found
+
+Event *New 2x ETF found* (instant by default). After the weekend ranking, if the weekly search finds a 2x ETF that passes the
+checks for one of the largest stocks C2-7 Momentum 2x would hold as shares, you get its name, beta, daily trading and age. Nothing
+changes until you press **Add** on the strategy page. See [C2-7 Momentum](#/docs/strategy-c27).
+
 ## Expected returns: yearly check
 
 Event *Expected returns: yearly check* (instant by default). Once a year the bot re-runs every strategy's backtest and sends

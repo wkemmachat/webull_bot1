@@ -43,6 +43,8 @@ EVENTS = {
     "broker": ("Webull disconnected or token expiring", "Webull's login token is ending or was refused; approve again in the Webull app.", "instant", True),
     "login": ("Sign-in from a new device", "Or 5 wrong passwords in a row.", "instant", True),
     "system": ("Bot started / stopped / updated", "Server restarts and settings changes.", "digest", False),
+    "etf2x": ("New 2x ETF found", "Weekly search after the Nasdaq-100 ranking: a 2x ETF that passed the checks for a stock in the "
+              "C2-7 2x list. Nothing changes until you add it on the strategy page.", "instant", False),
     "review": ("Expected returns: yearly check", "The yearly backtest check of every strategy's expected return, and a monthly "
                "reminder while the research review is due.", "instant", False),
 }

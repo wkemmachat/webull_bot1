@@ -204,6 +204,8 @@ def _rank_job():
     from . import basket
     try:
         basket.update_live()
+        from . import etf2x
+        etf2x.scan_all()                                     # suggest 2x ETFs for this week's largest stocks (never adds)
     except Exception as e:
         log.warning("nasdaq-100 ranking: %s", e)
         db.set_state("job:c27rank", None)                    # try again in an hour

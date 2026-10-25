@@ -39,7 +39,7 @@ def symbols() -> dict:
     """{symbol: [strategy names]} — every ETF a (not archived) strategy can hold."""
     out = {}
     for s in S.all_instances():
-        for sym in s.trade_symbols() or []:
+        for sym in (s.test_symbols() if hasattr(s, "test_symbols") else s.trade_symbols()) or []:
             out.setdefault(sym, []).append(s.name)
     return dict(sorted(out.items()))
 

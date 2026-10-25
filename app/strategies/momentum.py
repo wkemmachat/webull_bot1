@@ -99,6 +99,11 @@ class MomentumBasket(RegimeStrategy):
         rev = {v: k for k, v in self.etf_map().items()}
         return rev.get(sym)
 
+    def test_symbols(self):
+        """Every ETF this strategy may hold (for Go-live → Test trade), not only this week's."""
+        lev = list(self.etf_map().values()) if self.params["leverage"] == "2x" else []
+        return list(dict.fromkeys(self.trade_symbols() + lev))
+
     def parking(self) -> dict:
         p, buf = self.params, self.buffer()
         g = max(0.0, min(1.0, p["gold_pct"] / 100))
