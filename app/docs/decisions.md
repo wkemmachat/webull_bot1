@@ -41,6 +41,10 @@
     underwater, the share of days below a high and the 5 worst falls.
   - The strategy cards read a saved summary that the yearly backtest check and the strategy page update.
 - **Centered layout**: a page column with a maximum width (--page-max 1,480 px) on wide screens; the top bar is aligned to it.
+- **Next-open orders** (25 Oct 2026):
+  - The Dashboard and each strategy page list the active plans: sells exact, buys estimated as target × the strategy's money
+    − what it holds, at the last price (the same sum the plan uses when it sends each lot).
+  - LINE event *Orders for the next US open* at 17:30 New York on each trading day; quiet hours hold it until 07:00 Bangkok.
 - **Regime timing**: decided after the US close, traded from the next market open with split lots (the research filled at the next
   open, which tested better than the same close).
 - **UGL in Gold #1 and Gold #2**: each strategy keeps its own orders and books; orders are not merged (simpler and easier to audit).

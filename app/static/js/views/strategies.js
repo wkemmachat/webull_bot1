@@ -184,6 +184,7 @@
       const checks = (st.detail && st.detail.checks) || [];
       const sig = d.signals || [];
       return `${kpis()}
+      <div id="nextorders"></div>
       ${fam === 'regime' ? regimeTiles() : ''}
       ${st.detail && st.detail.basket ? basketTable(st.detail.basket) : ''}
       ${d.row.type === 'momentum_basket' && d.row.params.leverage === '2x' && tab === 'overview' ? '<div id="etf2x"></div>' : ''}
@@ -281,6 +282,7 @@
       { const ex = el.querySelector('#etf2x'); if (ex && V.renderEtf2x) V.renderEtf2x(ex, sid); }
       if (tab === 'pnl') V.dailyPnlTab(el.querySelector('#bt'), sid, c);
       { const rk = el.querySelector('#risk'); if (rk && V.renderRisk) V.renderRisk(rk, sid); }
+      { const no = el.querySelector('#nextorders'); if (no && V.renderNextOrders) V.renderNextOrders(no, { sid }); }
       U.on(el, '[data-symc]', 'click', (e, b) => { e.preventDefault(); chartSym = b.dataset.symc; tab = 'charts'; render(); window.scrollTo(0, 0); });
       U.on(el, '[data-tab]', 'click', (e, b) => { tab = b.dataset.tab; render(); });
       U.on(el, '[data-money]', 'click', (e, b) => V.moneyDialog(b.dataset.money, sid, () => V.strategy(el, params)));

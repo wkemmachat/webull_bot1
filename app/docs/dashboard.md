@@ -1,6 +1,14 @@
 <!--{"title": "Dashboard", "group": "Using the app"}-->
 # Dashboard
 
+- **Next US open** (top of the page): the orders each strategy will send at the next US open, decided after the close.
+  - Each row: the strategy, buy or sell, symbol, shares, last price and ≈ value, why (the signal) and what it will hold after.
+  - When the plan starts (Bangkok time, with a countdown) and how many lots.
+  - Sells are exact. Buys are estimated from the last price: the bot sizes each lot when it sends it.
+  - Totals of buys and sells, and a note when two strategies trade the same ETF.
+  - Plans already trading show *running* with the rounds left. **Orders** lets you start a plan now or cancel it.
+  - Open it in the morning to check the orders against the chart: the arrow on the last candle is the decision, and this list
+    is what goes out at the open.
 - **Bot equity**: the value of all strategies in the mode you are looking at, with today's change (money added today is left out), the return on net money in,
   and the difference to **buy & hold** (each strategy's money held in its main ETF since it was added).
 - **Account split**: how the broker account is divided between the strategies, bot unassigned and *not for the bot*.

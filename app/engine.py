@@ -169,6 +169,12 @@ def daily_jobs(now):
     hh = ny.strftime("%H:%M")
     if mh.is_trading_day(ny.date()) and hh >= "16:40" and _once("report", day):
         queue_reports(now)
+    if mh.is_trading_day(ny.date()) and hh >= "17:30" and _once("preview", day):
+        from . import preview                               # LINE: orders waiting for the next open
+        try:
+            preview.send_preview(now)
+        except Exception as e:
+            log.warning("next-open preview: %s", e)
     htime = db.get_setting("health_time_ny") or "16:45"
     if hh >= htime and _once("health", day):
         from . import health

@@ -16,6 +16,8 @@ At the top, **Money in strategies** shows the same donut as the dashboard: each 
 
 - **Overview**: value, holding, current signal, next check, the TradingView-style chart with the strategy's own indicators, the
   signal check (the numbers behind today's decision), holdings vs target, and every signal.
+- **Next US open** (top of Overview): this strategy's orders waiting for the next open (same table as the Dashboard), or
+  "no order waiting" when it already holds its target.
 - **Falls to expect** (on Overview): how deep and how long the strategy has been below its previous high. Read it before
   giving the strategy money.
   - **From the backtest:** the worst fall (from the high to the bottom, how long it fell and how long it took to recover), the

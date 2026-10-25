@@ -31,10 +31,12 @@
       const tot = acct.total || split.reduce((x, y) => x + y.v, 0);
       const today = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' }).format(new Date());
       const h = d.health;
-      const oldExp = el.querySelector('#expect');          // keep the expected-return panel (and a split being tried) across refreshes
+      const oldExp = el.querySelector('#expect');
+      const oldNo = el.querySelector('#nextorders') ? el.querySelector('#nextorders').innerHTML : '';   // no flicker on refresh          // keep the expected-return panel (and a split being tried) across refreshes
       el.innerHTML = `
       <div class="page-head"><div><div class="eyebrow">${U.esc(today)} · ${U.modeLabel[mode]} account</div><h1 class="h1">Dashboard</h1></div>
         <div class="row"><a class="btn" href="#/health">Run cross-check</a><button class="btn p" type="button" id="add">Add money</button></div></div>
+      <div id="nextorders"></div>
       ${d.account_error ? `<div class="note warn">Account not readable: ${U.esc(d.account_error)}</div>` : ''}
       <div class="grid" style="--min:340px">
         <section class="card span2 col" style="gap:14px">
@@ -96,6 +98,8 @@
       </div>`;
       if (chart) chart.remove();
       V.renderAlloc(el.querySelector('#alloc'), d.strategies);
+      el.querySelector('#nextorders').innerHTML = oldNo;
+      V.renderNextOrders(el.querySelector('#nextorders'));
       if (oldExp && oldExp.firstChild) { el.querySelector('#expect').replaceWith(oldExp); if (oldExp._expRefresh) oldExp._expRefresh(); } else V.renderExpected(el.querySelector('#expect'));
       chart = equityChart(el.querySelector('#eq'), d.series, range);
       el.querySelector('#rng').onclick = (e) => {

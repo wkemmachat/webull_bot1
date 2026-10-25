@@ -18,7 +18,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import auth, backtest, etf2x, perf, expected, symcharts, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views
+from . import auth, backtest, etf2x, perf, preview, expected, symcharts, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views
 from . import strategies as S
 from .config import APP_NAME, BASE_DIR, COOKIE_SECURE, DISPLAY_TZ, PUBLIC_URL, SCHEDULER_ENABLED
 
@@ -221,6 +221,12 @@ def strategy(sid: str, mode: str = "paper", u=Depends(user)):
     if not d:
         raise HTTPException(404, "No such strategy")
     return d
+
+
+@app.get("/api/next-orders")
+def next_orders(mode: str = "paper", sid: str = "", u=Depends(user)):
+    """Orders waiting for the next US open (or running now), per strategy: sells exact, buys estimated."""
+    return preview.next_orders(mode_of(mode), sid or None)
 
 
 @app.get("/api/strategies/{sid}/daily")

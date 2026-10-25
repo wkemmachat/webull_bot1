@@ -27,6 +27,13 @@ connected, a new sign-in, a health-check problem. Critical alerts cannot be swit
 The page shows the monthly quota from LINE's API. Above 90% of the quota, non-critical instant alerts move to the digest.
 Every strategy also has its own LINE switch.
 
+## Orders for the next US open
+
+Event *Orders for the next US open* (instant by default). At 17:30 New York on each trading day you get one message per trading
+mode, listing every plan waiting for the next open: for example "USD Trend + IBS-dip: buy ≈118 USD ≈$9,950 — Dip day: IBS
+0.06 < 0.15", with the start time in Bangkok. It arrives after the US close; quiet hours (00:30–07:00) hold it until 07:00
+Bangkok. Nothing is sent when no orders are waiting.
+
 ## New 2x ETF found
 
 Event *New 2x ETF found* (instant by default). After the weekend ranking, if the weekly search finds a 2x ETF that passes the
