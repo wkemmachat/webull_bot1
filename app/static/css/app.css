@@ -83,6 +83,13 @@ h1, h2, h3 { margin: 0; }
   background: var(--seg); color: var(--text2); white-space: nowrap; }
 .pill.ok { background: var(--ok-bg); color: var(--ok-fg); } .pill.warn { background: var(--warn-bg); color: var(--warn-fg); }
 .pill.err { background: var(--err-bg); color: var(--err-fg); } .pill.info { background: var(--info-bg); color: var(--info); }
+.pill.wrap { white-space: normal; max-width: 100%; line-height: 1.35; }
+.act { display: inline-flex; align-items: baseline; gap: 6px; font-size: 12px; font-weight: 500; color: var(--text2); line-height: 1.35; }
+.act i { font-style: normal; font-size: 11px; color: var(--warn-fg); }
+.act.running i { color: var(--ok-fg); animation: actpulse 1.6s ease-in-out infinite; }
+.act.waiting i { color: var(--dim); }
+@keyframes actpulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .act.running i { animation: none; } }
 .pill.big { font-size: 15px; padding: 5px 14px; }
 .sw { width: 42px; height: 24px; border-radius: 999px; background: var(--border); position: relative; display: inline-block; flex: none; border: 0;
   cursor: pointer; padding: 0; }

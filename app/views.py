@@ -91,21 +91,27 @@ def strategy_card(mode, s, prices=None):
     ap = execution.active_plan(mode, s.id)
     d = s.describe()
     nc = (st.get("detail") or {}).get("next_check")
-    label = st.get("label") if st.get("ok") else f"error: {st.get('error') or 'not evaluated yet'}"
+    state_label = st.get("label") if st.get("ok") else f"error: {st.get('error') or 'not evaluated yet'}"
+    label, activity = state_label, None
     if ap:
         q = execution.plans_view(mode, sid=s.id, limit=1)
         p = q[0] if q else None
         if p and p["state"] == "queued":
-            label = f"{label} · plan queued {datetime.fromtimestamp(p['start_at'], TZ).strftime('%H:%M')}"
+            at = datetime.fromtimestamp(p["start_at"], TZ).strftime("%H:%M")
+            activity = {"kind": "queued", "text": f"Plan starts {at}"}
+            label = f"{label} · plan queued {at}"
         elif p:
+            activity = {"kind": "running", "text": "Plan running"}
             label = f"{label} · plan running"
     waiting = execution.waiting_for_buy(mode, s) if (v.get("hold_cash") and not ap) else None
     if waiting:
+        activity = {"kind": "waiting", "text": f"${v['waiting_cash']:,.0f} waits for a buy signal"}
         label = f"{label} · ${v['waiting_cash']:,.0f} waits for a buy signal"
     cfg = execution.exec_cfg(s)
     return {"id": s.id, "name": s.name, "color": s.color, "type": s.type, "family": s.family, "timeframe": s.timeframe,
             "control": s.row.get("control"), "line_on": bool(s.row.get("line_on")), "flow": d.get("flow"), "rule": d.get("rule"),
-            "state": st.get("state"), "label": label, "state_cls": "warn" if (ap or waiting) else _state_class(s, st),
+            "state": st.get("state"), "label": label, "state_label": state_label, "activity": activity,
+            "state_cls": _state_class(s, st),
             "waiting_since": waiting, "ok": bool(st.get("ok")),
             "signal_time": st.get("signal_time"), "bar_time": st.get("bar_time"), "next_check": nc,
             "value": v["value"], "net_in": v["net_in"], "pnl": v["pnl"], "ret": v["ret"], "cash": v["cash"],

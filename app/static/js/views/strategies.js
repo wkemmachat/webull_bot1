@@ -25,7 +25,7 @@
           <a href="#/strategies/${s.id}" class="row" style="gap:12px;align-items:flex-start;color:var(--text);flex-wrap:nowrap">${U.dot(s.color, 12)}
             <span class="col" style="gap:3px;min-width:0"><b style="font-size:15px">${U.esc(s.name)}</b><span class="muted small">${U.esc(s.rule || '')}</span></span></a>
           <div class="col" style="gap:3px"><span class="num small">${U.esc(s.flow || '')}</span><span class="muted small">${U.esc(s.exec)}</span></div>
-          <div class="col" style="gap:5px;align-items:flex-start">${U.pill(s.state_cls, s.label || '—')}<span class="muted small">${s.signal_time ? 'since ' + U.dt(s.signal_time) : ''}</span></div>
+          ${U.stateBlock(s, s.signal_time ? `<span class="muted small">since ${U.dt(s.signal_time)}</span>` : '')}
           <div class="col" style="gap:2px"><span class="num" style="font-weight:600;font-size:15px">${U.usd(s.value)}</span>
             <span class="num small ${U.cls(s.pnl)}">${U.sgnUsd(s.pnl, 0)} · ${U.pct(s.ret)}</span><span class="muted num small">capital ${U.usd(s.net_in, 0)}</span></div>
           <div class="row" style="gap:14px">

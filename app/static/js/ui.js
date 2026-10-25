@@ -59,6 +59,15 @@
     return Math.round(s / 86400) + ' days ago';
   };
   U.pill = function (cls, text) { return `<span class="pill ${cls || ''}">${U.esc(text)}</span>`; };
+  /* A strategy's state: the signal (pill in the signal's colour) and, on its own line, what the bot is doing about it. */
+  U.stateBlock = function (s, extra) {
+    const a = s.activity;
+    const icon = { queued: '◷', running: '●', waiting: '○' };
+    return `<div class="col" style="gap:5px;align-items:flex-start;min-width:0">
+      <span class="pill wrap ${s.state_cls || ''}">${U.esc(s.state_label || s.label || '—')}</span>
+      ${a ? `<span class="act ${a.kind}"><i aria-hidden="true">${icon[a.kind] || '•'}</i>${U.esc(a.text)}</span>` : ''}
+      ${extra || ''}</div>`;
+  };
   U.dot = function (color, size) { return `<span class="dot" style="background:${U.esc(color)};${size ? `width:${size}px;height:${size}px` : ''}"></span>`; };
   U.spark = function (vals, color) {
     if (!vals || vals.length < 2) return '<svg viewBox="0 0 120 36" style="width:120px;height:36px" aria-hidden="true"></svg>';
