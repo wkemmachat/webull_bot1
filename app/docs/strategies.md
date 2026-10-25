@@ -3,6 +3,8 @@
 
 Each strategy is a **sub-account**: its own money, holdings, plans, LINE switch and execution settings.
 
+At the top, **Money in strategies** shows the same donut as the dashboard: each strategy's share of the money in all strategies (unassigned money not counted), as value now or money put in.
+
 ## Controls
 
 - **Active**: follows every signal (buys, sells, rebalances).

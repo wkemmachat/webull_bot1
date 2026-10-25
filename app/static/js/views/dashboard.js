@@ -60,6 +60,7 @@
           <a href="#/money" class="small" style="font-weight:500">Manage money →</a>
         </section>
       </div>
+      <div id="alloc"></div>
       <div class="grid" style="--min:230px">
         <a class="card" href="#/money" style="color:var(--text)"><div class="eyebrow">Bot unassigned</div><div class="num big" style="margin-top:6px">${U.usd(d.unassigned)}</div><div class="muted small">Given to the bot, not yet to a strategy${d.not_bot != null ? ' · ' + U.usd(d.not_bot, 0) + ' not for the bot' : ''}</div></a>
         <a class="card" href="#/orders" style="color:var(--text)"><div class="eyebrow">Order plans</div><div class="num big" style="margin-top:6px">${d.plans.length} active</div>
@@ -90,6 +91,7 @@
             <div class="num muted small nowrap">${U.dt(e.t)}</div></div>`).join('') || '<div class="empty">No activity yet</div>'}</section>
       </div>`;
       if (chart) chart.remove();
+      V.renderAlloc(el.querySelector('#alloc'), d.strategies);
       chart = equityChart(el.querySelector('#eq'), d.series, range);
       el.querySelector('#rng').onclick = (e) => {
         const btn = e.target.closest('button'); if (!btn) return;

@@ -109,7 +109,7 @@ textarea.in { height: auto; padding: 10px 12px; }
 .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .row.sb { justify-content: space-between; }
 .col { display: flex; flex-direction: column; gap: 12px; }
-.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(var(--min, 260px), 1fr)); }
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(var(--min, 260px), 100%), 1fr)); }
 .span2 { grid-column: span 2; }
 .page-head { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; justify-content: space-between; }
 .kv { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line2); font-size: 13.5px; }
