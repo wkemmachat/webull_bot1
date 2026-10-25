@@ -6,7 +6,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from . import brokers, db, execution, health, ledger, marketdata as md, markethours as mh, metals, notify
+from . import brokers, db, execution, health, ledger, marketdata as md, markethours as mh, metals, notify, perf
 from . import strategies as S
 from .config import APP_NAME, DISPLAY_TZ, SCHEDULER_ENABLED
 
@@ -116,7 +116,8 @@ def strategy_card(mode, s, prices=None):
             "signal_time": st.get("signal_time"), "bar_time": st.get("bar_time"), "next_check": nc,
             "value": v["value"], "net_in": v["net_in"], "pnl": v["pnl"], "ret": v["ret"], "cash": v["cash"],
             "positions": v["positions"], "target": st.get("target") or {}, "plan": bool(ap), "exec": execution.describe_cfg(cfg),
-            "spark": _spark(mode, s.id)}
+            "spark": _spark(mode, s.id), "today": perf.today_pnl(mode, s.id, v["value"], v["net_in"] or 0),
+            "dd": perf.card_summary(s.id)}
 
 
 def dashboard(mode):

@@ -10,7 +10,8 @@ LINE Notify closed on 31 March 2025, so the bot uses the **Messaging API**:
 5. In the bot: **LINE alerts** → paste the token → **+ Add recipient** with your user ID → **Save** → **Send test message**.
 
 A LINE group can also receive alerts: add the channel to the group and use the group ID (starts with C). Each recipient can get
-everything or only the daily reports.
+everything or only the daily reports. The daily report per strategy shows its value, its total return, **today's profit or loss**
+(money added or withdrawn that day left out), what it holds and the day's trades.
 
 ## When messages go
 

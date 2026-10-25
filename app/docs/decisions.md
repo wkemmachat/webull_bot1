@@ -34,6 +34,13 @@
   each of the 15 largest stocks held as shares. It must pass these checks: beta 1.7–2.3 and correlation ≥ 0.90 over 60 days,
   63+ trading days, $2M+ a day, spread < 0.5% when known. It is only suggested (LINE + Add/Dismiss on the strategy page), never
   added automatically, and Add is followed by a Test trade.
+- **Daily P&L and falls** (25 Oct 2026):
+  - Daily P&L comes from the equity record, which is taken every 30 minutes. The last record of each US trading day is that
+    day's close. P&L = value change minus net money moved that day.
+  - Falls (drawdowns) come from the backtest series and from a time-weighted index of the real values: worst fall, longest
+    underwater, the share of days below a high and the 5 worst falls.
+  - The strategy cards read a saved summary that the yearly backtest check and the strategy page update.
+- **Centered layout**: a page column with a maximum width (--page-max 1,480 px) on wide screens; the top bar is aligned to it.
 - **Regime timing**: decided after the US close, traded from the next market open with split lots (the research filled at the next
   open, which tested better than the same close).
 - **UGL in Gold #1 and Gold #2**: each strategy keeps its own orders and books; orders are not merged (simpler and easier to audit).

@@ -18,7 +18,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import auth, backtest, etf2x, expected, symcharts, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views
+from . import auth, backtest, etf2x, perf, expected, symcharts, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views
 from . import strategies as S
 from .config import APP_NAME, BASE_DIR, COOKIE_SECURE, DISPLAY_TZ, PUBLIC_URL, SCHEDULER_ENABLED
 
@@ -221,6 +221,33 @@ def strategy(sid: str, mode: str = "paper", u=Depends(user)):
     if not d:
         raise HTTPException(404, "No such strategy")
     return d
+
+
+@app.get("/api/strategies/{sid}/daily")
+def strategy_daily(sid: str, mode: str = "paper", u=Depends(user)):
+    """Real profit/loss of one strategy per US trading day (money added or withdrawn left out)."""
+    if not S.row(sid):
+        raise HTTPException(404, "No such strategy")
+    m = mode_of(mode)
+    return {**perf.daily(m, sid), "today": perf.today_pnl(m, sid), "mode": m}
+
+
+@app.get("/api/strategies/{sid}/daily.csv")
+def strategy_daily_csv(sid: str, mode: str = "paper", u=Depends(user)):
+    if not S.row(sid):
+        raise HTTPException(404, "No such strategy")
+    m = mode_of(mode)
+    name = f"{sid}-{m}-daily-pnl-{datetime.now().strftime('%Y-%m-%d')}.csv"
+    return Response(perf.daily_csv(m, sid), media_type="text/csv",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@app.get("/api/strategies/{sid}/risk")
+async def strategy_risk(sid: str, mode: str = "paper", u=Depends(user)):
+    """Falls to expect: worst falls and time underwater in the backtest, in the real values, and in the research."""
+    if not S.row(sid):
+        raise HTTPException(404, "No such strategy")
+    return await asyncio.to_thread(perf.strategy_risk, sid, mode_of(mode))
 
 
 @app.get("/api/strategies/{sid}/chart")

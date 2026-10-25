@@ -227,8 +227,16 @@ def queue_reports(now):
             ret = f"{v['ret'] * 100:+.1f}%" if v["ret"] is not None else "—"
             lines = [f"{s.name} · {brokers.MODE_LABEL[mode]}", f"${v['value']:,.0f} ({ret} on ${v['net_in']:,.0f}) · {st.get('label', '—')}",
                      f"Holds {hold}"]
+            try:
+                from . import perf
+                tp = perf.today_pnl(mode, s.id, v["value"], v["net_in"] or 0)
+                if tp:
+                    lines.insert(2, f"Today {'+' if tp['pnl'] >= 0 else '−'}${abs(tp['pnl']):,.0f}"
+                                    + (f" ({tp['pct'] * 100:+.2f}%)" if tp["pct"] is not None else ""))
+            except Exception as e:
+                log.warning("today pnl %s: %s", s.id, e)
             if fills:
-                lines.append("Today: " + "; ".join(f"{f['side'].lower()} {f['q']:.0f} {f['symbol']}" for f in fills))
+                lines.append("Trades: " + "; ".join(f"{f['side'].lower()} {f['q']:.0f} {f['symbol']}" for f in fills))
             notify.send("report", "\n".join(lines), strategy=s.id)
 
 

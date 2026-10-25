@@ -52,9 +52,16 @@ h1, h2, h3 { margin: 0; }
 .nav .cnt.n { background: var(--seg); color: var(--text2); }
 .side-foot { margin-top: auto; padding: 14px 10px 4px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 28px; border-bottom: 1px solid var(--line);
+/* Page column: centered, at most --page-max wide (wide-monitor research: Carbon's largest grid is 1584px, most dashboards
+   cap content at 1280-1600px and center it so the eye does not travel to one edge). The top bar spans the full width
+   but lines its controls up with the same column. */
+:root { --page-max: 1480px; --page-pad: 28px; }
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; border-bottom: 1px solid var(--line);
+  padding: 12px max(var(--page-pad), calc((100% - var(--page-max)) / 2 + var(--page-pad)));
   position: sticky; top: 0; background: var(--bg); z-index: 20; }
-.content { padding: 24px 28px 48px; display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: 1400px; }
+.content { padding: 24px var(--page-pad) 48px; display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: var(--page-max);
+  margin: 0 auto; }
+#pausedbar { width: calc(100% - 2 * var(--page-pad)); max-width: calc(var(--page-max) - 2 * var(--page-pad)); margin: 12px auto 0; }
 .content > .page { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
 .chip { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text2); padding: 6px 10px; border: 1px solid var(--line);
   border-radius: 999px; white-space: nowrap; }
@@ -258,7 +265,7 @@ table.t { width: 100%; border-collapse: collapse; }
   .side { height: 100dvh; padding-top: calc(18px + env(safe-area-inset-top)); padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
   .content { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right));
     padding-bottom: calc(86px + env(safe-area-inset-bottom)); }
-  #pausedbar { margin: 10px 16px 0 !important; }
+  #pausedbar { margin: 10px 16px 0 !important; width: auto; max-width: none; }
 }
 #clock { margin-left: auto; }
 @media (max-width: 600px) {

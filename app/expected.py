@@ -276,6 +276,13 @@ def _one(s, now=None) -> dict:
     if not r.get("ok"):
         return {"ok": False, "error": r.get("error")}
     ser = pd.Series(r["series"]["strategy"], index=pd.to_datetime(r["series"]["t"], unit="s"), dtype=float).dropna()
+    try:                                                      # worst fall / longest underwater for the strategy cards
+        from . import perf
+        dd = perf.drawdowns([x.date() for x in ser.index], list(ser.values), top=1)
+        if dd:
+            db.set_state(f"ddsum:{s.id}", {"at": int(time.time()), "worst": dd["worst"], "longest": dd["longest"], "from": dd["from"]})
+    except Exception as e:
+        log.warning("drawdown summary %s: %s", s.id, e)
     ser = ser[ser.index >= ser.index[-1] - pd.DateOffset(years=10)]
     wk = ser.resample("W-FRI").last().ffill().dropna()      # one value every Friday, no gaps (dates are rebuilt from w0)
     if len(wk) < 20:

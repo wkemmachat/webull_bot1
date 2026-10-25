@@ -78,8 +78,9 @@
         <a class="card scard" href="#/strategies/${s.id}">
           <div class="row" style="gap:10px">${U.dot(s.color, 10)}<b style="font-size:15px">${U.esc(s.name)}</b><span class="pill" style="margin-left:auto">${s.type === 'momentum_basket' ? 'Stock basket' : s.family === 'regime' ? 'Daily regime' : '4H signal'}</span></div>
           <div class="row sb" style="align-items:flex-end">
-            <div><div class="num big" style="font-size:22px">${U.usd(s.value, 0)}</div><div class="num small ${U.cls(s.pnl)}">${U.sgnUsd(s.pnl, 0)} · ${U.pct(s.ret)}</div></div>
+            <div><div class="num big" style="font-size:22px">${U.usd(s.value, 0)}</div><div class="num small ${U.cls(s.pnl)}">${U.sgnUsd(s.pnl, 0)} · ${U.pct(s.ret)}</div>${U.todayLine(s) ? '<div>' + U.todayLine(s) + '</div>' : ''}</div>
             ${U.spark(s.spark, s.color)}</div>
+          ${U.ddLine(s) ? '<div>' + U.ddLine(s) + '</div>' : ''}
           <div class="row sb" style="gap:8px;align-items:flex-end">${U.stateBlock(s)}
             <div class="col" style="gap:4px;align-items:flex-end">${s.control !== 'active' ? U.pill('warn', s.control) : ''}
             <span class="muted small" style="text-align:right">${s.next_check ? 'Next check ' + U.dt(s.next_check) : ''}</span></div></div>

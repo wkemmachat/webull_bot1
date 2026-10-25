@@ -29,7 +29,7 @@
           <div class="col" style="gap:3px"><span class="num small">${U.esc(s.flow || '')}</span><span class="muted small">${U.esc(s.exec)}</span></div>
           ${U.stateBlock(s, s.signal_time ? `<span class="muted small">since ${U.dt(s.signal_time)}</span>` : '')}
           <div class="col" style="gap:2px"><span class="num" style="font-weight:600;font-size:15px">${U.usd(s.value)}</span>
-            <span class="num small ${U.cls(s.pnl)}">${U.sgnUsd(s.pnl, 0)} · ${U.pct(s.ret)}</span><span class="muted num small">capital ${U.usd(s.net_in, 0)}</span></div>
+            <span class="num small ${U.cls(s.pnl)}">${U.sgnUsd(s.pnl, 0)} · ${U.pct(s.ret)}</span>${U.todayLine(s)}<span class="muted num small">capital ${U.usd(s.net_in, 0)}</span>${U.ddLine(s)}</div>
           <div class="row" style="gap:14px">
             <div class="seg" role="group" aria-label="Control" data-id="${s.id}">
               <button data-c="active" class="${s.control === 'active' ? 'on' : ''}">Active</button>
@@ -94,7 +94,7 @@
         <div class="row"><button class="btn" data-money="withdraw">Withdraw</button><button class="btn" data-money="add">Add money</button>
           <button class="btn" data-ctl="${c.control === 'paused' ? 'active' : 'paused'}">${c.control === 'paused' ? 'Resume buys' : 'Pause buys'}</button>
           <button class="btn d" data-ctl="stopping">Stop &amp; sell</button></div></div>
-      <nav class="tabs">${[['overview', 'Overview'], ['backtest', 'Backtest']].concat(c.type === 'momentum_basket' ? [['charts', 'Stock charts']] : [], [['params', 'Parameters'], ['exec', 'Execution'], ['history', 'History']]).map(([k, l]) =>
+      <nav class="tabs">${[['overview', 'Overview'], ['pnl', 'Daily P&L'], ['backtest', 'Backtest']].concat(c.type === 'momentum_basket' ? [['charts', 'Stock charts']] : [], [['params', 'Parameters'], ['exec', 'Execution'], ['history', 'History']]).map(([k, l]) =>
         `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</nav>`;
     }
 
@@ -102,7 +102,7 @@
       const pos = Object.entries(c.positions || {});
       return `<div class="grid" style="--min:210px">
         <div class="card"><div class="eyebrow">Value · ${U.modeLabel[mode]}</div><div class="num big" style="margin-top:6px">${U.usd(c.value)}</div>
-          <div class="num small ${U.cls(c.pnl)}">${U.sgnUsd(c.pnl)} · ${U.pct(c.ret)} on ${U.usd(c.net_in, 0)}</div></div>
+          <div class="num small ${U.cls(c.pnl)}">${U.sgnUsd(c.pnl)} · ${U.pct(c.ret)} on ${U.usd(c.net_in, 0)}</div>${c.today ? '<div>' + U.todayLine(c) + '</div>' : ''}</div>
         <div class="card"><div class="eyebrow">Holding</div><div class="num big" style="margin-top:6px">${pos.length ? pos.map(([k, p]) => `${U.n(p.qty, 0)} ${k}`).join(' · ') : 'Cash'}</div>
           <div class="muted num small">${U.usd(c.cash)} cash${pos.length ? ' · ' + pos.map(([k, p]) => `${k} ${U.usd(p.price)}`).join(' · ') : ''}</div></div>
         <div class="card"><div class="eyebrow">Signal now</div><div style="margin-top:8px">${U.pill(c.state_cls + ' big', st.ok ? (fam === 'regime' ? st.state : (st.state || '').toUpperCase()) : 'ERROR')}</div>
@@ -189,6 +189,7 @@
       ${d.row.type === 'momentum_basket' && d.row.params.leverage === '2x' && tab === 'overview' ? '<div id="etf2x"></div>' : ''}
       <section class="card col" style="gap:12px;padding:16px"><div id="ctool"></div><div id="chart" class="col" style="gap:18px"><div class="empty"><span class="spin"></span></div></div>
         <div class="muted small">Built with TradingView Lightweight Charts™. Lines are the bot's own calculations, the numbers the strategy trades on${fam === 'signal' ? '; futures prices are back-adjusted for contract rolls in the indicators.' : '.'}</div></section>
+      <div id="risk"></div>
       <div class="grid" style="--min:360px">
         ${fam === 'signal' ? `<section class="card"><div class="eyebrow" style="margin-bottom:6px">Signal check · bar closed ${U.dt(st.bar_time)}</div>
           ${checks.map((r) => `<div class="kv"><span class="muted">${U.esc(r.k)}</span><span class="num ${r.cls || ''}">${U.esc(r.v)}</span></div>`).join('')}
@@ -274,10 +275,12 @@
     async function render() {
       if (chartObj) { chartObj.destroy(); chartObj = null; }
       if (btClean) { btClean(); btClean = null; }
-      el.innerHTML = header() + (tab === 'overview' ? overview() : tab === 'backtest' || tab === 'charts' ? '<div id="bt" class="col" style="gap:20px"></div>' : tab === 'params' ? paramsForm() : tab === 'exec' ? execForm() : history());
+      el.innerHTML = header() + (tab === 'overview' ? overview() : tab === 'backtest' || tab === 'charts' || tab === 'pnl' ? '<div id="bt" class="col" style="gap:20px"></div>' : tab === 'params' ? paramsForm() : tab === 'exec' ? execForm() : history());
       if (tab === 'backtest') btClean = V.backtestTab(el.querySelector('#bt'), sid, d);
       if (tab === 'charts') { btClean = V.symbolChartsTab(el.querySelector('#bt'), sid, d, chartSym); chartSym = null; }
       { const ex = el.querySelector('#etf2x'); if (ex && V.renderEtf2x) V.renderEtf2x(ex, sid); }
+      if (tab === 'pnl') V.dailyPnlTab(el.querySelector('#bt'), sid, c);
+      { const rk = el.querySelector('#risk'); if (rk && V.renderRisk) V.renderRisk(rk, sid); }
       U.on(el, '[data-symc]', 'click', (e, b) => { e.preventDefault(); chartSym = b.dataset.symc; tab = 'charts'; render(); window.scrollTo(0, 0); });
       U.on(el, '[data-tab]', 'click', (e, b) => { tab = b.dataset.tab; render(); });
       U.on(el, '[data-money]', 'click', (e, b) => V.moneyDialog(b.dataset.money, sid, () => V.strategy(el, params)));

@@ -14,6 +14,9 @@
   *Re-run the check* re-runs
   every backtest for the ranges. Details: [Expected returns](#/docs/expected-returns).
 - **Cards**: bot unassigned, active order plans, the last health check, LINE in the last 24 hours.
-- **Strategies**: value, return, a 30-day line, the current state and the next check.
+- **Strategies**: value, return, today's profit or loss (since the last US close; the last session when the market is
+  closed), a 30-day line, the worst fall and longest time underwater from its backtest, the current state and the next check.
+- **Layout**: the page stays in a centered column (at most about 1,480 px wide) on large monitors. The top bar lines up with
+  it, so your eyes don't travel to the far left and right edges.
 - **Next up**: queued plans, the next 4H bar close, the next regime decision, the cross-check and the LINE digest, all in
   Bangkok time.

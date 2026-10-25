@@ -16,6 +16,23 @@ At the top, **Money in strategies** shows the same donut as the dashboard: each 
 
 - **Overview**: value, holding, current signal, next check, the TradingView-style chart with the strategy's own indicators, the
   signal check (the numbers behind today's decision), holdings vs target, and every signal.
+- **Falls to expect** (on Overview): how deep and how long the strategy has been below its previous high. Read it before
+  giving the strategy money.
+  - **From the backtest:** the worst fall (from the high to the bottom, how long it fell and how long it took to recover), the
+    longest time underwater (from a high until a new high), the share of days below a previous high, and how often it fell 20%
+    or more.
+  - An **underwater chart** of the whole history and a table of the 5 worst falls. If the backtest is longer than 10 years, the
+    last 10 years are also shown on their own.
+  - **Real:** the same numbers for this strategy's real values in the mode you are looking at (money added or withdrawn left
+    out), including how far below its high it is now. Also the research's worst fall.
+- **Daily P&L**: the real profit or loss for each US trading day.
+  - Each row: the value at the close, the day's P&L in $ and %, money added or withdrawn that day (left out of the P&L), and
+    the total since start.
+  - Tiles at the top: today (or the last session when the market is closed), this month, since start, and days up / down.
+  - A bar chart of the last 66 days and **Download CSV** for a spreadsheet.
+  - The day's close is the last value the bot recorded that US day; it records every 30 minutes. Webull's statement stays the
+    official record.
+- **Backtest**, **Stock charts** (C2-7): see their own pages.
 - **Parameters**: the rules (periods, multipliers, symbols, weights). Changes apply from the next evaluation.
 - **Execution**: the strategy's own lots, spacing and start time (empty = defaults).
 - **History**: its plans and money movements.

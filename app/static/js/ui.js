@@ -68,6 +68,28 @@
       ${a ? `<span class="act ${a.kind}"><i aria-hidden="true">${icon[a.kind] || '•'}</i>${U.esc(a.text)}</span>` : ''}
       ${extra || ''}</div>`;
   };
+  U.dur = function (days) {
+    if (days == null) return '—';
+    if (days < 60) return days + ' day' + (days === 1 ? '' : 's');
+    if (days < 730) return (days / 30.44).toFixed(days < 300 ? 1 : 0) + ' months';
+    return (days / 365.25).toFixed(1) + ' years';
+  };
+  U.durShort = function (days) {
+    if (days == null) return '—';
+    if (days < 60) return days + ' d';
+    if (days < 730) return Math.round(days / 30.44) + ' mo';
+    return (days / 365.25).toFixed(1) + ' yr';
+  };
+  /* "Today +$120 (+0.8%)" and "worst fall −37% · underwater up to 14 mo" for a strategy card */
+  U.todayLine = function (s) {
+    if (!s.today) return '';
+    const lab = s.today.live ? 'Today' : new Date(s.today.day + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+    return `<span class="num small ${U.cls(s.today.pnl)}" title="${s.today.live ? 'This US session so far' : 'Last completed US session'} (money moved that day left out)">${lab} ${U.sgnUsd(s.today.pnl, 0)}${s.today.pct != null ? ' (' + U.pct(s.today.pct, 2) + ')' : ''}</span>`;
+  };
+  U.ddLine = function (s) {
+    if (!s.dd) return '';
+    return `<span class="muted small" title="From the backtest since ${U.esc(s.dd.from || '')}: the deepest fall below a previous high, and the longest time before a new high">Worst fall <b class="dn">${s.dd.worst.toFixed(0)}%</b>${s.dd.longest_days != null ? ' · underwater up to ' + U.durShort(s.dd.longest_days) : ''}</span>`;
+  };
   U.dot = function (color, size) { return `<span class="dot" style="background:${U.esc(color)};${size ? `width:${size}px;height:${size}px` : ''}"></span>`; };
   U.spark = function (vals, color) {
     if (!vals || vals.length < 2) return '<svg viewBox="0 0 120 36" style="width:120px;height:36px" aria-hidden="true"></svg>';
