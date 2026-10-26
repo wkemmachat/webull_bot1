@@ -1,7 +1,7 @@
 <!--{"title": "USD Trend + IBS-dip", "group": "The strategies"}-->
 # USD Trend + IBS-dip
 
-Holds **USD (ProShares Ultra Semiconductors, 2x chips)** timed by **USD's own price**: while its Supertrend is up and it is above its 200-day average, at a size that shrinks when USD gets jumpy; and for **one day at full size after a weak close**. Idle money sits in **gold and T-bills**. This is the research's *candidate C (aggressive)*, run with a 20-point resize rule so it trades about half as often. Over 10 years it earned more than 2x Semis regime with a much smaller worst fall, and it made money in 2018 and 2022 when 2x Semis lost.
+Holds **USD (ProShares Ultra Semiconductors, 2x chips)** timed by **USD's own price**: while its Supertrend is up and it is above its 200-day average, at a size that shrinks when USD gets jumpy; and for **one day at full size after a weak close**. Idle money sits in **gold and cash**. This is the research's *candidate C (aggressive)*, run with a 20-point resize rule so it trades about half as often. Over 10 years it earned more than 2x Semis regime with a much smaller worst fall, and it made money in 2018 and 2022 when 2x Semis lost.
 
 ## How it decides
 
@@ -11,7 +11,7 @@ After each US close, from **USD's own daily bar**:
 |---|---|---|
 | **In · trend** | Supertrend(ATR 20, ×4.5) on USD is **up** AND USD closes **above its SMA200** | USD at the volatility-capped size, rest parked |
 | **In · dip day** | **IBS < 0.15**: USD closed in the bottom 15% of the day's range | **100% USD for the next day** |
-| **Off** | neither | 50% GLD + 50% BIL |
+| **Off** | neither | 50% GLD + 50% cash |
 
 **IBS** (internal bar strength) = (close − low) ÷ (high − low). A close near the low of a strong-moving ETF tends to bounce the next
 day; the research found these one-day trades are the core of the edge on USD (they worked both in 2007–2026 and in the unseen
@@ -33,7 +33,8 @@ has it (resize every day) the strategy traded about 134 times a year; with the r
 
 ## What it holds
 
-USD (2x semiconductors) at 40–100%; the rest, and everything when off, **50% GLD (gold) + 50% BIL (T-bills)**. On average about half the money is in USD. A dip day is a one-day trade: bought at the open after the weak close, back to the trend size or to parking at the next open unless a new dip signal keeps it.
+USD (2x semiconductors) at 40–100%; the rest, and everything when off, **50% GLD (gold) + 50% cash** (until 26 Oct 2026 the
+cash half was BIL; see *Lower-cost settings* below). On average about half the money is in USD. A dip day is a one-day trade: bought at the open after the weak close, back to the trend size or to parking at the next open unless a new dip signal keeps it.
 
 ## When it trades
 
@@ -41,51 +42,70 @@ Decided after each US close (the bot checks at about 03:10 Bangkok). Orders star
 
 ## Backtest results
 
-Numbers from the bot's own **Backtest** tab on 25 Oct 2026: the strategy's live code over real Yahoo prices (dividends included), traded at the bot's real times, 0.05% cost per side. Open the strategy → **Backtest** for today's numbers, the chart and every trade.
+Numbers from the bot's own **Backtest** tab on 26 Oct 2026: the strategy's live code over real Yahoo prices (dividends included), traded at the bot's real times, paying Webull's real fee (0.11% of every buy and every sell). Open the strategy → **Backtest** for today's numbers, the chart and every trade.
 
 | Period | A year | Worst fall | Sharpe | USD held a year / worst fall | SMH held a year / worst fall |
 |---|---|---|---|---|---|
-| 1 year | **+79.6%** | −26.2% | 1.57 | +42.6% / −39.4% | +52.9% / −24.6% |
-| 3 years | **+73.6%** | −31.2% | 1.37 | +100.8% / −64.5% | +54.6% / −36.0% |
-| 5 years | **+81.3%** | −31.2% | 1.45 | +50.3% / −77.8% | +31.5% / −45.3% |
-| 10 years | **+62.5%** | −37.0% | 1.28 | +50.4% / −77.8% | +31.4% / −45.3% |
-| All (from 14 Nov 2007) | **+41.7%** | −43.2% | 1.05 | +27.1% / −87.0% | +20.1% / −56.4% |
+| 1 year | **+84.6%** | −26.7% | 1.62 | +43.4% / −39.3% | +53.4% / −24.6% |
+| 3 years | **+71.8%** | −32.5% | 1.34 | +101.5% / −64.5% | +55.3% / −35.7% |
+| 5 years | **+76.7%** | −32.5% | 1.39 | +50.7% / −77.8% | +32.3% / −45.3% |
+| 10 years | **+58.7%** | −38.1% | 1.22 | +51.0% / −77.8% | +32.6% / −45.3% |
+| All (from 14 Nov 2007) | **+36.7%** | −51.5% | 0.96 | +28.1% / −86.1% | +21.1% / −56.4% |
 
-- **Worst fall:** −43.2%, from 29 May 2015 to 27 Jun 2016; back at the old high on 15 May 2017.
-- **$10,000 became** $7,377,198 (+73,672%) from 14 Nov 2007 to 23 Oct 2026.
-- **In the market** 59% of the days · **59.5 trades a year** · 58% of round trips made money (average +1.7%).
+- **Worst fall:** −51.5%, from 5 Dec 2014 to 27 Jun 2016; back at the old high on 2 Oct 2017.
+- **$10,000 became** $3,748,772 (+37,388%) from 14 Nov 2007 to 23 Oct 2026.
+- **In the market** 59% of the days · **59.7 trades a year** · 57% of round trips made money (average +1.6%).
 - Volatility 39% a year.
 
 ### Year by year
 
 | Year | Strategy | USD held | SMH held |
 |---|---|---|---|
-| 2026 (part) | **+82.4%** | +39.4% | +46.4% |
-| 2025 | **+20.8%** | +61.2% | +48.7% |
-| 2024 | **+92.3%** | +139.4% | +38.5% |
-| 2023 | **+158.0%** | +228.6% | +72.3% |
-| 2022 | **+32.2%** | −68.7% | −34.3% |
-| 2021 | **+60.5%** | +104.3% | +41.4% |
-| 2020 | **+69.1%** | +67.7% | +54.5% |
-| 2019 | **+34.3%** | +108.3% | +62.0% |
-| 2018 | **+33.7%** | −27.5% | −10.8% |
-| 2017 | **+65.3%** | +81.0% | +36.5% |
-| 2016 | **+9.6%** | +56.2% | +34.5% |
-| 2015 | **−20.3%** | −7.9% | −2.5% |
-| 2014 | **+39.0%** | +76.3% | +28.7% |
-| 2013 | **+57.0%** | +76.3% | +31.2% |
-| 2012 | **+4.7%** | −10.8% | +6.2% |
-| 2011 | **−8.9%** | −14.9% | −6.5% |
-| 2010 | **+39.2%** | +19.1% | +16.5% |
-| 2009 | **+102.8%** | +135.4% | +58.5% |
-| 2008 | **+26.4%** | −80.0% | −45.8% |
-| 2007 (part) | **−2.3%** | −5.2% | −1.4% |
+| 2026 (part) | **+89.1%** | +40.0% | +46.4% |
+| 2025 | **+17.6%** | +62.1% | +49.2% |
+| 2024 | **+85.4%** | +139.6% | +39.1% |
+| 2023 | **+148.6%** | +228.8% | +73.4% |
+| 2022 | **+24.4%** | −68.6% | −33.5% |
+| 2021 | **+56.2%** | +104.3% | +42.1% |
+| 2020 | **+62.5%** | +68.2% | +55.5% |
+| 2019 | **+31.7%** | +110.4% | +64.5% |
+| 2018 | **+33.0%** | −26.9% | −9.1% |
+| 2017 | **+62.2%** | +81.7% | +38.5% |
+| 2016 | **−3.9%** | +56.8% | +35.5% |
+| 2015 | **−24.2%** | −7.5% | −0.3% |
+| 2014 | **+38.4%** | +78.1% | +30.2% |
+| 2013 | **+56.8%** | +77.7% | +33.3% |
+| 2012 | **+0.1%** | −10.2% | +8.6% |
+| 2011 | **−12.7%** | −14.9% | −6.5% |
+| 2010 | **+35.0%** | +19.4% | +16.5% |
+| 2009 | **+90.1%** | +137.5% | +58.5% |
+| 2008 | **+19.0%** | −79.8% | −45.8% |
+| 2007 (part) | **−3.5%** | −0.0% | −1.4% |
 
 ## The research
 
 **Research on single Stock Nasdaq · USD own-price strategies, candidate C (Trend + IBS-dip, aggressive)**, resized every day, Oct 2016 – Oct 2026: **66.8% a year, worst fall −36.7%, Sharpe 1.38** (2x Semis regime over the same years: 57.2%, −45.2%). Unseen test 2001–2007 with USD rebuilt from SMH: **22.0% a year** when 2x Semis lost 7.2% a year and USD held lost 25%. Over 2001–2026: 38.6% a year, worst fall −45.8%. 243 nearby settings had a median of 61% a year over 10 years. Costs matter: at 0.10% per side the 10-year result drops to 62.4%, at 0.15% to 58.5%.
 
-**Checked in this bot (25 Oct 2026):** the bot's signals match the research rules day for day (same in and out days on every day since 2016). The research rebuilt with daily resizing gives 64.0% a year over 10 years (research 66.8%); the bot's version with the 20-point rule gives 62.5% with a −37.0% worst fall. Prices from TradingView for USD (no dividends, as in the research); the same method reproduces the server's 2x Semis backtest within half a point.
+**Checked in this bot (25 Oct 2026):** the bot's signals match the research rules day for day (same in and out days on every day since 2016). The research rebuilt with daily resizing gives 64.0% a year over 10 years (research 66.8%); the bot's version with the 20-point rule gave 62.5% with a −37.0% worst fall at a 0.05% cost. Prices from TradingView for USD (no dividends, as in the research); the same method reproduces the server's 2x Semis backtest within half a point.
+
+### Lower-cost settings (26 Oct 2026)
+
+Webull Thailand charges **0.107% of every buy and every sell** (0.10% + 7% VAT). This strategy trades about 62 times a year, and with
+the research's parking each trade also bought or sold GLD and BIL. At the real fee the 10-year result fell from 62.5% to 53.2% a year.
+Keeping the T-bill half of the parking as **cash** wins part of it back:
+
+| Bot backtest at the real fee (research prices) | 10 years | Worst fall (10 years) | Since Nov 2007 | 2007–2016 |
+|---|---|---|---|---|
+| Research parking: 50% GLD + 50% BIL | 53.2% | −39.3% | 33.3% | 13.8% |
+| 50% GLD + 50% **cash** (the bot now) | **56.4%** | **−38.3%** | **36.6%** | **17.1%** |
+
+- It won in 44 of the 50 combinations of IBS, ADX and dip size tried over 10 years, and in all 50 since 2007. Cash earns no T-bill
+  interest; the numbers above already count that.
+- The other rules stay as the research chose them (IBS < 0.15, Supertrend 20 × 4.5, 20-point resizing): a wider resize band or
+  other dip thresholds helped in some years and hurt in others.
+- The server's own backtest (Yahoo prices with dividends) gives **58.7%** a year over 10 years for the new settings.
+- A strategy that still had the old default settings was moved to this once, on 26 Oct 2026 (Logs shows it). To go back:
+  Parameters → *Keep the T-bill part as cash* off.
 
 ## Expected return
 
@@ -98,9 +118,9 @@ How it is worked out and how the yearly review keeps it current: [Expected retur
 
 ## Risks and what to expect
 
-- **2x chips:** worst falls of −37% (Nov 2017 – Jun 2018), −31% (Jan – Jun 2025) and −43% (2015 – 16). In the research's long test −46% (2001).
-- **Gives up part of the big rallies:** 2019 +34% vs USD +108%; 2024 +92% vs +139%; 2025 +21% vs +61%. Over the last 3 years 2x Semis regime earned more (+111% a year vs +74%).
-- **Many trades:** about 62 a year (one-day dip trades plus resizes). Each pays the spread on USD, so fills at the open matter more than for any other strategy in the bot.
+- **2x chips:** worst falls of −38% (Nov 2017 – Jun 2018), −32% (Jan – Jun 2025) and −52% (Dec 2014 – Jun 2016, back at the high in Oct 2017). In the research's long test −46% (2001).
+- **Gives up part of the big rallies:** 2019 +32% vs USD +110%; 2024 +85% vs +140%; 2025 +18% vs +62%. Over the last 3 years 2x Semis regime earned more (+109% a year vs +72%).
+- **Many trades:** about 62 a year (one-day dip trades plus resizes). Each pays Webull's 0.107% fee and the spread on USD, so fees and fills at the open matter more than for any other strategy in the bot.
 - **Same sector as 2x Semis regime** (monthly correlation about 0.6): treat it as an alternative or a partner to 2x Semis, not as diversification. With QLD Trend + IBS-dip the correlation is about 0.5.
 - **Webull:** USD was refused on the shared test account. Run **Go-live → Test trade** on your Live account before giving it money.
 

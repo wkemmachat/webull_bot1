@@ -28,8 +28,25 @@
   unassigned) × ratio. Only gaps are filled (scaled down when unassigned is short); nothing is sold automatically.
 - **IBS rounded to 4 decimals** (25 Oct 2026): a true tie (QLD 10 Feb 2022, IBS exactly 0.20) came out as 0.19999… from
   Yahoo and triggered a dip trade the research does not take. Rounding makes the decision independent of the feed's float noise.
-- **Costs in the backtest** stay realistic: 0.05% on every ETF traded (both the parking legs and QLD). The research charged once
-  per switch, which explains about 2 points a year of the gap on QLD Trend + IBS-dip.
+- **Costs in the backtest** are charged on every ETF traded (the parking legs too), not once per switch as in the research.
+- **Webull's real fee** (26 Oct 2026): Webull Thailand charges 0.10% + 7% VAT = 0.107% of every buy and every sell, with no
+  minimum (checked on the live test trades: GLD round trip $0.40 + $0.41). Every backtest now charges **0.11%** per side
+  (Settings → Fees; single-stock 2x ETFs 0.16%), paper trading charges 0.107%, and the expected returns are the research's
+  numbers lowered by what the fee costs in the bot's backtest. The busy strategies lose most: USD IBS −4, metals −5 to −7,
+  C2-7 −3, the regimes about −1 point a year at the old settings.
+- **Lower-cost settings** (26 Oct 2026), chosen from about 1,100 bot-engine backtests at the real fee:
+  - QLD and USD Trend + IBS-dip keep the T-bill half of the parking as **cash** (*Keep the T-bill part as cash*): every switch
+    trades about half as much. It won in 44–50 of 50 rule combinations; the numbers count the lost T-bill interest.
+  - QLD Trend + IBS-dip: a dip day needs **IBS < 0.15** (was 0.20): fewer, stronger dips; 0.10–0.15 beat 0.20 for every ADX.
+  - The four metals strategies stay in **cash** while flat instead of SGOV (+2 to +4 points a year in the 2-year backtest).
+  - Kept as the research chose: Supertrend, SMA, ADX, the 20-point resize rule and dip size (changes there helped some years
+    and hurt others). Regimes, QLD + Trend + bear-dip and C2-7 keep BIL / SGOV: they switch 4–9 times a year, so the saving
+    is about what the T-bill interest earns.
+  - Strategies still on the old defaults were moved once at the restart (Logs: *settings updated to the new default*);
+    settings you changed yourself were left alone.
+- **Expected-return check follows the settings** (26 Oct 2026): the stored backtest check is re-run (no LINE) within
+  10 minutes when the fee or a strategy's settings change, so *Bot backtest now* never shows numbers from other settings.
+  The Expected return table sorts by any column; most profitable first by default.
 - **Weekly 2x ETF search** (25 Oct 2026, C2-7 Momentum 2x): after the weekend ranking, Yahoo is searched for a 2x ETF for
   each of the 15 largest stocks held as shares. It must pass these checks: beta 1.7–2.3 and correlation ≥ 0.90 over 60 days,
   63+ trading days, $2M+ a day, spread < 0.5% when known. It is only suggested (LINE + Add/Dismiss on the strategy page), never

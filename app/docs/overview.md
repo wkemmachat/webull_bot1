@@ -6,15 +6,15 @@ sends every order as **split lots from a start time you choose**, tells you on *
 
 | Strategy | Reads | Trades | Timeframe |
 |---|---|---|---|
-| Gold #1 · Supertrend + ADX | COMEX gold GC=F | UGL (2x gold) · cash SGOV | 4H bars |
-| Gold #2 · Supertrend 30/2.5 | COMEX gold GC=F | UGL · SGOV | 4H bars |
-| Silver #1 · Donchian 30/15 | COMEX silver SI=F | AGQ (2x silver) · SGOV | 4H bars |
-| Silver #2 · Supertrend 10/3 | COMEX silver SI=F | AGQ · SGOV | 4H bars |
+| Gold #1 · Supertrend + ADX | COMEX gold GC=F | UGL (2x gold) · cash | 4H bars |
+| Gold #2 · Supertrend 30/2.5 | COMEX gold GC=F | UGL · cash | 4H bars |
+| Silver #1 · Donchian 30/15 | COMEX silver SI=F | AGQ (2x silver) · cash | 4H bars |
+| Silver #2 · Supertrend 10/3 | COMEX silver SI=F | AGQ · cash | 4H bars |
 | QLD regime | QQQ daily | QLD (2x Nasdaq) · BIL · GLD | daily, after the US close |
 | 2x Semis regime | SMH daily | USD (2x semis) · BIL · GLD | daily, after the US close |
 | QLD + Trend + bear-dip | QQQ daily | QLD · BIL | daily, after the US close |
-| QLD Trend + IBS-dip | QLD daily (own price) + QQQ volatility | QLD (size capped) · GLD · BIL | daily, after the US close |
-| USD Trend + IBS-dip | USD daily (own price and volatility) | USD (2x chips, size capped, 100% on dip days) · GLD · BIL | daily, after the US close |
+| QLD Trend + IBS-dip | QLD daily (own price) + QQQ volatility | QLD (size capped) · GLD · cash | daily, after the US close |
+| USD Trend + IBS-dip | USD daily (own price and volatility) | USD (2x chips, size capped, 100% on dip days) · GLD · cash | daily, after the US close |
 | C2-7 Momentum 1x | QQQ daily + weekly Nasdaq-100 ranking | 7 Nasdaq stocks · GLD · SGOV | daily signal, weekly list |
 | C2-7 Momentum 2x | QQQ daily + weekly Nasdaq-100 ranking | 7 stocks via 2x ETFs · GLD · SGOV | daily signal, weekly list |
 

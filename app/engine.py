@@ -198,6 +198,13 @@ def daily_jobs(now):
             expected.daily(now)
         except Exception as e:
             log.warning("expected returns: %s", e)
+    # the stored backtest check follows the fee and the strategies' settings (checked every 10 minutes)
+    if md.source() != "csv" and _once("expected_fp", local.strftime("%Y-%m-%d %H:") + str(local.minute // 10)):
+        from . import expected
+        try:
+            expected.recheck_if_stale()
+        except Exception as e:
+            log.warning("expected returns re-check: %s", e)
     # weekly Nasdaq-100 ranking for the momentum baskets, after the Friday close
     if (ny.weekday() == 5 or (ny.weekday() == 4 and hh >= "17:30") or ny.weekday() == 6) and \
             any(s.type == "momentum_basket" for s in S.all_instances()):

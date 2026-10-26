@@ -39,11 +39,11 @@ and shows what $10,000 would have become, next to simply holding the ETF (and th
 | Strategies | Data | Period |
 |---|---|---|
 | QLD regime, QLD + Trend + bear-dip | QQQ daily (signal), QLD, BIL, GLD daily | from mid-2007 (when BIL and QLD both exist) |
-| QLD Trend + IBS-dip | QLD daily (signal), QQQ daily (size), QLD, GLD, BIL daily | from mid-2007 |
-| USD Trend + IBS-dip | USD daily (signal and size), USD, GLD, BIL daily; SMH for comparison | from November 2007 (USD started in February 2007, plus 200 days for its average) |
+| QLD Trend + IBS-dip | QLD daily (signal), QQQ daily (size), QLD, GLD daily | from mid-2007 |
+| USD Trend + IBS-dip | USD daily (signal and size), USD, GLD daily; SMH for comparison | from November 2007 (USD started in February 2007, plus 200 days for its average) |
 | 2x Semis regime | SMH daily, USD, BIL, GLD daily | from mid-2007 |
 | C2-7 Momentum 1x / 2x | QQQ daily (signal), weekly Nasdaq-100 ranking and stock prices from the research (2016–2026, then the bot's own), 2x ETFs, GLD, SGOV | from late October 2016 (the research's ranking file) |
-| Gold #1/#2, Silver #1/#2 | GC=F / SI=F hourly futures, UGL / AGQ / SGOV | about 2 years: Yahoo keeps only 2 years of hourly futures |
+| Gold #1/#2, Silver #1/#2 | GC=F / SI=F hourly futures, UGL / AGQ (cash while flat) | about 2 years: Yahoo keeps only 2 years of hourly futures |
 
 The metals research covered 10 years with other data (see each strategy's doc page); the in-app backtest is shorter but uses the
 exact live code and timing.

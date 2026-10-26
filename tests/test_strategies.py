@@ -17,7 +17,8 @@ def test_evaluate(sid):
     ev = s.evaluate(NOW)
     assert ev["ok"], ev.get("error")
     t = ev["target"]
-    assert 0 < sum(t.values()) <= 1.0 + 1e-9
+    assert 0 <= sum(t.values()) <= 1.0 + 1e-9                     # 0 = flat in cash (metals since 26 Oct 2026)
+    assert sum(t.values()) > 0 or s.family == "signal"
     assert set(t) <= set(s.trade_symbols()) | set(s.cash_target())
     assert ev["bar_time"] <= NOW.timestamp()
 

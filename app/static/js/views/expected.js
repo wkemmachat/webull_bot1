@@ -14,6 +14,12 @@
   const day = (iso) => { if (!iso) return '—'; const d = new Date(iso + 'T00:00:00Z'); return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }); };
   const mon = (iso) => { if (!iso) return '—'; const d = new Date(iso + 'T00:00:00Z'); return d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' }); };
   const pct0 = (v) => U.pct(v, Math.abs(v) >= 1 ? 0 : 1);
+  // table sort: the most profitable first by default (Plan a year, high → low); a click on a header sorts by it
+  const SORT_KEY = 'expSort';
+  let sort = { k: 'plan', dir: -1 };
+  try { const x = JSON.parse(localStorage.getItem(SORT_KEY) || 'null'); if (x && x.k) sort = x; } catch (e) {}
+  const COLS = [['name', 'Strategy', ''], ['money', 'Money', 'r'], ['plan', 'Plan a year', 'r'], ['y1', '1 year', 'r'], ['y3', '3 years', 'r'],
+    ['real', 'Real vs expected', ''], ['bt', 'Bot backtest now', 'r']];
 
   function ranges(mu, sig, z) {
     const out = {};
@@ -135,10 +141,57 @@
         (${U.pct(t.real_ret)} real vs ${U.pct(t.exp_ret)} expected on ${U.usd(t.net_in, 0)} put in). ${U.esc(lab)}${t.status === 'early' ? ' — the first 3 months say little.' : '.'}</div>`;
     }
 
+    function sortValue(s, i, its) {
+      const c = s.check || {}, tr = s.track;
+      switch (sort.k) {
+        case 'name': return s.name.toLowerCase();
+        case 'money': return its[i].amount;
+        case 'plan': return s.mu;
+        case 'y1': return s.mu == null ? null : Math.pow(1 + s.mu, 1) - 1;
+        case 'y3': return s.mu == null ? null : Math.pow(1 + s.mu, 3) - 1;
+        case 'real': return tr && tr.real_ret != null ? tr.real_ret - (tr.exp_ret || 0) : null;
+        case 'bt': return c.ok && c.cagr != null ? c.cagr : null;
+        default: return null;
+      }
+    }
+
+    function order(its) {
+      const idx = d.strategies.map((s, i) => i);
+      return idx.sort((a, b) => {
+        const va = sortValue(d.strategies[a], a, its), vb = sortValue(d.strategies[b], b, its);
+        if (va == null && vb == null) return a - b;
+        if (va == null) return 1;                           // no number: always last
+        if (vb == null) return -1;
+        if (va < vb) return -sort.dir;
+        if (va > vb) return sort.dir;
+        return a - b;
+      });
+    }
+
+    function headHtml() {
+      const ck = d.check || {};
+      return COLS.map(([k, label, cls]) => {
+        const on = sort.k === k, arrow = on ? (sort.dir < 0 ? '▼' : '▲') : '';
+        const sub = k === 'bt' ? `<div class="tiny muted" style="font-weight:400">${ck.running ? 'updating…' : ck.stale ? 'out of date' : ck.cost_pct != null ? 'fee ' + ck.cost_pct + '% a trade' : ''}</div>` : '';
+        return `<th class="${cls}" aria-sort="${on ? (sort.dir < 0 ? 'descending' : 'ascending') : 'none'}"><button type="button" data-sort="${k}" class="th-sort${on ? ' on' : ''}" title="Sort by ${label}">${label}<span class="arr">${arrow}</span></button>${sub}</th>`;
+      }).join('');
+    }
+
+    function bindSort() {
+      U.on(el, '[data-sort]', 'click', (e, btn) => {
+        const k = btn.dataset.sort;
+        sort = sort.k === k ? { k, dir: -sort.dir } : { k, dir: k === 'name' ? 1 : -1 };   // numbers: high → low first
+        try { localStorage.setItem(SORT_KEY, JSON.stringify(sort)); } catch (x) {}
+        const box = el.querySelector('[data-rows]');
+        if (box) { box.innerHTML = rowsHtml(); bindSort(); }
+      });
+    }
+
     function rowsHtml() {
       const its = items(), tot = its.reduce((a, x) => a + x.amount, 0), plan = d.plan;
       const p = portfolio(its, d.corr, d.z);
-      const body = d.strategies.map((s, i) => {
+      const body = order(its).map((i) => {
+        const s = d.strategies[i];
         const amt = its[i].amount, b = s.basis, rg = s.mu != null ? ranges(s.mu, s.vol, d.z) : null, c = s.check || {};
         const cell = (n) => rg ? `<td class="r num"><div class="${U.cls(rg[n].typical)}">${pct0(rg[n].typical)}</div>${rg[n].weak != null ? `<div class="tiny muted">${pct0(rg[n].weak)} … ${pct0(rg[n].good)}</div>` : ''}</td>` : '<td class="r muted">—</td>';
         const tr = s.track;
@@ -156,8 +209,7 @@
       const foot = p ? `<tfoot><tr><td>All</td><td class="r num">${U.usd(p.amount, 0)}</td><td class="r num">${U.pct(p.a_year)}</td>
         ${[1, 3].map((n) => `<td class="r num"><div class="${U.cls(p.periods[n].typical)}">${pct0(p.periods[n].typical)}</div>${p.periods[n].weak != null ? `<div class="tiny muted" style="font-weight:400">${pct0(p.periods[n].weak)} … ${pct0(p.periods[n].good)}</div>` : ''}</td>`).join('')}
         <td></td><td></td></tr></tfoot>` : '';
-      return `<div class="tw"><table class="t"><thead><tr><th>Strategy</th><th class="r">Money</th><th class="r">Plan a year</th><th class="r">1 year</th><th class="r">3 years</th>
-        <th>Real vs expected</th><th class="r">Bot backtest now</th></tr></thead><tbody>${body}</tbody>${foot}</table></div>`;
+      return `<div class="tw"><table class="t t-sort"><thead><tr>${headHtml()}</tr></thead><tbody>${body}</tbody>${foot}</table></div>`;
     }
 
     /* ---------------- ratio planner */
@@ -283,6 +335,7 @@
             · <a href="#/docs/expected-returns">How it is worked out →</a></div></div>
         <div class="tiny muted">Typical = the middle case; about 1 period in 10 ends below the weak case and 1 in 10 above the good case. Backtests, not a promise: real results are usually lower.</div>
       </section>`;
+      bindSort();
       U.on(el, '[data-hc] button', 'click', async (e, b) => {
         await U.api('/api/expected/haircut', { body: { pct: Number(b.dataset.h) } });
         d = await fetchData(true); draw();

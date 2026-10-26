@@ -66,7 +66,12 @@ def test_metals_plan_waits_for_22_00_bangkok(clean, clock):
 def test_exit_starts_at_the_open_not_22_00(clean, clock):
     early = clock.set(datetime(2026, 10, 21, 8, 0, tzinfo=timezone.utc))
     s = S.get("gold_st30")
-    pid = X.build_plan("paper", s, s.cash_target(), "signal", early, brokers.get("paper"))
+    b = brokers.get("paper")
+    q = int(5000 // b.quote("UGL")["price"])
+    b.place("UGL", "BUY", q, None, "CORE", "seed-ugl")
+    fill = b.order("seed-ugl")
+    ledger.book_fill("paper", s.id, "UGL", "BUY", fill["filled_qty"], fill["filled_qty"] * fill["avg_price"])
+    pid = X.build_plan("paper", s, s.cash_target(), "signal", early, b)                   # exit: UGL → cash
     start = datetime.fromtimestamp(db.one("SELECT start_at FROM plans WHERE id=?", (pid,))["start_at"], timezone.utc)
     assert start == mh.next_open(early, "CORE")
 

@@ -25,7 +25,8 @@ COMMON = [
     {"key": "etf", "label": "Trade with (ETF)", "kind": "symbol", "default": "UGL", "group": "Symbols",
      "help": "Held while the signal is long, e.g. UGL (2x gold), AGQ (2x silver), GLD, SLV"},
     {"key": "cash_etf", "label": "Cash ETF while flat", "kind": "symbol", "default": "SGOV", "group": "Symbols",
-     "help": "T-bill ETF that holds the money while flat (leave empty to keep cash)"},
+     "help": "T-bill ETF that holds the money while flat; empty = keep cash (the default since 26 Oct 2026: every switch "
+             "then trades half as much at Webull's 0.107% fee, for no T-bill interest while flat)"},
     {"key": "cash_buffer_pct", "label": "Cash buffer %", "kind": "float", "default": 1.0, "min": 0, "max": 20, "group": "Money"},
     {"key": "rebalance_band_pct", "label": "Rebalance band %", "kind": "float", "default": 10.0, "min": 1, "max": 50, "group": "Money",
      "help": "Between signals, trade only when a holding is this far from its target (e.g. after Add money)"},

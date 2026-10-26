@@ -317,6 +317,8 @@ async def strategy_update(sid: str, request: Request, u=Depends(user)):
     except (ValueError, KeyError) as e:
         _err(e)
     db.add_event("info", "strategy", f"Strategy updated: {sid}", json.dumps({k: v for k, v in b.items()}), strategy=sid)
+    if b.get("params") is not None and md.source() != "csv":
+        expected.recheck_if_stale()
     return {"ok": True}
 
 
@@ -849,6 +851,8 @@ async def settings_save(request: Request, u=Depends(user)):
     db.set_settings(upd)
     if upd:
         db.add_event("info", "settings", "Settings saved", json.dumps(upd))
+    if "backtest_cost_pct" in upd and md.source() != "csv":
+        expected.recheck_if_stale()                     # the Expected return panel follows the new fee
     return {"ok": True}
 
 

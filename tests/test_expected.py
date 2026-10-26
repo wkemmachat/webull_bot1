@@ -118,6 +118,25 @@ def test_check_stores_volatility_and_correlations(checked):
     assert db.get_state(E.STATE)["at"] == chk["at"]
 
 
+def test_check_goes_stale_when_the_fee_or_settings_change(checked):
+    chk, _ = checked
+    assert chk["cost_pct"] == 0.11 and chk["fp"] == E.fingerprint() and not E.stale()
+    assert E.status()["stale"] is False and E.status()["cost_pct"] == 0.11
+    db.set_settings({"backtest_cost_pct": "0.2"})
+    try:
+        assert E.stale() and E.status()["stale"] is True
+    finally:
+        db.set_settings({"backtest_cost_pct": "0.11"})
+    assert not E.stale()
+    s = S.get("qld_ibs")
+    S.update("qld_ibs", params={**s.row["params"], "ibs_max": 0.12})
+    try:
+        assert E.stale()
+    finally:
+        S.update("qld_ibs", params=s.row["params"])
+    assert not E.stale()
+
+
 def test_view_for_the_dashboard(checked):
     from app import moneyops
     moneyops.seed_paper()
@@ -125,8 +144,8 @@ def test_view_for_the_dashboard(checked):
     assert v["haircut_pct"] == 30 and v["horizons"] == [1, 2, 3]
     rows = {r["id"]: r for r in v["strategies"]}
     u = rows["usd_ibs"]
-    assert u["basis"]["basis"] == "research" and u["mu"] == pytest.approx(0.668 * 0.7)
-    assert u["ranges"][1]["typical"] == pytest.approx(0.4676)
+    assert u["basis"]["basis"] == "research, real fee" and u["mu"] == pytest.approx(0.629 * 0.7)
+    assert u["ranges"][1]["typical"] == pytest.approx(0.629 * 0.7)
     funded = [r for r in v["strategies"] if r["value"] > 0]
     if funded:
         p = v["portfolio"]

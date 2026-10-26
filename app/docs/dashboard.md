@@ -14,9 +14,12 @@
 - **Account split**: how the broker account is divided between the strategies, bot unassigned and *not for the bot*.
 - **Money in strategies**: a donut of how the money in the strategies is split — the total is all strategies combined; bot unassigned money is not counted. Switch between **Value now** and **Money put in**. Hover or tap a slice for its share; tap a name to open the strategy.
 - **Expected return**: what the money could be worth in 1, 2 and 3 years if it stays split like the donut. Each period shows the
-  typical case (research return minus the planning haircut, 30% by default; change it with the *Haircut* buttons) and a weak / good
-  case (about 1 in 10 worse / better), plus the worst fall of your split in the backtest. The table shows each strategy's plan
-  a year, its 1- and 3-year range, **real vs expected** (Too early / Ahead / Behind / Below weak case) and its bot backtest now.
+  typical case (research return lowered for Webull's real fee, minus the planning haircut, 30% by default; change it with the
+  *Haircut* buttons) and a weak / good case (about 1 in 10 worse / better), plus the worst fall of your split in the backtest.
+  The table shows each strategy's plan a year, its 1- and 3-year range, **real vs expected** (Too early / Ahead / Behind /
+  Below weak case) and its **bot backtest now** (10 years, at the fee in Settings → Fees; re-run by itself within 10 minutes
+  when the fee or a strategy's settings change). It starts with the most profitable strategy (highest plan a year); click any
+  column header to sort by it, again to reverse. The choice is remembered on this device.
   **Plan a ratio** opens the ratio planner: a slider and a % for each strategy with the 1/2/3-year result updating live. You can
   save the ratio, then press *Give unassigned money by this ratio*, which opens the Give-to-strategies dialog already filled in.
   *Re-run the check* re-runs

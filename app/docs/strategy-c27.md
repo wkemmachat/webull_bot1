@@ -72,7 +72,7 @@ much more often than the ETF strategies (see "trades a year" below).
 
 ## Backtest results
 
-Numbers from the bot's own **Backtest** tab on 25 Oct 2026: the strategy's live code over real Yahoo prices (dividends included), traded at the bot's real times, 0.05% cost per side. Open the strategy → **Backtest** for today's numbers, the chart and every trade. The ranking and stock prices for 2016–2026 are the research's own (Alpaca total-return prices, SEC share counts),
+Numbers from the bot's own **Backtest** tab on 26 Oct 2026: the strategy's live code over real Yahoo prices (dividends included), traded at the bot's real times, paying Webull's real fee (0.11% of every buy and every sell; single-stock 2x ETFs 0.16%). Open the strategy → **Backtest** for today's numbers, the chart and every trade. The ranking and stock prices for 2016–2026 are the research's own (Alpaca total-return prices, SEC share counts),
 so this backtest uses the same data as the research; 2x uses the real 2x ETFs from 10 days after their launch (2022–2024) and,
 before that, 2× each stock's daily move minus the T-bill rate + 6.9% a year (the ETFs' typical cost).
 
@@ -80,30 +80,30 @@ before that, 2× each stock's daily move minus the T-bill rate + 6.9% a year (th
 
 | Period | A year | Worst fall | Sharpe | QQQ held a year / worst fall |
 |---|---|---|---|---|
-| 1 year | **+49.2%** | −13.5% | 1.44 | +15.9% / −12.0% |
-| 3 years | **+54.8%** | −15.4% | 1.70 | +26.3% / −22.8% |
-| 5 years | **+46.7%** | −15.4% | 1.67 | +14.0% / −35.1% |
-| 10 years | **+34.0%** | −19.5% | 1.39 | +20.5% / −35.1% |
-| All (from 31 Oct 2016) | **+34.0%** | −19.5% | 1.39 | +20.5% / −35.1% |
+| 1 year | **+45.0%** | −13.6% | 1.34 | +15.9% / −12.0% |
+| 3 years | **+52.2%** | −15.7% | 1.63 | +26.3% / −22.8% |
+| 5 years | **+43.5%** | −16.2% | 1.57 | +14.0% / −35.1% |
+| 10 years | **+31.5%** | −19.8% | 1.30 | +20.5% / −35.1% |
+| All (from 31 Oct 2016) | **+31.5%** | −19.8% | 1.30 | +20.5% / −35.1% |
 
-- **Worst fall:** −19.5%, from 1 Sep 2020 to 30 Oct 2020; back at the old high on 7 Jan 2021.
-- **$10,000 became** $186,127 (+1,761%) from 31 Oct 2016 to 23 Oct 2026.
-- **In the market** 65% of the days · **29.6 trades a year** · 68% of round trips made money (average +5.7%).
+- **Worst fall:** −19.8%, from 1 Sep 2020 to 30 Oct 2020; back at the old high on 7 Jan 2021.
+- **$10,000 became** $153,796 (+1,438%) from 31 Oct 2016 to 23 Oct 2026.
+- **In the market** 65% of the days · **29.6 trades a year** · 66% of round trips made money (average +5.5%).
 - Volatility 21% a year.
 
 ### C2-7 Momentum 2x
 
 | Period | A year | Worst fall | Sharpe | QQQ held a year / worst fall | QLD held a year / worst fall |
 |---|---|---|---|---|---|
-| 1 year | **+99.6%** | −26.4% | 1.48 | +15.9% / −12.0% | +22.3% / −25.1% |
-| 3 years | **+98.3%** | −30.0% | 1.59 | +26.3% / −22.8% | +44.0% / −42.3% |
-| 5 years | **+80.0%** | −30.0% | 1.55 | +14.0% / −35.1% | +16.6% / −63.7% |
-| 10 years | **+56.8%** | −33.0% | 1.32 | +20.5% / −35.1% | +32.6% / −63.7% |
-| All (from 31 Oct 2016) | **+56.8%** | −33.0% | 1.32 | +20.5% / −35.1% | +32.6% / −63.7% |
+| 1 year | **+93.9%** | −26.4% | 1.43 | +15.9% / −12.0% | +22.3% / −25.1% |
+| 3 years | **+94.8%** | −30.3% | 1.55 | +26.3% / −22.8% | +44.0% / −42.3% |
+| 5 years | **+76.1%** | −30.3% | 1.50 | +14.0% / −35.1% | +16.6% / −63.7% |
+| 10 years | **+53.8%** | −33.3% | 1.27 | +20.5% / −35.1% | +32.6% / −63.7% |
+| All (from 31 Oct 2016) | **+53.8%** | −33.3% | 1.27 | +20.5% / −35.1% | +32.6% / −63.7% |
 
-- **Worst fall:** −33.0%, from 1 Sep 2020 to 30 Oct 2020; back at the old high on 7 Jan 2021.
-- **$10,000 became** $887,011 (+8,770%) from 31 Oct 2016 to 23 Oct 2026.
-- **In the market** 65% of the days · **29.6 trades a year** · 70% of round trips made money (average +10.0%).
+- **Worst fall:** −33.3%, from 1 Sep 2020 to 30 Oct 2020; back at the old high on 7 Jan 2021.
+- **$10,000 became** $733,801 (+7,238%) from 31 Oct 2016 to 23 Oct 2026.
+- **In the market** 65% of the days · **29.6 trades a year** · 70% of round trips made money (average +9.7%).
 - Volatility 38% a year.
 
 ### Year by year
@@ -112,33 +112,33 @@ before that, 2× each stock's daily move minus the T-bill rate + 6.9% a year (th
 
 | Year | Strategy | QQQ held |
 |---|---|---|
-| 2026 (part) | **+49.1%** | +15.1% |
-| 2025 | **+42.6%** | +20.8% |
-| 2024 | **+59.6%** | +25.6% |
-| 2023 | **+68.2%** | +54.9% |
-| 2022 | **+12.6%** | −32.6% |
-| 2021 | **+29.8%** | +27.4% |
-| 2020 | **+69.7%** | +48.4% |
-| 2019 | **+16.5%** | +39.0% |
-| 2018 | **+4.9%** | −0.1% |
-| 2017 | **+12.2%** | +32.7% |
-| 2016 (part) | **−4.1%** | +1.6% |
+| 2026 (part) | **+45.6%** | +15.1% |
+| 2025 | **+40.3%** | +20.8% |
+| 2024 | **+58.1%** | +25.6% |
+| 2023 | **+64.9%** | +54.9% |
+| 2022 | **+8.0%** | −32.6% |
+| 2021 | **+27.8%** | +27.4% |
+| 2020 | **+68.2%** | +48.4% |
+| 2019 | **+14.2%** | +39.0% |
+| 2018 | **+2.8%** | −0.1% |
+| 2017 | **+11.1%** | +32.7% |
+| 2016 (part) | **−4.5%** | +1.6% |
 
 **2x**
 
 | Year | Strategy | QQQ held | QLD held |
 |---|---|---|---|
-| 2026 (part) | **+104.1%** | +15.1% | +22.5% |
-| 2025 | **+64.7%** | +20.8% | +30.4% |
-| 2024 | **+101.6%** | +25.6% | +42.8% |
-| 2023 | **+116.4%** | +54.9% | +117.7% |
-| 2022 | **+18.7%** | −32.6% | −60.5% |
-| 2021 | **+40.1%** | +27.4% | +54.7% |
-| 2020 | **+134.5%** | +48.4% | +88.9% |
-| 2019 | **+24.0%** | +39.0% | +81.7% |
-| 2018 | **+5.0%** | −0.1% | −8.3% |
-| 2017 | **+25.3%** | +32.7% | +70.3% |
-| 2016 (part) | **−4.9%** | +1.6% | +2.7% |
+| 2026 (part) | **+99.3%** | +15.1% | +22.5% |
+| 2025 | **+62.1%** | +20.8% | +30.4% |
+| 2024 | **+99.7%** | +25.6% | +42.8% |
+| 2023 | **+112.3%** | +54.9% | +117.7% |
+| 2022 | **+13.8%** | −32.6% | −60.5% |
+| 2021 | **+37.9%** | +27.4% | +54.7% |
+| 2020 | **+132.4%** | +48.4% | +88.9% |
+| 2019 | **+21.5%** | +39.0% | +81.7% |
+| 2018 | **+2.9%** | −0.1% | −8.3% |
+| 2017 | **+24.0%** | +32.7% | +70.3% |
+| 2016 (part) | **−5.3%** | +1.6% | +2.7% |
 
 ## The research
 
@@ -152,9 +152,11 @@ before that, 2× each stock's daily move minus the T-bill rate + 6.9% a year (th
 | QQQ held | 16.0%, −52.7% | 11.6%, −52.7% | 20.5%, −35.2% | 14.2%, −35.2% |
 
 **Cross-check:** the bot's own backtest over the same 10 years (its code, the research's ranking and prices, Yahoo for QQQ, GLD and
-the ETFs) gives **1x 34.0% a year, −19.5%, Sharpe 1.39** (research 34.7%, −19.7%, 1.50) and **2x 56.8%, −33.0%, Sharpe 1.32**
-(research 59.6%, −37.7%, 1.31 — the research modelled 2x on every stock; the bot uses the real ETFs from 2022–2024). The small
-differences come from the QQQ prices (Yahoo vs the research's dividend-adjusted series) and the 1% cash buffer.
+the ETFs) gave **1x 34.0% a year, −19.5%, Sharpe 1.39** (research 34.7%, −19.7%, 1.50) and **2x 56.8%, −33.0%, Sharpe 1.32**
+(research 59.6%, −37.7%, 1.31 — the research modelled 2x on every stock; the bot uses the real ETFs from 2022–2024) at a 0.05%
+cost. The small differences come from the QQQ prices (Yahoo vs the research's dividend-adjusted series) and the 1% cash buffer.
+At **Webull's real fee** (0.107% a trade, used as 0.11%; 2x ETFs 0.16% for their wider spread) the bot's backtest gives
+**1x 31.5%** and **2x 53.8%** a year: about 30 trades a year, each a full stock position, cost 2.5–3 points a year.
 
 - Over 45 signal settings, Momentum 2x beat "QLD + the same signal" in every window; the median worst fall of 2x was −39% to −42%,
   the worst setting −57% (2006–2016).

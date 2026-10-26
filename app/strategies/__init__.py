@@ -14,13 +14,13 @@ _loaded = False
 
 DEFAULTS = [
     ("gold_sta", "supertrend", "Gold #1 · Supertrend + ADX", "#F2C14E",
-     {"symbol": "GC", "atr": 30, "mult": 2.5, "adx_min": 20, "adx_len": 14, "etf": "UGL", "cash_etf": "SGOV"}, {}),
+     {"symbol": "GC", "atr": 30, "mult": 2.5, "adx_min": 20, "adx_len": 14, "etf": "UGL", "cash_etf": ""}, {}),
     ("gold_st30", "supertrend", "Gold #2 · Supertrend 30/2.5", "#B9852C",
-     {"symbol": "GC", "atr": 30, "mult": 2.5, "adx_min": 0, "etf": "UGL", "cash_etf": "SGOV"}, {}),
+     {"symbol": "GC", "atr": 30, "mult": 2.5, "adx_min": 0, "etf": "UGL", "cash_etf": ""}, {}),
     ("silver_dc", "donchian", "Silver #1 · Donchian 30/15", "#D5DBE3",
-     {"symbol": "SI", "entry": 30, "exit": 15, "etf": "AGQ", "cash_etf": "SGOV"}, {}),
+     {"symbol": "SI", "entry": 30, "exit": 15, "etf": "AGQ", "cash_etf": ""}, {}),
     ("silver_st", "supertrend", "Silver #2 · Supertrend 10/3", "#8592A3",
-     {"symbol": "SI", "atr": 10, "mult": 3.0, "adx_min": 0, "etf": "AGQ", "cash_etf": "SGOV"}, {}),
+     {"symbol": "SI", "atr": 10, "mult": 3.0, "adx_min": 0, "etf": "AGQ", "cash_etf": ""}, {}),
     ("qld_regime", "regime", "QLD regime", "#5B8DEF",
      {"signal": "QQQ", "trade": "QLD", "off_symbol": "GLD", "cash_symbol": "BIL", "vol_gate_pct": 30}, {}),
     ("semis_regime", "regime", "2x Semis regime", "#B084F5",
@@ -37,7 +37,8 @@ DEFAULTS = [
       "ma_days": 200, "ibs_max": 0.15, "adx_min": 0, "target_vol_pct": 40, "leverage": 1, "vol_days": 20, "dip_full_size": True,
       "size_band_pct": 20, "tbill_cash": True}, {}),
 ]
-# Earlier defaults: a strategy still on exactly these settings is moved to the new ones once (lower-cost IBS-dip, 26 Oct 2026).
+# Earlier defaults: a strategy still on exactly these settings is moved to the new ones once (lower-cost versions, 26 Oct 2026:
+# IBS-dip T-bill half as cash + QLD IBS < 0.15; metals flat in cash instead of SGOV).
 # Settings you changed yourself are left alone.
 UPGRADES = [
     ("lowcost_ibs_2026_10", "qld_ibs",
@@ -46,6 +47,10 @@ UPGRADES = [
      {"trade": "USD", "vol_symbol": "USD", "compare_symbol": "SMH", "gold_etf": "GLD", "cash_symbol": "BIL", "st_atr": 20, "st_mult": 4.5,
       "ma_days": 200, "ibs_max": 0.15, "adx_min": 0, "target_vol_pct": 40, "leverage": 1, "vol_days": 20, "dip_full_size": True,
       "size_band_pct": 20}),
+    ("lowcost_metals_2026_10", "gold_sta", {"symbol": "GC", "atr": 30, "mult": 2.5, "adx_min": 20, "adx_len": 14, "etf": "UGL", "cash_etf": "SGOV"}),
+    ("lowcost_metals_2026_10", "gold_st30", {"symbol": "GC", "atr": 30, "mult": 2.5, "adx_min": 0, "etf": "UGL", "cash_etf": "SGOV"}),
+    ("lowcost_metals_2026_10", "silver_dc", {"symbol": "SI", "entry": 30, "exit": 15, "etf": "AGQ", "cash_etf": "SGOV"}),
+    ("lowcost_metals_2026_10", "silver_st", {"symbol": "SI", "atr": 10, "mult": 3.0, "adx_min": 0, "etf": "AGQ", "cash_etf": "SGOV"}),
 ]
 PALETTE = ["#3DC9C0", "#E8875A", "#E46AA8", "#9BCB4E", "#F2C14E", "#5B8DEF", "#B084F5"]
 
@@ -101,7 +106,7 @@ def upgrade_defaults() -> list:
         db.run("UPDATE strategies SET params=?, updated_at=? WHERE id=?", (json.dumps(new[4]), int(time.time()), sid))
         changes = {k: v for k, v in cls.merge_params(new[4]).items() if cls.merge_params(old).get(k) != v}
         db.add_event("info", "strategy", f"{r['name']}: settings updated to the new default",
-                     "Lower-cost version (Webull fee 0.107% per trade): " + ", ".join(f"{k} → {v}" for k, v in changes.items()),
+                     "Lower-cost version (Webull fee 0.107% per trade): " + ", ".join(f"{k} → {v if v != '' else 'cash'}" for k, v in changes.items()),
                      strategy=sid)
         moved.append(sid)
     db.set_state("upgrades_done", sorted(seen))

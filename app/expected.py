@@ -11,6 +11,7 @@ backtest's 10-year return next to the research, and sends LINE. The research num
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import math
@@ -319,10 +320,26 @@ def _corr(res: dict) -> dict:
     return {"ids": ids, "m": [[round(float(x), 3) for x in row] for row in C]}
 
 
+def fingerprint() -> str:
+    """Changes when the backtest fee or any strategy's settings change: the stored check is then out of date."""
+    from . import backtest
+    raw = json.dumps([round(backtest.cost_setting(), 6), sorted([s.id, s.type, s.params] for s in S.all_instances())],
+                     sort_keys=True, default=str)
+    return hashlib.sha1(raw.encode()).hexdigest()[:16]
+
+
+def stale() -> bool:
+    chk = db.get_state(STATE)
+    return bool(chk) and chk.get("fp") != fingerprint()
+
+
 def refresh(by="manual", send_line=True, now=None) -> dict:
+    from . import backtest
+    fp = fingerprint()
     res = {s.id: _one(s, now) for s in S.all_instances()}
     prev = db.get_state(STATE) or {}
-    out = {"at": int(time.time()), "by": by, "strategies": res, "corr": _corr(res)}
+    out = {"at": int(time.time()), "by": by, "strategies": res, "corr": _corr(res), "fp": fp,
+           "cost_pct": round(backtest.cost_setting() * 100, 4)}
     db.set_state(STATE, out)
     hist = db.get_state("expected_check_log") or []
     hist.append({"at": out["at"], "by": by, "cagr10": {k: v.get("cagr10") for k, v in res.items() if v.get("ok")}})
@@ -381,7 +398,16 @@ def start_check(by="manual", send_line=True) -> dict:
 
 def status() -> dict:
     chk = db.get_state(STATE) or {}
-    return {"running": _job["running"], "started": _job["started"], "error": _job["error"], "at": chk.get("at"), "by": chk.get("by")}
+    return {"running": _job["running"], "started": _job["started"], "error": _job["error"], "at": chk.get("at"), "by": chk.get("by"),
+            "cost_pct": chk.get("cost_pct"), "stale": bool(chk) and chk.get("fp") != fingerprint()}
+
+
+def recheck_if_stale() -> bool:
+    """Re-run the check (no LINE) when the fee or a strategy's settings changed since the last one."""
+    if stale() and not _job["running"]:
+        start_check("settings changed", send_line=False)
+        return True
+    return False
 
 
 def daily(now=None):

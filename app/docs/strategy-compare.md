@@ -3,33 +3,33 @@
 
 | Strategy | A year (10 years) | Worst fall | Sharpe | Last year | Risk |
 |---|---|---|---|---|---|
-| QLD + Trend + bear-dip | **+37.3%** | −42.3% | 1.00 | +23.3% | high |
-| QLD regime | **+37.2%** | −35.9% | 1.09 | +32.5% | high |
-| 2x Semis regime | **+57.3%** | −45.9% | 1.12 | +62.8% | very high |
-| C2-7 Momentum 1x | **+34.0%** | −19.5% | 1.39 | +49.2% | medium |
-| C2-7 Momentum 2x | **+56.8%** | −33.0% | 1.32 | +99.6% | high |
-| QLD Trend + IBS-dip | **+34.5%** | −29.6% | 1.11 | +49.8% | medium |
-| USD Trend + IBS-dip | **+62.5%** | −37.0% | 1.28 | +79.6% | high |
-| Gold #1 · Supertrend + ADX | +10.3% † | −13.2% † | — | +38.9% | medium |
-| Gold #2 · Supertrend 30/2.5 | +11.5% † | −13.4% † | — | +32.2% | medium |
-| Silver #1 · Donchian 30/15 | +15.5% † | −33.9% † | — | −11.1% | very high |
-| Silver #2 · Supertrend 10/3 | +17.2% † | −34.3% † | — | +13.4% | very high |
+| QLD + Trend + bear-dip | **+36.4%** | −42.6% | 0.98 | +22.7% | high |
+| QLD regime | **+36.4%** | −36.6% | 1.07 | +32.0% | high |
+| 2x Semis regime | **+55.9%** | −46.4% | 1.10 | +61.1% | very high |
+| C2-7 Momentum 1x | **+31.5%** | −19.8% | 1.30 | +45.0% | medium |
+| C2-7 Momentum 2x | **+53.8%** | −33.3% | 1.27 | +93.9% | high |
+| QLD Trend + IBS-dip | **+34.4%** | −27.2% | 1.25 | +51.1% | high |
+| USD Trend + IBS-dip | **+58.7%** | −38.1% | 1.22 | +84.6% | very high |
+| Gold #1 · Supertrend + ADX | +7.7% † | −13.2% † | — | +36.1% | medium |
+| Gold #2 · Supertrend 30/2.5 | +9.0% † | −13.4% † | — | +29.5% | medium |
+| Silver #1 · Donchian 30/15 | +12.7% † | −33.9% † | — | −13.1% | very high |
+| Silver #2 · Supertrend 10/3 | +14.4% † | −34.3% † | — | +10.9% | very high |
 
-Bot backtests on real prices, 25 Oct 2026. † Gold and silver: the research's 10-year ETF test (Yahoo has only 2 years of hourly futures prices). QQQ held over the same 10 years: about 20% a year, worst fall −35%.
+Bot backtests on real prices, 26 Oct 2026. † Gold and silver: the research's 10-year ETF test, lowered by what Webull's real fee costs in the bot's 2-year backtest (Yahoo has only 2 years of hourly futures prices). QQQ held over the same 10 years: about 20% a year, worst fall −35%.
 
 | Strategy | Holds | Since 2007 (or its start): a year / worst fall | Last 5 years |
 |---|---|---|---|
-| QLD + Trend + bear-dip | QLD or BIL | +33.0% / −42.3% (from 2007) | +34.2% |
-| QLD regime | QLD / BIL / GLD | +26.6% / −39.1% (from 2007) | +28.8% |
-| 2x Semis regime | USD / BIL / GLD | +36.7% / −46.7% (from 2007) | +69.4% |
-| C2-7 Momentum 1x | 7 Nasdaq stocks or GLD+SGOV | +34.0% / −19.5% (from 2016) | +46.7% |
-| C2-7 Momentum 2x | 7 stocks via 2x ETFs or GLD+SGOV | +56.8% / −33.0% (from 2016) | +80.0% |
-| QLD Trend + IBS-dip | QLD (vol-capped) or GLD+BIL | +30.0% / −29.6% (from 2007) | +44.9% |
-| USD Trend + IBS-dip | USD (vol-capped, 100% on dips) or GLD+BIL | +41.7% / −43.2% (from 2007) | +81.3% |
-| Gold #1 · Supertrend + ADX | UGL or SGOV | see the strategy page | — |
-| Gold #2 · Supertrend 30/2.5 | UGL or SGOV | see the strategy page | — |
-| Silver #1 · Donchian 30/15 | AGQ or SGOV | see the strategy page | — |
-| Silver #2 · Supertrend 10/3 | AGQ or SGOV | see the strategy page | — |
+| QLD + Trend + bear-dip | QLD or BIL | +31.7% / −42.6% (from 2007) | +32.9% |
+| QLD regime | QLD / BIL / GLD | +25.5% / −39.6% (from 2007) | +28.2% |
+| 2x Semis regime | USD / BIL / GLD | +35.4% / −49.1% (from 2007) | +67.7% |
+| C2-7 Momentum 1x | 7 Nasdaq stocks or GLD+SGOV | +31.5% / −19.8% (from 2016) | +43.5% |
+| C2-7 Momentum 2x | 7 stocks via 2x ETFs or GLD+SGOV | +53.8% / −33.3% (from 2016) | +76.1% |
+| QLD Trend + IBS-dip | QLD (vol-capped) or GLD + cash | +29.1% / −30.6% (from 2007) | +44.8% |
+| USD Trend + IBS-dip | USD (vol-capped, 100% on dips) or GLD + cash | +36.7% / −51.5% (from 2007) | +76.7% |
+| Gold #1 · Supertrend + ADX | UGL or cash | see the strategy page | — |
+| Gold #2 · Supertrend 30/2.5 | UGL or cash | see the strategy page | — |
+| Silver #1 · Donchian 30/15 | AGQ or cash | see the strategy page | — |
+| Silver #2 · Supertrend 10/3 | AGQ or cash | see the strategy page | — |
 
 ## How to read this
 
@@ -38,7 +38,7 @@ Bot backtests on real prices, 25 Oct 2026. † Gold and silver: the research's 1
 - **Sharpe** is return per unit of risk (above T-bills): above 1 is very good for a single strategy.
 - Gold and silver use the research's 10-year numbers (Yahoo has only 2 years of hourly futures prices).
 - All numbers are backtests: the rules were chosen on this history, so the future will usually be worse.
-- For planning, the bot takes 30% off the research returns and shows what your own split of money could become in 1–3 years:
+- For planning, the bot takes 30% off the expected returns (research, lowered for Webull's real fee) and shows what your own split of money could become in 1–3 years:
   [Expected returns](#/docs/expected-returns) (Dashboard → *Expected return*).
 
 ## Which ones move together

@@ -20,8 +20,13 @@ with the plan so far.
    (shown on the strategy's page under *The research*). The bot keeps these numbers in one file,
    `app/research/expected.json`. The Backtest tab, the strategy pages and the Dashboard all read that same file, so they
    never disagree.
-2. **Minus the planning haircut** (30% by default). A research return of 40% a year becomes a plan of **28% a year**.
-3. **The bot's own backtest replaces the research in two cases:**
+2. **Lowered for Webull's real fee** (since 26 Oct 2026). The research charged about 0.05% per switch; Webull charges 0.107% on
+   every buy and every sell. The bot runs its backtest at both costs (and, where the bot now uses lower-cost settings, with
+   those settings) and lowers the research return in proportion. Example: USD Trend + IBS-dip, research 66.8%; the bot's
+   10-year backtest went from 62.5% to 58.7% a year, so the plan starts from **62.9%**. The panel shows these as
+   *research, real fee*.
+3. **Minus the planning haircut** (30% by default). A research return of 40% a year becomes a plan of **28% a year**.
+4. **The bot's own backtest replaces the research in two cases:**
    - you changed a strategy's settings, so the research no longer applies;
    - the research has no 10-year return for the strategy on its own (2x Semis regime).
 
@@ -30,7 +35,7 @@ with the plan so far.
 Backtests nearly always beat real trading:
 
 - The rules were picked because they worked on this history.
-- Real fills, spreads and taxes cost more than the backtest charges.
+- Real fills, spreads and taxes can cost more than the backtest charges (the fee itself is now charged at Webull's rate).
 - Markets change.
 
 The 30% haircut builds that gap into the plan, so a normal year does not feel like a failure. You can pick 0%, 15%, 30%
