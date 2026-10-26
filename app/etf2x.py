@@ -211,6 +211,14 @@ def scan(sid: str, send_line: bool = True, now=None) -> dict:
            "added": old.get("added", {})}
     db.set_state(_key(sid), out)
     _memo.clear()
+    from . import brokers, execution
+    if any(execution.single_stock_refused(m) for m in brokers.enabled_modes() if m != "paper"):
+        out["account_rule"] = True                       # Webull refuses single-stock 2x ETFs for this account: no LINE
+        db.set_state(_key(sid), out)
+        db.add_event("info", "strategy", f"{s.name}: 2x ETF search done (not sent)",
+                     "Webull refuses single-stock leveraged ETFs on your account (50M THB rule), so new ones are not suggested.",
+                     strategy=sid)
+        return out
     if new:
         lines = [f"• {st} → {b['etf']} ({b['name'] or 'ETF'}): beta {b.get('beta')}, ${b['adv'] / 1e6:,.0f}M a day, "
                  f"trading since {b['since']}" for st, b in new]

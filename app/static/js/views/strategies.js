@@ -25,7 +25,7 @@
         ${rows.map((s) => `
         <div class="srow">
           <a href="#/strategies/${s.id}" class="row" style="gap:12px;align-items:flex-start;color:var(--text);flex-wrap:nowrap">${U.dot(s.color, 12)}
-            <span class="col" style="gap:3px;min-width:0"><b style="font-size:15px">${U.esc(s.name)}</b><span class="muted small">${U.esc(s.rule || '')}</span></span></a>
+            <span class="col" style="gap:3px;min-width:0"><b style="font-size:15px">${U.esc(s.name)}</b><span class="muted small">${U.esc(s.rule || '')}</span>${s.notice ? `<span class="small" style="color:var(--warn-fg,#B45309)">⚠ Works like 1x on Webull (single-stock 2x ETFs refused)</span>` : ''}</span></a>
           <div class="col" style="gap:3px"><span class="num small">${U.esc(s.flow || '')}</span><span class="muted small">${U.esc(s.exec)}</span></div>
           ${U.stateBlock(s, s.signal_time ? `<span class="muted small">since ${U.dt(s.signal_time)}</span>` : '')}
           <div class="col" style="gap:2px"><span class="num" style="font-weight:600;font-size:15px">${U.usd(s.value)}</span>
@@ -90,7 +90,8 @@
         <div class="row" style="gap:8px">${U.pill('', c.type === 'momentum_basket' ? 'Stock basket' : fam === 'regime' ? 'Daily regime' : '4H signal')}<span class="pill" style="white-space:normal;max-width:100%">${U.esc(c.flow)}</span>
           ${U.pill(c.control === 'active' ? 'ok' : 'warn', c.control === 'active' ? 'Active' : c.control === 'paused' ? 'Buys paused' : c.control)}
           ${U.pill(c.line_on ? 'info' : '', c.line_on ? 'LINE on' : 'LINE off')}</div>
-        <div class="muted small">${U.esc(d.describe.rule || '')}</div></div>
+        <div class="muted small">${U.esc(d.describe.rule || '')}</div>
+        ${c.notice ? `<div class="note warn small" style="margin:0;display:block">${U.esc(c.notice)} <a href="#/docs/strategy-c27">Why and what to do →</a></div>` : ''}</div>
         <div class="row"><button class="btn" data-money="withdraw">Withdraw</button><button class="btn" data-money="add">Add money</button>
           <button class="btn" data-ctl="${c.control === 'paused' ? 'active' : 'paused'}">${c.control === 'paused' ? 'Resume buys' : 'Pause buys'}</button>
           <button class="btn d" data-ctl="stopping">Stop &amp; sell</button></div></div>

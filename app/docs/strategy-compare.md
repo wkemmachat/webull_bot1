@@ -15,7 +15,8 @@
 | Silver #1 · Donchian 30/15 | +12.7% † | −33.9% † | — | −13.1% | very high |
 | Silver #2 · Supertrend 10/3 | +14.4% † | −34.3% † | — | +10.9% | very high |
 
-Bot backtests on real prices, 26 Oct 2026. † Gold and silver: the research's 10-year ETF test, lowered by what Webull's real fee costs in the bot's 2-year backtest (Yahoo has only 2 years of hourly futures prices). QQQ held over the same 10 years: about 20% a year, worst fall −35%.
+Bot backtests on real prices, 26 Oct 2026. C2-7 Momentum 2x needs single-stock 2x ETFs, which Webull Thailand allows only from
+50M THB: on your account it works like C2-7 Momentum 1x (see its page). † Gold and silver: the research's 10-year ETF test, lowered by what Webull's real fee costs in the bot's 2-year backtest (Yahoo has only 2 years of hourly futures prices). QQQ held over the same 10 years: about 20% a year, worst fall −35%.
 
 | Strategy | Holds | Since 2007 (or its start): a year / worst fall | Last 5 years |
 |---|---|---|---|

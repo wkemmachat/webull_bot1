@@ -44,6 +44,10 @@
     is about what the T-bill interest earns.
   - Strategies still on the old defaults were moved once at the restart (Logs: *settings updated to the new default*);
     settings you changed yourself were left alone.
+- **Single-stock 2x ETFs refused** (26 Oct 2026, live Test trade of AAPU and AMUU): Webull Thailand's code
+  *OPENAPI_ONLY_UHNWE_SINGLE_STOCK_REVERSE_ETF_LIMIT* (below 50M THB). It is treated as a permanent account rule: one refusal
+  blocks every single-stock 2x ETF in that mode, C2-7 Momentum 2x holds the stocks (works like 1x) with a warning on the
+  strategy, and the weekly 2x search stops sending suggestions. Real money belongs in C2-7 Momentum 1x.
 - **Expected-return check follows the settings** (26 Oct 2026): the stored backtest check is re-run (no LINE) within
   10 minutes when the fee or a strategy's settings change, so *Bot backtest now* never shows numbers from other settings.
   The Expected return table sorts by any column; most profitable first by default.

@@ -5,6 +5,12 @@ Holds the **7 strongest of the 12 largest Nasdaq-100 companies** — equal money
 T-bills when it is off. **C2-7 Momentum 1x** holds the shares; **C2-7 Momentum 2x** holds each one through its 2x single-stock ETF
 (NVDL for Nvidia, AAPU for Apple, …) when one exists.
 
+> **Webull Thailand does not allow single-stock 2x ETFs for your account.** On 26 Oct 2026 Webull refused AAPU and AMUU with
+> *OPENAPI_ONLY_UHNWE_SINGLE_STOCK_REVERSE_ETF_LIMIT*: leveraged or inverse ETFs on single stocks are only for clients with
+> **50M THB or more**. Index and commodity ETFs (QLD, USD, UGL, AGQ) are not affected. So on Test and Live, **C2-7 Momentum 2x
+> holds the stocks themselves and works like C2-7 Momentum 1x** (same list, same signal, no leverage). See *On Webull Thailand*
+> below for what to do.
+
 ## How it decides
 
 **Every day after the US close — the on/off signal from QQQ:**
@@ -62,6 +68,17 @@ plus the next 3, so a newcomer is seen a week early) that it would hold as share
   **Search now** runs the search at any time.
 - **Before you add,** look up the ETF yourself: issuer, cost, and whether Webull Thailand offers it. The checks prove it behaves
   like 2x and trades enough. They don't prove it will last.
+
+### On Webull Thailand (50M THB rule)
+
+- The first refusal blocks **every** single-stock 2x ETF in that mode (it is a rule for the account, not one ETF). The bot then
+  holds the stock instead (*AAPL* for *AAPU*), sends one LINE message and shows a warning on the strategy. Paper keeps the 2x ETFs.
+- The weekly 2x ETF search keeps running for the record but no longer sends suggestions.
+- **What to do:** give real money to **C2-7 Momentum 1x**, not 2x: on Webull both hold the same shares, and two copies of one
+  strategy only double the orders. There is no researched 2x replacement that fits this account: *QLD with the same QQQ signal*
+  made 33.4% a year with a −36.4% worst fall in the research, less than C2-7 1x (34.7%, −19.7%). For more return with leverage,
+  the account can use QLD Trend + IBS-dip, USD Trend + IBS-dip or the regimes, whose index ETFs Webull allows.
+- If Webull ever opens these ETFs for you, press **Try again** on the Orders page; the next plan buys the 2x ETFs again.
 
 ## When it trades
 
@@ -181,8 +198,8 @@ How it is worked out and how the yearly review keeps it current: [Expected retur
 - **It can trail the index for years:** in 2017 and 2019 the 1x version made 12% and 17% while QQQ made 33% and 39%.
 - **2x single-stock ETFs** are young (2022+), cost about 7% a year above T-bills, decay in choppy markets, can have wide spreads and
   can close. Overnight gaps are doubled (a −26% stock day is about −52% for its 2x ETF).
-- **Webull Thailand** must allow each ETF: check NVDL, AAPU, MSFU … with Go-live → Test trade on your Live account first. Refused ETFs
-  fall back to the share automatically.
+- **Webull Thailand** refuses single-stock 2x ETFs below 50M THB (checked 26 Oct 2026 with AAPU and AMUU), so the 2x version
+  holds the shares on your account. Refused ETFs fall back to the share automatically.
 - **Same signal family as QLD + Trend + bear-dip:** they go out together. Treat C2-7 as a candidate to replace a QLD strategy, not
   as diversification.
 - **Whole shares:** with little money per name (e.g. $1,400 = 1/7 of $10,000), expensive shares (Costco, ASML) round down; give it

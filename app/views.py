@@ -117,7 +117,10 @@ def strategy_card(mode, s, prices=None):
             "value": v["value"], "net_in": v["net_in"], "pnl": v["pnl"], "ret": v["ret"], "cash": v["cash"],
             "positions": v["positions"], "target": st.get("target") or {}, "plan": bool(ap), "exec": execution.describe_cfg(cfg),
             "spark": _spark(mode, s.id), "today": perf.today_pnl(mode, s.id, v["value"], v["net_in"] or 0),
-            "dd": perf.card_summary(s.id)}
+            "dd": perf.card_summary(s.id),
+            "notice": ("Webull Thailand refuses leveraged ETFs on single stocks for your account (50M THB rule), so in this mode "
+                       "the strategy holds the stocks themselves: it works like C2-7 Momentum 1x, not 2x."
+                       if s.params.get("leverage") == "2x" and mode != "paper" and execution.single_stock_refused(mode) else None)}
 
 
 def dashboard(mode):

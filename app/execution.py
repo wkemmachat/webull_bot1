@@ -484,17 +484,37 @@ def blocked_symbols(mode) -> dict:
     return b                    # kept until you press "try again" (Orders) or a Test trade of the symbol passes
 
 
+def single_stock_etfs() -> set:
+    """Every single-stock leveraged ETF the strategies know (the 2x ETF lists of the momentum strategies)."""
+    out = set()
+    for s in S.all_instances():
+        if hasattr(s, "etf_map"):
+            out |= set(s.etf_map().values())
+    return out
+
+
+def single_stock_refused(mode) -> bool:
+    """Webull refused a single-stock leveraged ETF for this account (needs 50M THB+): a rule for the account, not one ETF."""
+    return any((v or {}).get("code") == brokers.SINGLE_STOCK_LEV_CODE for v in blocked_symbols(mode).values())
+
+
 def block_symbol(mode, symbol, code, msg, strat=None):
     b = blocked_symbols(mode)
     first = symbol not in b
     b[symbol] = {"code": code, "msg": msg[:300], "at": int(time.time()), "hint": brokers.PERMANENT_HINTS.get(code, "")}
+    if code == brokers.SINGLE_STOCK_LEV_CODE:           # an account rule: every single-stock 2x ETF is refused, not only this one
+        for x in single_stock_etfs() - set(b):
+            b[x] = {"code": code, "msg": f"same Webull rule as {symbol}", "at": int(time.time()),
+                    "hint": brokers.PERMANENT_HINTS.get(code, ""), "rule": True}
     db.set_state(f"blocked_sym:{mode}", b)
     if first:
         name = strat.name if strat else ""
         db.add_event("error", "orders", f"Webull refuses {symbol}", f"{msg} · {brokers.PERMANENT_HINTS.get(code, '')}",
                      strategy=strat.id if strat else None, mode=mode)
+        tail = (" The bot now holds the stocks themselves instead of their 2x ETFs, in this mode." if code == brokers.SINGLE_STOCK_LEV_CODE
+                else f" The bot stops trading {symbol} until you fix it and press 'Try again' on the Orders page (or a Test trade of it passes).")
         notify.send("lot_failed", f"{brokers.MODE_LABEL[mode]} · Webull refuses {symbol}{' (' + name + ')' if name else ''}: {msg}\n"
-                    f"{brokers.PERMANENT_HINTS.get(code, '')} The bot stops trading {symbol} until you fix it and press 'Try again' on the Orders page (or a Test trade of it passes).",
+                    f"{brokers.PERMANENT_HINTS.get(code, '')}{tail}",
                     strategy=strat.id if strat else None, critical=True)
 
 

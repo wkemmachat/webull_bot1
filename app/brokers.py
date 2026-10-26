@@ -39,8 +39,11 @@ class BrokerRejected(BrokerError):
 
 
 # Webull refusals that a retry cannot fix (seen on the Webull TH test server, Oct 2026)
-PERMANENT_CODES = ("OPENAPI_IS_TH_FIRST_ETF_PLACE", "OPENAPI_TICKER_IS_DENY")
+SINGLE_STOCK_LEV_CODE = "OPENAPI_ONLY_UHNWE_SINGLE_STOCK_REVERSE_ETF_LIMIT"
+PERMANENT_CODES = ("OPENAPI_IS_TH_FIRST_ETF_PLACE", "OPENAPI_TICKER_IS_DENY", SINGLE_STOCK_LEV_CODE)
 PERMANENT_HINTS = {
+    SINGLE_STOCK_LEV_CODE: "Webull Thailand allows leveraged or inverse ETFs on single stocks only for clients with 50M THB or "
+                           "more. The bot holds the stock itself instead, so C2-7 Momentum 2x then works like 1x.",
     "OPENAPI_IS_TH_FIRST_ETF_PLACE": "Activate Leveraged & Inverse ETF trading for your Webull account (Webull app), then try again.",
     "OPENAPI_TICKER_IS_DENY": "Webull does not allow this symbol for your account. Choose another ETF for this strategy.",
 }
@@ -53,7 +56,7 @@ def parse_rejection(text):
     if not m or not m.group(1).startswith("4"):
         return None
     code, msg = m.group(2), (m.group(3) or "").split(", RequestID")[0].strip()
-    perm = code in PERMANENT_CODES or "DENY" in code or "PERMISSION" in code or "NOT_SUPPORT" in code
+    perm = code in PERMANENT_CODES or any(w in code for w in ("DENY", "PERMISSION", "NOT_SUPPORT", "UHNW", "_LIMIT"))
     return BrokerRejected(f"{code}: {msg}", code=code, permanent=perm)
 
 

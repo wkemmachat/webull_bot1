@@ -328,5 +328,18 @@ def startup():
     for sid in new:
         moneyops.seed_new_paper(sid)
         db.add_event("info", "strategy", f"New default strategy added: {sid}", "Created by the update", strategy=sid)
+    _single_stock_rule_from_tests()
     db.add_event("info", "server", "Bot started", f"data source: {md.source()}")
     notify.send("system", "Bot started.")
+
+
+def _single_stock_rule_from_tests():
+    """A Test trade refused with Webull's single-stock leveraged-ETF rule (before this version treated it as one ETF only):
+    apply the account rule now, so no strategy keeps trying those ETFs."""
+    try:
+        rows = db.rows("SELECT mode, symbol, error FROM test_trades WHERE error LIKE ? ORDER BY id", (f"%{brokers.SINGLE_STOCK_LEV_CODE}%",))
+    except Exception:
+        return
+    for r in rows:
+        if not execution.single_stock_refused(r["mode"]):
+            execution.block_symbol(r["mode"], r["symbol"], brokers.SINGLE_STOCK_LEV_CODE, r["error"] or brokers.SINGLE_STOCK_LEV_CODE)
