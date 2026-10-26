@@ -137,13 +137,13 @@
     function assumptions() {
       const r = st.data, e = r.exec || {};
       const timing = r.parking
-        ? 'The on/off signal is decided on each US close; the list of stocks comes from each Friday\'s Nasdaq-100 ranking. Trades happen at the next day\'s open: sell names that left the list, buy new names with 1/' + (d.row.params.hold || 7) + ' of the money, no top-ups; when off, everything goes to the parking ETFs. Costs: stocks ' + r.cost_pct.toFixed(2) + '%, 2x ETFs 0.10%, parking ETFs 0.02% per side.'
+        ? 'The on/off signal is decided on each US close; the list of stocks comes from each Friday\'s Nasdaq-100 ranking. Trades happen at the next day\'s open: sell names that left the list, buy new names with 1/' + (d.row.params.hold || 7) + ' of the money, no top-ups; when off, everything goes to the parking ETFs. Fees: ' + r.cost_pct.toFixed(2) + '% per side on stocks and parking ETFs, ' + (r.cost_2x_pct || r.cost_pct).toFixed(2) + '% on 2x ETFs (wider spread) — set in Settings → Fees.'
         : r.family === 'regime'
         ? 'Decided on each US close (same code as the bot), traded at the next day\'s open. Rebalanced when a holding drifts more than the rebalance band.'
         : `A signal counts when its 4H futures bar closes (+ Yahoo's delay). Entries start ${e.start_mode === 'time' ? 'not before ' + U.esc(e.start_time) + ' Bangkok' : 'at the market open'}, exits ${e.exit_mode === 'asap' ? 'as soon as the US market is open' : 'at the same time as entries'}; priced as ${e.lots} lots every ${e.interval_min} min from hourly ETF prices.`;
       return `<section class="card col" style="gap:6px"><h2 class="h2">How this backtest works</h2><ul class="muted small" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">
         <li>The signals come from the same strategy code the bot trades with${st.custom ? ' (with the settings you are trying)' : ''}. ${timing}</li>
-        <li>Prices include dividends (total return), so T-bill ETFs earn their interest. Cost ${r.cost_pct.toFixed(2)}% per side for spread and fees — ${U.usd(r.fees, 0)} in total on $10,000.</li>
+        <li>Prices include dividends (total return), so T-bill ETFs earn their interest. Fee ${r.cost_pct.toFixed(2)}% per side on every trade (Webull TH 0.107% + a little spread; change it in <a href="#/settings">Settings → Fees</a>) — ${U.usd(r.fees, 0)} in total on $10,000.</li>
         <li>Data: ${U.esc(r.data.note)}, ${dayTxt(r.data.from)} – ${dayTxt(r.data.to)}${r.data.source === 'csv' ? ' · <b>demo prices (not real)</b>' : ''}.</li>
         <li>Not included: whole-share rounding, partial fills, the money guard, money added or withdrawn, and taxes. Past results do not promise future ones.</li></ul></section>`;
     }

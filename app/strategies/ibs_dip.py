@@ -84,7 +84,11 @@ class IbsDipStrategy(RegimeStrategy):
         {"key": "gold_etf", "label": "Parking: gold ETF", "kind": "symbol", "default": "GLD", "group": "Symbols"},
         {"key": "cash_symbol", "label": "Parking: T-bill ETF", "kind": "symbol", "default": "BIL", "group": "Symbols"},
         {"key": "gold_pct", "label": "Parking: share in gold %", "kind": "float", "default": 50.0, "min": 0, "max": 100, "group": "Symbols",
-         "help": "The rest goes to the T-bill ETF"},
+         "help": "The rest goes to the T-bill ETF (or stays cash, below)"},
+        {"key": "tbill_cash", "label": "Keep the T-bill part as cash", "kind": "bool", "default": False, "group": "Symbols",
+         "help": "On: the non-gold part of the parking stays as cash instead of the T-bill ETF. Every switch then trades about half "
+                 "as much (Webull charges 0.107% per buy and per sell), for no T-bill interest. Backtests at the real fee: "
+                 "+1 to +3 points a year"},
         {"key": "st_atr", "label": "Supertrend ATR length", "kind": "int", "default": 14, "min": 2, "max": 100, "group": "Rules"},
         {"key": "st_mult", "label": "Supertrend multiplier", "kind": "float", "default": 4.0, "min": 0.5, "max": 10, "group": "Rules"},
         {"key": "ma_days", "label": "Trend average (days)", "kind": "int", "default": 200, "min": 20, "max": 400, "group": "Rules"},
@@ -128,7 +132,7 @@ class IbsDipStrategy(RegimeStrategy):
 
     def trade_symbols(self):
         p = self.params
-        return [s for s in (p["trade"], p["gold_etf"], p["cash_symbol"]) if s]
+        return [s for s in (p["trade"], p["gold_etf"], None if p.get("tbill_cash") else p["cash_symbol"]) if s]
 
     def benchmark_symbol(self):
         return self.params["trade"]
@@ -139,9 +143,24 @@ class IbsDipStrategy(RegimeStrategy):
         out = {}
         if g > 0 and p["gold_etf"]:
             out[p["gold_etf"]] = round((1 - buf) * g, 4)
-        if g < 1 and p["cash_symbol"]:
+        if g < 1 and p["cash_symbol"] and not p.get("tbill_cash"):
             out[p["cash_symbol"]] = round((1 - buf) * (1 - g), 4)
         return out
+
+    def park_parts(self) -> list:
+        """[(name, share of the parking 0-1)] including the part kept as cash."""
+        p = self.params
+        g = max(0.0, min(1.0, p["gold_pct"] / 100)) if p["gold_etf"] else 0.0
+        out = [(p["gold_etf"], g)] if g > 0 else []
+        if g < 1:
+            out.append(("cash", 1 - g) if (p.get("tbill_cash") or not p["cash_symbol"]) else (p["cash_symbol"], 1 - g))
+        return out
+
+    def park_names(self, sep=" + "):
+        return sep.join(n for n, _ in self.park_parts())
+
+    def park_pcts(self):
+        return " + ".join(f"{w * 100:.0f}% {n}" for n, w in self.park_parts())
 
     def cash_target(self):
         return self.parking()
@@ -198,7 +217,7 @@ class IbsDipStrategy(RegimeStrategy):
         if h["kind"] == "SIZE":
             return f"RESIZE · {self.name}\n{h['text']}\n{p['trade']} {h['from']} → {h['to']} of the money"
         word = "BUY" if h["kind"] == "BUY" else "SELL"
-        to = p["trade"] if word == "BUY" else " + ".join(self.parking())
+        to = p["trade"] if word == "BUY" else self.park_names()
         return f"{word} · {self.name}\n{h['text']}\nMoves to {to}"
 
     def why(self, fr, i):
@@ -254,7 +273,7 @@ class IbsDipStrategy(RegimeStrategy):
             {"k": f"Size · {p['vol_symbol']} {p['vol_days']}d volatility", "v": f"{size * 100:.0f}% held · today {raw * 100:.0f}% · vol {last['vol'] * 100:.1f}%",
              "h": f"{self.size_formula(True)}{'; 100% on a dip signal' if p.get('dip_full_size') else ''}; resized only on a move over {p['size_band_pct']:g} points"},
         ]
-        park = " + ".join(f"{v * 100:.0f}% {s}" for s, v in self.parking().items())
+        park = self.park_pcts()
         tiles = [{"k": "trend", "title": "In · trend", "text": f"Supertrend up and {p['trade']} above SMA{p['ma_days']}",
                   "hold": f"{p['trade']} at the capped size, rest parked", "color": STATE_COLOR["trend"]},
                  {"k": "dip", "title": "In · dip day", "text": (f"IBS < {p['ibs_max']:g} and ADX > {p['adx_min']:g}" if p["adx_min"] > 0 else f"IBS < {p['ibs_max']:g}") + ": held for the next day only",
@@ -274,7 +293,7 @@ class IbsDipStrategy(RegimeStrategy):
                     {"k": "st_line", "label": "Supertrend", "fmt": "n2"}, {"k": "ibs", "label": "IBS", "fmt": "n2"},
                     {"k": "adx", "label": "ADX", "fmt": "n1"}, {"k": "size", "label": "Size %", "fmt": "n0"}]
         label = {"trend": f"IN · {size * 100:.0f}% {p['trade']} (trend)", "dip": f"IN · {size * 100:.0f}% {p['trade']} (dip day)",
-                 "off": "OFF · " + " + ".join(self.parking())}[state]
+                 "off": "OFF · " + self.park_names()}[state]
         return {"ok": True, "state": state, "label": label, "target": target,
                 "bar_time": self.close_ts(fr.index[-1]), "signal_time": self.close_ts(fr.index[k]), "price": float(last["c"]),
                 "checks": checks, "history": hist, "next_check": self.next_check(now),
@@ -330,7 +349,7 @@ class IbsDipStrategy(RegimeStrategy):
 
     def describe(self):
         p = self.params
-        park = " + ".join(f"{v / (1 - self.buffer()) * 100:.0f}% {s}" for s, v in self.parking().items())
+        park = self.park_pcts()
         return {"rules": [
             f"After each US close, read {p['trade']}'s own daily bar: Supertrend({p['st_atr']}, {p['st_mult']:g}), SMA{p['ma_days']}, "
             f"IBS = (close − low) ÷ (high − low) and ADX(14).",
@@ -341,13 +360,13 @@ class IbsDipStrategy(RegimeStrategy):
             f"; changed only when it moves more than {p['size_band_pct']:g} points.",
             f"The rest, and everything when off: {park}.",
             "Orders start at the next market open, split into lots."],
-            "flow": f"{p['trade']} daily (own price) + {p['vol_symbol']} volatility → {p['trade']} · {' / '.join(self.parking())}",
+            "flow": f"{p['trade']} daily (own price) + {p['vol_symbol']} volatility → {p['trade']} · {self.park_names(' / ')}",
             "tv": f'"Supertrend" (ATR {p["st_atr"]}, factor {p["st_mult"]:g}), "Moving Average" {p["ma_days"]} and '
                   f'"Average Directional Index" 14 on {p["trade"]} daily; IBS = (close − low) / (high − low)',
             "rule": f"{p['trade']} Supertrend up + above SMA{p['ma_days']}, or a 1-day dip after IBS < {p['ibs_max']:g}"
                     + (f" (ADX > {p['adx_min']:g})" if p["adx_min"] > 0 else "")
                     + (" at full size" if p.get("dip_full_size") else "")
-                    + f"; size capped by {p['vol_symbol']} volatility; else gold + T-bills"}
+                    + f"; size capped by {p['vol_symbol']} volatility; else {self.park_names()}"}
 
     # ---------------------------------------------------------------- health check: independent recompute
     def check_table(self, now, rows=12):

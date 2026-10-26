@@ -7,7 +7,8 @@ What is simulated (money starts at $10,000):
   * 4H metals strategies: the signal is known when a 4H futures bar closes (+ Yahoo's delay); the trade happens at the
     bot's real start time (entries not before the Execution start time, e.g. 22:00 Bangkok; exits as soon as the US
     market is open), spread over the strategy's lots, priced from hourly ETF bars.
-  * Prices are total return (dividends included), so T-bill ETFs earn their interest. 0.05% cost per side.
+  * Prices are total return (dividends included), so T-bill ETFs earn their interest. Every trade pays the fee set in
+    Settings → Backtest (default 0.11% per side: Webull Thailand charges 0.10% + 7% VAT = 0.107%, no minimum).
   * Not simulated: partial fills, the money guard, add/withdraw. Leveraged ETFs exist only since 2006-2008.
 Results are cached in memory until the data or the settings change.
 """
@@ -31,7 +32,8 @@ from . import strategies as S
 
 log = logging.getLogger("backtest")
 NY = ZoneInfo("America/New_York")
-COST = 0.0005
+COST = 0.0011                     # default: Webull TH 0.10% commission + 7% VAT = 0.107% per side, rounded up
+COST_MAX = 0.02
 START_CASH = 10_000.0
 REFRESH_S = 12 * 3600
 RANGES = [("1Y", 1), ("3Y", 3), ("5Y", 5), ("10Y", 10), ("MAX", None)]
@@ -371,7 +373,7 @@ def _run_metals(strat, now, cost, cfg):
 
 
 # ---------------------------------------------------------------- momentum basket (C2-7)
-COST_2X, COST_PARK, COST_2X_MODEL_Y = 0.0010, 0.0002, 0.069
+COST_2X_SPREAD, COST_2X_MODEL_Y = 0.0005, 0.069   # single-stock 2x ETFs: wider spread on top of the fee · modelled 2x yearly drag
 
 
 def _oc(df):
@@ -444,7 +446,7 @@ def _run_basket(strat, now, cost):
         return 2 * r if part == "on" else 2 * r - (rfd + COST_2X_MODEL_Y / 252)
 
     def cost_of(s):
-        return COST_PARK if s in park else (COST_2X if (lev2 and s in emap) else cost)
+        return cost + COST_2X_SPREAD if (lev2 and s in emap and s not in park) else cost
 
     last_day = {s: max(v) for s, v in stock.items() if v}
     last_c = {}                                             # last close seen of each stock (bridges a missing day)
@@ -493,7 +495,7 @@ def _run_basket(strat, now, cost):
             tot = sum(park.values()) or 1
             for k, w in park.items():
                 new = spare * w / tot
-                fee = abs(new - old_park.get(k, 0.0)) * COST_PARK
+                fee = abs(new - old_park.get(k, 0.0)) * cost
                 pos[k] = new - fee
                 cash -= new
                 fees += fee
@@ -673,7 +675,7 @@ def _build(strat, now, cost):
             "stats": stats, "ranges": [k for k, _ in RANGES if k in stats], "years": years,
             "trades": [x for x in r["trades"]][-1500:], "round_trips": _round_trips(r["trades"], r["main"], r.get("parking"))[-200:],
             "vs": r.get("vs") or r["main"], "parking": r.get("parking"), "holding": r.get("holding"),
-            "fees": round(r["fees"], 2), "cost_pct": cost * 100, "data": {"from": r["data_from"], "to": str(days[-1]), "note": r["data_note"],
+            "fees": round(r["fees"], 2), "cost_pct": cost * 100, "cost_2x_pct": (cost + COST_2X_SPREAD) * 100, "data": {"from": r["data_from"], "to": str(days[-1]), "note": r["data_note"],
                                                                           "source": md.source()},
             "exec": {k: cfg.get(k) for k in ("lots", "interval_min", "start_mode", "start_time", "exit_mode")},
             "generated_at": int(time.time())}
@@ -700,8 +702,20 @@ def _key(strat, cost):
     return hashlib.sha1(raw.encode()).hexdigest()
 
 
-def run(sid=None, params=None, now=None, cost=COST, strat=None):
-    """Backtest a saved strategy, optionally with other settings (`params`, not saved)."""
+def cost_setting() -> float:
+    """Fee per side used by every backtest (Settings → Backtest), as a fraction."""
+    try:
+        v = float(db.get_setting("backtest_cost_pct") or COST * 100) / 100
+    except (TypeError, ValueError):
+        v = COST
+    return min(max(v, 0.0), COST_MAX)
+
+
+def run(sid=None, params=None, now=None, cost=None, strat=None):
+    """Backtest a saved strategy, optionally with other settings (`params`, not saved). cost: fee per side (fraction);
+    None = the Settings value."""
+    if cost is None:
+        cost = cost_setting()
     if strat is None:
         row = S.row(sid)
         if not row:

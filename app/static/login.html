@@ -63,7 +63,7 @@
     $('sub').textContent = 'For safety the first login can only be made on the bot\'s own computer.';
     ['u', 'p'].forEach((id) => $(id).closest('.f').classList.add('hidden'));
     $('go').classList.add('hidden'); $('rem').closest('label').classList.add('hidden');
-    $('help').innerHTML = 'On the server, put <span class="mono">APP_USERNAME</span> and <span class="mono">APP_PASSWORD</span> in <span class="mono">.env</span> and restart, or run <span class="mono">python -m app.reset_password</span> in the bot's folder. Then reload this page.';
+    $('help').innerHTML = 'On the server, put <span class="mono">APP_USERNAME</span> and <span class="mono">APP_PASSWORD</span> in <span class="mono">.env</span> and restart, or run <span class="mono">python -m app.reset_password</span> in the bot\'s folder. Then reload this page.';
     return;
   }
   if (setup) {

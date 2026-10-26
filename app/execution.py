@@ -251,6 +251,9 @@ def _release(oid):
     db.run("UPDATE orders SET status='scheduled', client_order_id=NULL, submitted_at=NULL WHERE id=? AND status='sending'", (oid,))
 
 
+FEE_RESERVE = 0.0011            # Webull TH: 0.10% + 7% VAT per trade
+
+
 def _buy_qty(mode, strat, plan, o, limit, broker, cash_buffer):
     """Size a buy lot: free cash shared across the plan's buy symbols by what each still needs, spread over the lots left."""
     L = ledger.get(mode, strat.id)
@@ -273,7 +276,14 @@ def _buy_qty(mode, strat, plan, o, limit, broker, cash_buffer):
     left = db.one("SELECT COUNT(*) n FROM orders WHERE plan_id=? AND symbol=? AND side='BUY' AND status IN ('scheduled','sending')",
                   (plan["id"], o["symbol"]))["n"]
     value = alloc / max(1, left)
-    return int(math.floor(value / limit)) if limit > 0 else 0
+    if limit <= 0:
+        return 0
+    q = int(math.floor(value / limit))
+    # last lot: whole shares leave up to one share of cash unbought (a $380 ETF on $10,000 = 3.8%). Round to the nearest
+    # share when the extra one still fits in the free cash with Webull's fee (0.107%) on top.
+    if left <= 1 and value - q * limit > 0.5 * limit and (q + 1) * limit * (1 + FEE_RESERVE) <= free:
+        q += 1
+    return q
 
 
 class Guard:

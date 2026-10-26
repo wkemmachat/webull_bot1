@@ -26,7 +26,12 @@ and shows what $10,000 would have become, next to simply holding the ETF (and th
 - **4H metals strategies** (Gold #1/#2, Silver #1/#2): a signal counts when its 4H futures bar closes (plus Yahoo's ~11-minute delay).
   The trade happens at the bot's real start time from **Execution** (entries not before 22:00 Bangkok by default, exits as soon as
   the US market is open), spread over the lots, priced from hourly ETF prices.
-- **Prices include dividends** (total return), so BIL and SGOV earn their interest. **0.05% cost per side** for spread and fees.
+- **Prices include dividends** (total return), so BIL and SGOV earn their interest.
+- **Webull's real fee on every trade: 0.11% per side** by default — Webull Thailand charges 0.10% commission + 7% VAT
+  = 0.107% of each buy and each sell, with no minimum, and 0.11 leaves a little for the spread. Every leg pays it: the ETF,
+  and the gold and T-bill parking ETFs too. Single-stock 2x ETFs (C2-7 2x) pay 0.05% more for their wider spread.
+  Change it in **Settings → Fees**; every backtest, the docs numbers and the expected returns use that one value.
+  (Until 26 Oct 2026 the backtests charged 0.05%, which made the busy strategies look 1–9 points a year better.)
 - Not included: whole-share rounding, partial fills, the money guard, money added or withdrawn, taxes.
 
 ## How far back

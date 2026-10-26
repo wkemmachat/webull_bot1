@@ -815,7 +815,9 @@ def settings_get(request: Request, u=Depends(user)):
                        "backups": [{"name": f.name, "size": f.stat().st_size, "t": int(f.stat().st_mtime)} for f in files[-5:]],
                        "started": (db.get_state("heartbeat") or {}).get("since")},
             "paper": {"start_cash": s.get("paper_start_cash"), "strategy_cash": s.get("paper_strategy_cash"),
-                      "spread_pct": s.get("paper_spread_pct")},
+                      "spread_pct": s.get("paper_spread_pct"), "fee_pct": s.get("paper_fee_pct")},
+            "fees": {"backtest_pct": s.get("backtest_cost_pct"), "paper_pct": s.get("paper_fee_pct"),
+                     "paper_spread_pct": s.get("paper_spread_pct"), "webull_pct": 0.107},
             "paused": s.get("trading_paused") == "1", "follow_current_signal": s.get("follow_current_signal") == "1"}
 
 
@@ -835,9 +837,15 @@ async def settings_save(request: Request, u=Depends(user)):
         upd["theme"] = b["theme"]
     if "follow_current_signal" in b:
         upd["follow_current_signal"] = "1" if b["follow_current_signal"] else "0"
-    for k in ("paper_spread_pct",):
+    for k, hi in (("paper_spread_pct", 1.0), ("paper_fee_pct", 1.0), ("backtest_cost_pct", 2.0)):
         if k in b:
-            upd[k] = str(float(b[k]))
+            try:
+                v = float(b[k])
+            except (TypeError, ValueError):
+                raise HTTPException(400, f"{k}: enter a number")
+            if not 0 <= v <= hi:
+                raise HTTPException(400, f"{k}: between 0 and {hi}%")
+            upd[k] = str(round(v, 4))
     db.set_settings(upd)
     if upd:
         db.add_event("info", "settings", "Settings saved", json.dumps(upd))

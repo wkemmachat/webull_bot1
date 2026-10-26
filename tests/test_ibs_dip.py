@@ -16,8 +16,9 @@ def test_seeded_with_research_settings():
     s = strat()
     assert s.type == "ibs_dip" and s.params["trade"] == "QLD" and s.params["vol_symbol"] == "QQQ"
     assert s.params["st_atr"] == 14 and s.params["st_mult"] == 4.0 and s.params["ma_days"] == 200
-    assert s.params["ibs_max"] == 0.2 and s.params["adx_min"] == 20 and s.params["target_vol_pct"] == 50
-    assert s.params["size_band_pct"] == 20 and set(s.parking()) == {"GLD", "BIL"}
+    assert s.params["ibs_max"] == 0.15 and s.params["adx_min"] == 20 and s.params["target_vol_pct"] == 50   # lower-cost version
+    assert s.params["size_band_pct"] == 20 and s.params["tbill_cash"] is True and set(s.parking()) == {"GLD"}
+    assert s.park_pcts() == "50% GLD + 50% cash" and "BIL" not in s.trade_symbols()
 
 
 def test_size_band_and_fresh_entries():
@@ -29,13 +30,40 @@ def test_size_band_and_fresh_entries():
 
 
 def test_targets_split_the_rest_into_parking():
-    s = strat()
+    s = strat(tbill_cash=False)
     t = s.target_for("trend", 0.7)
     assert t["QLD"] == round(0.7 * 0.99, 4)
     assert abs(t["GLD"] - 0.3 * 0.495) < 1e-4 and abs(t["BIL"] - 0.3 * 0.495) < 1e-4
     assert abs(sum(t.values()) - 0.99) < 1e-3
     assert s.target_for("dip", 1.0) == {"QLD": 0.99}
     assert s.target_for("off") == {"GLD": 0.495, "BIL": 0.495}
+
+
+def test_tbill_part_kept_as_cash():
+    s = strat()
+    t = s.target_for("trend", 0.7)
+    assert set(t) == {"QLD", "GLD"} and abs(t["GLD"] - 0.3 * 0.495) < 1e-4       # the other 0.3 × 49.5% stays cash
+    assert s.target_for("off") == {"GLD": 0.495}
+    assert "cash" in s.describe()["rules"][4] and s.evaluate(NOW)["ok"]
+
+
+def test_old_defaults_move_to_the_low_cost_version():
+    import json
+    from app import db
+    old = dict(S.UPGRADES[0][2])
+    db.run("UPDATE strategies SET params=? WHERE id='qld_ibs'", (json.dumps(old),))
+    db.run("UPDATE strategies SET params=? WHERE id='usd_ibs'", (json.dumps({**S.UPGRADES[1][2], "ibs_max": 0.12}),))   # changed by you
+    db.set_state("upgrades_done", [])
+    try:
+        assert S.upgrade_defaults() == ["qld_ibs"]
+        assert S.get("qld_ibs").params["ibs_max"] == 0.15 and S.get("qld_ibs").params["tbill_cash"] is True
+        assert S.get("usd_ibs").params["ibs_max"] == 0.12 and S.get("usd_ibs").params["tbill_cash"] is False
+        db.run("UPDATE strategies SET params=? WHERE id='qld_ibs'", (json.dumps(old),))
+        assert S.upgrade_defaults() == []                                        # once only
+    finally:
+        for sid, typ, name, color, params, ex in S.DEFAULTS:
+            if sid in ("qld_ibs", "usd_ibs"):
+                db.run("UPDATE strategies SET params=? WHERE id=?", (json.dumps(params), sid))
 
 
 def test_dip_day_needs_weak_close_and_adx():
@@ -104,7 +132,7 @@ def test_usd_dip_signal_takes_full_size(clock):
     assert (capped.loc[dips, "raw_size"] <= 1.0).all()
     ev = s.evaluate(NOW)
     assert ev["ok"], ev.get("error")
-    assert set(ev["target"]) <= {"USD", "GLD", "BIL"}
+    assert set(ev["target"]) <= {"USD", "GLD"}                       # T-bill part kept as cash
 
 
 def test_usd_backtest_runs_with_smh_comparison():

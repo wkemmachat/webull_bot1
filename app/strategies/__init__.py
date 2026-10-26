@@ -30,11 +30,22 @@ DEFAULTS = [
     ("c27_mom", "momentum_basket", "C2-7 Momentum 1x", "#E8875A", {"leverage": "1x"}, {}),
     ("c27_mom2x", "momentum_basket", "C2-7 Momentum 2x", "#9BCB4E", {"leverage": "2x"}, {}),
     ("qld_ibs", "ibs_dip", "QLD Trend + IBS-dip", "#E46AA8",
-     {"trade": "QLD", "vol_symbol": "QQQ", "gold_etf": "GLD", "cash_symbol": "BIL", "ibs_max": 0.2, "adx_min": 20, "target_vol_pct": 50}, {}),
+     {"trade": "QLD", "vol_symbol": "QQQ", "gold_etf": "GLD", "cash_symbol": "BIL", "ibs_max": 0.15, "adx_min": 20, "target_vol_pct": 50,
+      "tbill_cash": True}, {}),
     ("usd_ibs", "ibs_dip", "USD Trend + IBS-dip", "#4FC3F7",
      {"trade": "USD", "vol_symbol": "USD", "compare_symbol": "SMH", "gold_etf": "GLD", "cash_symbol": "BIL", "st_atr": 20, "st_mult": 4.5,
       "ma_days": 200, "ibs_max": 0.15, "adx_min": 0, "target_vol_pct": 40, "leverage": 1, "vol_days": 20, "dip_full_size": True,
-      "size_band_pct": 20}, {}),
+      "size_band_pct": 20, "tbill_cash": True}, {}),
+]
+# Earlier defaults: a strategy still on exactly these settings is moved to the new ones once (lower-cost IBS-dip, 26 Oct 2026).
+# Settings you changed yourself are left alone.
+UPGRADES = [
+    ("lowcost_ibs_2026_10", "qld_ibs",
+     {"trade": "QLD", "vol_symbol": "QQQ", "gold_etf": "GLD", "cash_symbol": "BIL", "ibs_max": 0.2, "adx_min": 20, "target_vol_pct": 50}),
+    ("lowcost_ibs_2026_10", "usd_ibs",
+     {"trade": "USD", "vol_symbol": "USD", "compare_symbol": "SMH", "gold_etf": "GLD", "cash_symbol": "BIL", "st_atr": 20, "st_mult": 4.5,
+      "ma_days": 200, "ibs_max": 0.15, "adx_min": 0, "target_vol_pct": 40, "leverage": 1, "vol_days": 20, "dip_full_size": True,
+      "size_band_pct": 20}),
 ]
 PALETTE = ["#3DC9C0", "#E8875A", "#E46AA8", "#9BCB4E", "#F2C14E", "#5B8DEF", "#B084F5"]
 
@@ -66,7 +77,35 @@ def seed() -> list:
                       (sid, typ, name, color, json.dumps(params), json.dumps(ex), "active", 1, 0, max(k, n), now, now))
             added.append(sid)
     db.set_state("seeded_defaults", sorted(done | {d[0] for d in DEFAULTS}))
+    upgrade_defaults()
     return [] if fresh else added
+
+
+def upgrade_defaults() -> list:
+    """Move strategies that still use an earlier default to the new default (once per upgrade). Returns the ids moved."""
+    load_plugins()
+    seen = set(db.get_state("upgrades_done") or [])
+    moved = []
+    for key, sid, old in UPGRADES:
+        tag = f"{key}:{sid}"
+        if tag in seen:
+            continue
+        seen.add(tag)
+        r = row(sid)
+        new = next((d for d in DEFAULTS if d[0] == sid), None)
+        cls = TYPES.get(r["type"]) if r else None
+        if not r or not new or not cls or r["type"] != new[1]:
+            continue
+        if cls.merge_params(r["params"]) != cls.merge_params(old):
+            continue                                    # changed by you: left alone
+        db.run("UPDATE strategies SET params=?, updated_at=? WHERE id=?", (json.dumps(new[4]), int(time.time()), sid))
+        changes = {k: v for k, v in cls.merge_params(new[4]).items() if cls.merge_params(old).get(k) != v}
+        db.add_event("info", "strategy", f"{r['name']}: settings updated to the new default",
+                     "Lower-cost version (Webull fee 0.107% per trade): " + ", ".join(f"{k} → {v}" for k, v in changes.items()),
+                     strategy=sid)
+        moved.append(sid)
+    db.set_state("upgrades_done", sorted(seen))
+    return moved
 
 
 def rows(include_archived=False):

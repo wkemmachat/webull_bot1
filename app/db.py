@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS health_runs (id INTEGER PRIMARY KEY AUTOINCREMENT, t 
 DEFAULTS = {
     # trading modes: paper runs inside the bot; test = Webull test server; live = your real Webull account
     "mode_paper": "1", "mode_test": "0", "mode_live": "0",
-    "paper_start_cash": "150000", "paper_strategy_cash": "10000", "paper_fee_pct": "0.0", "paper_spread_pct": "0.05",
+    "paper_start_cash": "150000", "paper_strategy_cash": "10000", "paper_fee_pct": "0.107", "paper_spread_pct": "0.05",
     "follow_current_signal": "1",            # (old setting, replaced by new_money_start)
     "new_money_start": "now",
     "protect_floor_paper": "0", "protect_floor_test": "0", "protect_floor_live": "0",   # Webull cash the bot never spends below                # new money: "now" = follow today's signal · "buy" = keep cash until the next BUY signal
@@ -115,6 +115,8 @@ DEFAULTS = {
     # data + display
     "metals_source": "yahoo", "show_thb": "0", "usdthb": "", "theme": "light",
     "health_time_ny": "16:45", "backup_keep_days": "30",
+    # backtests: fee per side on every trade (Webull TH 0.10% + 7% VAT = 0.107%; 0.11 leaves a little for the spread)
+    "backtest_cost_pct": "0.11",
 }
 SECRET_KEYS = {"line_token", "webull_app_secret", "webull_test_app_secret", "webull_app_key", "webull_test_app_key"}
 

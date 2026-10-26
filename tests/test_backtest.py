@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import pandas as pd
 import pytest
 
-from app import backtest as BT, marketdata as md, markethours as mh
+from app import backtest as BT, db, marketdata as md, markethours as mh
 from app import strategies as S
 from conftest import NOW
 
@@ -59,10 +59,23 @@ def test_metals_fills_follow_the_execution_rules(results):
 
 def test_costs_and_ranges(results):
     r = results["gold_st30"]
-    assert r["fees"] > 0 and r["cost_pct"] == pytest.approx(0.05)
+    assert r["fees"] > 0 and r["cost_pct"] == pytest.approx(0.11)          # Webull TH 0.107% (default setting)
     one = r["stats"]["1Y"]["strategy"]
     assert 0.9 < one["years"] < 1.1
     assert {"year", "strategy"} <= set(r["years"][0])
+
+
+def test_fee_setting_changes_the_result():
+    a = BT.run("gold_st30", now=NOW)
+    db.set_settings({"backtest_cost_pct": "0.30"})
+    try:
+        b = BT.run("gold_st30", now=NOW)
+    finally:
+        db.set_settings({"backtest_cost_pct": "0.11"})
+    assert b["cost_pct"] == pytest.approx(0.30)
+    assert b["fees"] > a["fees"] * 2
+    assert b["stats"]["MAX"]["strategy"]["cagr"] < a["stats"]["MAX"]["strategy"]["cagr"]
+    assert BT.run("gold_st30", now=NOW, cost=0.0005)["cost_pct"] == pytest.approx(0.05)
 
 
 def test_try_other_settings_is_not_saved():

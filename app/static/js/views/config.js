@@ -162,7 +162,7 @@
     const set = (t, h, c) => `<div style="display:grid;grid-template-columns:minmax(200px,1fr) minmax(240px,1.3fr);gap:16px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line2)"><div><b style="font-weight:500">${t}</b>${h ? `<div class="muted small">${h}</div>` : ''}</div><div>${c}</div></div>`;
     el.innerHTML = `<div><div class="eyebrow">Configure</div><h1 class="h1">Settings</h1></div>
     <div class="row" style="gap:24px;align-items:flex-start;flex-wrap:wrap">
-      <nav class="toc" style="flex:1 1 180px;max-width:220px;position:sticky;top:80px">${[['modes', 'Trading modes'], ['sec', 'Login & security'], ['disp', 'Display'], ['data', 'Data'], ['srv', 'Server & backups'], ['dz', 'Danger zone']].map(([k, l]) => `<a href="#/settings" data-jump="${k}">${l}</a>`).join('')}</nav>
+      <nav class="toc" style="flex:1 1 180px;max-width:220px;position:sticky;top:80px">${[['modes', 'Trading modes'], ['sec', 'Login & security'], ['disp', 'Display'], ['data', 'Data'], ['fees', 'Fees'], ['srv', 'Server & backups'], ['dz', 'Danger zone']].map(([k, l]) => `<a href="#/settings" data-jump="${k}">${l}</a>`).join('')}</nav>
       <div class="col" style="flex:999 1 560px;min-width:0;gap:20px">
         ${sec('modes', 'Trading modes', `<div class="muted small" style="margin-bottom:6px">Every mode that is on runs at the same time, each with its own money and books. The switch at the top of each page chooses which one you look at.</div>
           ${set('Paper', 'Pretend money inside the bot, live prices.', `<button class="sw ${d.modes.paper ? 'on' : ''}" data-mode="paper" role="switch"></button>`)}
@@ -181,6 +181,10 @@
           <div class="tw" style="margin-top:10px"><table class="t"><thead><tr><th>Series</th><th>Status</th><th>Updated</th></tr></thead><tbody>${Object.entries(d.data.status).map(([k, v]) => `<tr><td class="num">${U.esc(k)}</td>
             <td>${U.pill(v.ok ? 'ok' : 'err', v.ok ? 'ok' : 'error')}${v.error ? ' <span class="muted small">' + U.esc(v.error) + '</span>' : ''}</td><td class="num">${U.dt(v.at)}</td></tr>`).join('')}</tbody></table></div>
           <div class="muted small" style="margin-top:10px">Contract rolls removed from the futures history: ${d.data.rolls.length ? d.data.rolls.map((r) => `${r.symbol} ${U.day(r.t)} ${(r.gap * 100).toFixed(2)}%`).join(' · ') : 'none detected yet'}.</div>`)}
+        ${sec('fees', 'Fees', `<div class="muted small" style="margin-bottom:6px">Webull Thailand charges <b>${d.fees.webull_pct}%</b> of each trade (0.10% commission + 7% VAT), with no minimum, on buys and sells alike. Test and live use Webull's real fees; these two settings make the backtests and paper trading pay the same.</div>
+          ${set('Backtest fee per trade', 'Charged on every buy and sell in every backtest, the docs numbers and the expected returns. 0.11 = Webull 0.107% + a little spread. Single-stock 2x ETFs pay 0.05% more.', `<div class="row" style="gap:8px"><input class="in num" id="btc" value="${U.esc(d.fees.backtest_pct)}" style="width:90px" inputmode="decimal"><span class="muted">%</span></div>`)}
+          ${set('Paper fee per trade', 'Paper orders pay this on top of the paper spread (' + U.esc(d.fees.paper_spread_pct) + '%).', `<div class="row" style="gap:8px"><input class="in num" id="pfee" value="${U.esc(d.fees.paper_pct)}" style="width:90px" inputmode="decimal"><span class="muted">%</span></div>`)}
+          <div class="row" style="justify-content:flex-end;padding-top:12px"><button class="btn p s" id="feesave">Save fees</button></div>`)}
         ${sec('srv', 'Server & backups', `${set('Scheduler on this copy', 'Only ONE copy may run it. Turn it off on your Mac (SCHEDULER_ENABLED=0 in .env) once the server is live.', `${U.pill(d.server.scheduler ? 'ok' : 'err', d.server.scheduler ? 'running here' : 'off here')}`)}
           ${set('Version', '', `<span class="num">v${U.esc(d.server.version)} · started ${U.dt(d.server.started)}</span>`)}
           ${set('Public address', 'PUBLIC_URL in .env, used in LINE messages', `<span class="num small">${U.esc(d.server.public_url)}</span>`)}
@@ -204,6 +208,10 @@
       await U.api('/api/settings', { body: { theme } });
     });
     U.on(el, '[data-rev]', 'click', async (e, b) => { await U.api(`/api/sessions/${b.dataset.rev}/revoke`, { body: {} }); U.toast('Signed out'); V.settings(el); });
+    el.querySelector('#feesave').onclick = (e) => U.busy(e.target, async () => {
+      await U.api('/api/settings', { body: { backtest_cost_pct: el.querySelector('#btc').value, paper_fee_pct: el.querySelector('#pfee').value } });
+      U.toast('Fees saved — backtests re-run with the new fee');
+    });
     el.querySelector('#refresh').onclick = async () => { await U.api('/api/data/refresh', { body: {} }); U.toast('Refreshing prices…'); };
     el.querySelector('#pw').onclick = () => U.modal('Change password', `<div class="f"><label for="o">Current password</label><input class="in" type="password" id="o" autocomplete="current-password"></div>
       <div class="f"><label for="n1">New password (10+ characters)</label><input class="in" type="password" id="n1" autocomplete="new-password"></div>
