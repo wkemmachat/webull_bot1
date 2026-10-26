@@ -1,13 +1,13 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#0B0E13">
-<title>Sign in · TH Strategy Bot</title>
-<link rel="icon" href="/favicon.ico?v=3" sizes="32x32">
-<link rel="icon" type="image/svg+xml" href="/static/icons/favicon.svg?v=3">
-<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png?v=3">
+<meta name="theme-color" content="#0A0F0C">
+<title>Sign in · Webull Strategy Bot</title>
+<link rel="icon" href="/favicon.ico?v=4" sizes="32x32">
+<link rel="icon" type="image/svg+xml" href="/static/icons/favicon.svg?v=4">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png?v=4">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/css/app.css?v=10">
 <script>try { var t = localStorage.getItem('theme'); if (t && t !== 'auto') document.documentElement.dataset.theme = t; } catch (e) {}</script>
@@ -26,9 +26,9 @@
 <body>
 <div class="wrap">
   <section class="left">
-    <div class="row"><img class="logo-img" src="/static/icons/favicon.svg?v=3" alt="" width="40" height="40"><div><div style="font-weight:600;font-size:17px">TH Strategy Bot</div><div class="muted small">Webull Thailand · private console</div></div></div>
+    <div class="row"><img class="logo-img" src="/static/icons/favicon.svg?v=4" alt="" width="40" height="40"><div><div style="font-weight:600;font-size:17px">Webull Strategy Bot</div><div class="muted small">Webull Thailand · private console</div></div></div>
     <div class="col feats" style="gap:26px;max-width:460px">
-      <h1 style="font-size:40px;line-height:1.1;font-weight:600;letter-spacing:-.02em">Six strategies.<br>One Webull account.<br><span style="color:var(--accent)">Every order on the record.</span></h1>
+      <h1 style="font-size:40px;line-height:1.1;font-weight:600;letter-spacing:-.02em">Eleven strategies.<br>One Webull account.<br><span style="color:var(--accent)">Every order on the record.</span></h1>
       <div class="feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h11M4 18h6"/></svg><div><b>Split orders, timed starts</b><div class="muted">Each plan is sent in lots, from the Bangkok time you choose.</div></div></div>
       <div class="feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg><div><b>LINE alerts on your schedule</b><div class="muted">Instant for signals and errors, a digest for everything else.</div></div></div>
       <div class="feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><div><b>Cross-checked every night</b><div class="muted">The bot's books are compared with Webull after each US close.</div></div></div>
@@ -44,7 +44,7 @@
       <label class="row small" style="min-height:44px;color:var(--text2)"><input type="checkbox" id="rem" checked style="width:18px;height:18px;accent-color:var(--accent)">Keep me signed in for 30 days</label>
       <button class="btn p go" type="submit" id="go">Sign in</button>
       <div class="note err hidden" id="err"></div>
-      <div class="note" style="background:var(--panel);border:1px solid var(--line);color:var(--muted);font-size:12.5px" id="help">
+      <div class="note" style="display:block;background:var(--panel);border:1px solid var(--line);color:var(--muted);font-size:12.5px" id="help">
         After 5 wrong tries the login locks for 15 minutes and LINE tells you. Forgot the password? Run <span class="mono" style="color:var(--text2)">python -m app.reset_password</span> on the server.</div>
     </form>
   </section>
@@ -63,7 +63,7 @@
     $('sub').textContent = 'For safety the first login can only be made on the bot\'s own computer.';
     ['u', 'p'].forEach((id) => $(id).closest('.f').classList.add('hidden'));
     $('go').classList.add('hidden'); $('rem').closest('label').classList.add('hidden');
-    $('help').innerHTML = 'On the server, put <span class="mono">APP_USERNAME</span> and <span class="mono">APP_PASSWORD</span> in <span class="mono">.env</span> and restart, or run <span class="mono">docker compose exec bot python -m app.reset_password</span>. Then reload this page.';
+    $('help').innerHTML = 'On the server, put <span class="mono">APP_USERNAME</span> and <span class="mono">APP_PASSWORD</span> in <span class="mono">.env</span> and restart, or run <span class="mono">python -m app.reset_password</span> in the bot's folder. Then reload this page.';
     return;
   }
   if (setup) {

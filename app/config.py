@@ -20,7 +20,7 @@ DB_PATH = Path(os.getenv("DB_PATH") or (DATA_DIR / "bot.db"))
 CSV_DIR = DATA_DIR / "csv"
 BACKUP_DIR = Path(os.getenv("BACKUP_DIR") or (DATA_DIR / "backups"))
 
-APP_NAME = os.getenv("APP_NAME", "TH Strategy Bot")
+APP_NAME = os.getenv("APP_NAME", "Webull Strategy Bot")
 DISPLAY_TZ = os.getenv("DISPLAY_TZ", "Asia/Bangkok")
 PUBLIC_URL = os.getenv("PUBLIC_URL", "http://127.0.0.1:8000").rstrip("/")
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "0") == "1"

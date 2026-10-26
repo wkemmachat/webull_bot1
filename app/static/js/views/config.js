@@ -46,7 +46,7 @@
             <div class="seg" data-ev="${e.key}"><button data-v="instant" class="${ev[e.key] === 'instant' ? 'on' : ''}">Instant</button><button data-v="digest" class="gi ${ev[e.key] === 'digest' ? 'on' : ''}">Digest</button>
               <button data-v="off" class="${ev[e.key] === 'off' ? 'on' : ''}" ${e.critical ? 'disabled' : ''}>Off</button></div></div>`).join('')}</section>
         <div class="col" style="gap:20px">
-          <section class="card col" style="gap:12px"><h2 class="h2">Preview</h2>${d.preview.map((p) => `<div class="row" style="align-items:flex-start;gap:10px;flex-wrap:nowrap"><img class="logo-img" src="/static/icons/favicon.svg?v=3" alt="" width="32" height="32">
+          <section class="card col" style="gap:12px"><h2 class="h2">Preview</h2>${d.preview.map((p) => `<div class="row" style="align-items:flex-start;gap:10px;flex-wrap:nowrap"><img class="logo-img" src="/static/icons/favicon.svg?v=4" alt="" width="32" height="32">
             <div style="background:var(--seg);border-radius:4px 16px 16px 16px;padding:12px 14px;font-size:13px;white-space:pre-line">${U.esc(p)}</div></div>`).join('')}</section>
           <section class="card"><h2 class="h2" style="margin-bottom:6px">Strategies sending alerts</h2>${d.strategies.map((x) => `<div class="kv" style="align-items:center"><span class="row" style="gap:8px">${U.dot(x.color)}${U.esc(x.name)}</span>
             <button class="sw ${strat[x.id] ? 'on' : ''}" data-strat="${x.id}" role="switch" aria-label="LINE for ${U.esc(x.name)}"></button></div>`).join('')}</section>
@@ -157,7 +157,7 @@
   /* ---------------------------------------------------------------- settings */
   V.settings = async function (el) {
     const d = await U.api('/api/settings');
-    let theme = (localStorage.getItem('theme') || d.display.theme || 'dark');
+    let theme = (localStorage.getItem('theme') || d.display.theme || 'light');
     const sec = (id, title, inner, extra) => `<section class="card" id="${id}" ${extra || ''}><h2 class="h2" style="margin-bottom:4px">${title}</h2>${inner}</section>`;
     const set = (t, h, c) => `<div style="display:grid;grid-template-columns:minmax(200px,1fr) minmax(240px,1.3fr);gap:16px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line2)"><div><b style="font-weight:500">${t}</b>${h ? `<div class="muted small">${h}</div>` : ''}</div><div>${c}</div></div>`;
     el.innerHTML = `<div><div class="eyebrow">Configure</div><h1 class="h1">Settings</h1></div>

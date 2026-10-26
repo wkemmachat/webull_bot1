@@ -1,25 +1,29 @@
-/* TH Strategy Bot — one stylesheet, dark by default, light via [data-theme=light] */
+/* Webull Strategy Bot — one stylesheet, dark by default, light via [data-theme=light] */
 :root {
-  --bg: #0B0E13; --side: #0E1218; --panel: #12161D; --panel2: #0F1319; --input: #0E1218; --line: #222934; --line2: #1A2029;
-  --border: #2A3240; --hover: #161C25; --active: #1C2331; --seg: #141922; --seg-on: #262E3C;
-  --text: #E7EAEE; --text2: #C9D1DC; --muted: #9AA4B4; --dim: #8F9AAB;
-  --accent: #F2B84B; --accent-hi: #FFC960; --on-accent: #1A1300;
+  /* dark: neutral charcoal with a faint green cast; green accent (#4ADE80 on #0B110D = 11:1 contrast) */
+  --bg: #0A0F0C; --side: #0D1410; --panel: #111814; --panel2: #0E1511; --input: #0D1410; --line: #1F2A23; --line2: #18211B;
+  --border: #2A372F; --hover: #142019; --active: #15261B; --seg: #121A15; --seg-on: #22312A;
+  --text: #E6EEE9; --text2: #C6D3CB; --muted: #98A89E; --dim: #8E9E94;
+  --accent: #4ADE80; --accent-hi: #86EFAC; --on-accent: #052E16;
   --up: #3DD598; --dn: #FF7A7A; --info: #9DBEFF;
-  --ok-bg: #0F2A22; --ok-fg: #5BE0A8; --warn-bg: #2E2410; --warn-fg: #F5C76B; --err-bg: #331618; --err-fg: #FF9C9C; --info-bg: #14223A;
-  --chart-bg: #0F1217; --chart-grid: #1C2129; --chart-text: #9AA4B4;
+  --ok-bg: #0E2A1A; --ok-fg: #5BE08F; --warn-bg: #2E2410; --warn-fg: #F5C76B; --err-bg: #331618; --err-fg: #FF9C9C; --info-bg: #14223A;
+  --chart-bg: #0E1411; --chart-grid: #1B241E; --chart-text: #98A89E;
   --radius: 14px;
   --font: 'IBM Plex Sans', 'IBM Plex Sans Thai', system-ui, -apple-system, sans-serif;
   --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   color-scheme: dark;
 }
 [data-theme="light"] {
-  --bg: #F5F6F8; --side: #FFFFFF; --panel: #FFFFFF; --panel2: #F7F8FA; --input: #FFFFFF; --line: #E2E5EA; --line2: #ECEEF2;
-  --border: #D3D8E0; --hover: #F0F2F5; --active: #EDF0F5; --seg: #EEF0F3; --seg-on: #FFFFFF;
-  --text: #141820; --text2: #2E3440; --muted: #5B6575; --dim: #667085;
-  --accent: #C98A12; --accent-hi: #B07708; --on-accent: #FFFFFF;
+  /* light green: mint-tinted background, white cards, deep green accent (#15803D: 5.0:1 with white text, 4.7:1 on the
+     page background, both WCAG AA). Amber stays for warnings and red for losses / errors: meaning never depends on the
+     accent, and gains / losses also carry + / − signs. */
+  --bg: #F3F8F4; --side: #FAFDFB; --panel: #FFFFFF; --panel2: #F6FAF7; --input: #FFFFFF; --line: #DCE8DF; --line2: #E8F0EA;
+  --border: #CADBCF; --hover: #EEF6F0; --active: #DCF2E3; --seg: #E9F2EC; --seg-on: #FFFFFF;
+  --text: #13201A; --text2: #2B3A32; --muted: #55635B; --dim: #5E6B63;
+  --accent: #15803D; --accent-hi: #166534; --on-accent: #FFFFFF;
   --up: #12805C; --dn: #C4343F; --info: #2558C9;
-  --ok-bg: #E5F6EE; --ok-fg: #12805C; --warn-bg: #FDF2DC; --warn-fg: #8A5A00; --err-bg: #FDE8EA; --err-fg: #B42330; --info-bg: #E6EEFC;
-  --chart-bg: #FFFFFF; --chart-grid: #EEF0F3; --chart-text: #5B6575;
+  --ok-bg: #E3F3E8; --ok-fg: #166534; --warn-bg: #FDF2DC; --warn-fg: #8A5A00; --err-bg: #FDE8EA; --err-fg: #B42330; --info-bg: #E6EEFC;
+  --chart-bg: #FFFFFF; --chart-grid: #E8F0EA; --chart-text: #55635B;
   color-scheme: light;
 }
 * { box-sizing: border-box; }
@@ -45,7 +49,7 @@ h1, h2, h3 { margin: 0; }
 .grp { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); padding: 14px 10px 6px; }
 .nav { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 9px; color: var(--text2); font-weight: 500; min-height: 40px; }
 .nav:hover { background: var(--hover); color: var(--text); }
-.nav.on { background: var(--active); color: var(--text); }
+.nav.on { background: var(--active); color: var(--text); font-weight: 600; }
 .nav.on svg { color: var(--accent); }
 .nav svg { width: 18px; height: 18px; flex: none; }
 .nav .cnt { margin-left: auto; font-size: 11px; background: var(--warn-bg); color: var(--warn-fg); border-radius: 999px; padding: 1px 7px; }
@@ -75,6 +79,8 @@ h1, h2, h3 { margin: 0; }
 .seg button:hover { color: var(--text); }
 .seg .on { background: var(--seg-on); color: var(--text); }
 .seg .live.on { background: var(--err-bg); color: var(--err-fg); }
+/* trading mode switch: Live (real money) is green when chosen */
+.seg .mode-live.on { background: var(--accent); color: var(--on-accent); font-weight: 600; }
 .seg .gi.on { background: var(--warn-bg); color: var(--warn-fg); }
 .seg button:disabled { opacity: .4; cursor: not-allowed; }
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 0 16px; border-radius: 10px;

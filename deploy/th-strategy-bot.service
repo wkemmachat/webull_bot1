@@ -1,8 +1,8 @@
-# systemd service for TH Strategy Bot (no Docker).
+# systemd service for Webull Strategy Bot (no Docker).
 #   sudo cp deploy/th-strategy-bot.service /etc/systemd/system/
 #   sudo systemctl daemon-reload && sudo systemctl enable --now th-strategy-bot
 [Unit]
-Description=TH Strategy Bot (Webull TH)
+Description=Webull Strategy Bot (Webull TH)
 After=network-online.target
 Wants=network-online.target
 

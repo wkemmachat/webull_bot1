@@ -1,7 +1,7 @@
 <!--{"title": "What this bot does", "group": "Start here"}-->
 # What this bot does
 
-TH Strategy Bot runs **eleven research strategies** on **one Webull Thailand account**, keeps a separate book for each,
+Webull Strategy Bot runs **eleven research strategies** on **one Webull Thailand account**, keeps a separate book for each,
 sends every order as **split lots from a start time you choose**, tells you on **LINE**, and **cross-checks itself every night**.
 
 | Strategy | Reads | Trades | Timeframe |

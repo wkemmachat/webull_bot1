@@ -113,7 +113,7 @@ DEFAULTS = {
     "webull_region": "th", "webull_app_key": "", "webull_app_secret": "", "webull_account_id": "",
     "webull_test_app_key": "", "webull_test_app_secret": "", "webull_test_account_id": "", "webull_test_endpoint": "",
     # data + display
-    "metals_source": "yahoo", "show_thb": "0", "usdthb": "", "theme": "dark",
+    "metals_source": "yahoo", "show_thb": "0", "usdthb": "", "theme": "light",
     "health_time_ny": "16:45", "backup_keep_days": "30",
 }
 SECRET_KEYS = {"line_token", "webull_app_secret", "webull_test_app_secret", "webull_app_key", "webull_test_app_key"}

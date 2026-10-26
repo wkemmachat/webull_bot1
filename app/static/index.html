@@ -1,25 +1,25 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0B0E13">
+<meta name="theme-color" content="#0A0F0C">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>TH Strategy Bot</title>
+<title>Webull Strategy Bot</title>
 <link rel="manifest" href="/manifest.webmanifest">
-<link rel="icon" href="/favicon.ico?v=3" sizes="32x32">
-<link rel="icon" type="image/svg+xml" href="/static/icons/favicon.svg?v=3">
-<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png?v=3">
+<link rel="icon" href="/favicon.ico?v=4" sizes="32x32">
+<link rel="icon" type="image/svg+xml" href="/static/icons/favicon.svg?v=4">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png?v=4">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/css/app.css?v=35">
+<link rel="stylesheet" href="/static/css/app.css?v=36">
 <script>try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : t; } catch (e) {}</script>
 </head>
 <body>
 <div class="app">
   <nav class="side" id="side" aria-label="Main">
-    <a class="brand" href="#/"><img class="logo-img" src="/static/icons/favicon.svg?v=3" alt="" width="34" height="34"><div><div style="font-weight:600;font-size:15px">TH Strategy Bot</div><div class="muted small">Webull Thailand</div></div></a>
+    <a class="brand" href="#/"><img class="logo-img" src="/static/icons/favicon.svg?v=4" alt="" width="34" height="34"><div><div style="font-weight:600;font-size:15px">Webull Strategy Bot</div><div class="muted small">Webull Thailand</div></div></a>
     <a class="nav" data-r="" href="#/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-4H3zM13 3v4h8V3z"/></svg>Dashboard</a>
     <div class="grp">Trade</div>
     <a class="nav" data-r="strategies" href="#/strategies"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 8l10 5 10-5-10-5zM2 16l10 5 10-5M2 12l10 5 10-5"/></svg>Strategies</a>
@@ -46,7 +46,7 @@
     <header class="top" id="top">
       <button class="btn s burger" type="button" id="burger" aria-label="Menu">☰</button>
       <div class="seg" role="group" aria-label="Trading mode" id="modeseg">
-        <button type="button" data-m="paper">Paper</button><button type="button" data-m="test">Webull test</button><button type="button" data-m="live" class="live">● Live</button>
+        <button type="button" data-m="paper">Paper</button><button type="button" data-m="test">Webull test</button><button type="button" data-m="live" class="mode-live">● Live</button>
       </div>
       <span class="chip hide-m" id="mkt"><span class="dot" style="background:var(--warn-fg)"></span>…</span>
       <span class="chip hide-m" id="wb"></span>
@@ -67,23 +67,23 @@
 </nav>
 <div class="toast" id="toast" aria-live="polite"></div>
 <script src="/static/vendor/lightweight-charts.standalone.production.js"></script>
-<script src="/static/js/ui.js?v=35"></script>
-<script src="/static/js/charts.js?v=35"></script>
-<script src="/static/js/views/alloc.js?v=35"></script>
-<script src="/static/js/views/expected.js?v=35"></script>
-<script src="/static/js/views/dashboard.js?v=35"></script>
-<script src="/static/js/views/strategies.js?v=35"></script>
-<script src="/static/js/views/money.js?v=35"></script>
-<script src="/static/js/views/orders.js?v=35"></script>
-<script src="/static/js/views/monitor.js?v=35"></script>
-<script src="/static/js/views/config.js?v=35"></script>
-<script src="/static/js/views/docs.js?v=35"></script>
-<script src="/static/js/views/golive.js?v=35"></script>
-<script src="/static/js/views/backtest.js?v=35"></script>
-<script src="/static/js/views/symcharts.js?v=35"></script>
-<script src="/static/js/views/etf2x.js?v=35"></script>
-<script src="/static/js/views/perf.js?v=35"></script>
-<script src="/static/js/views/nextorders.js?v=35"></script>
-<script src="/static/js/app.js?v=35"></script>
+<script src="/static/js/ui.js?v=36"></script>
+<script src="/static/js/charts.js?v=36"></script>
+<script src="/static/js/views/alloc.js?v=36"></script>
+<script src="/static/js/views/expected.js?v=36"></script>
+<script src="/static/js/views/dashboard.js?v=36"></script>
+<script src="/static/js/views/strategies.js?v=36"></script>
+<script src="/static/js/views/money.js?v=36"></script>
+<script src="/static/js/views/orders.js?v=36"></script>
+<script src="/static/js/views/monitor.js?v=36"></script>
+<script src="/static/js/views/config.js?v=36"></script>
+<script src="/static/js/views/docs.js?v=36"></script>
+<script src="/static/js/views/golive.js?v=36"></script>
+<script src="/static/js/views/backtest.js?v=36"></script>
+<script src="/static/js/views/symcharts.js?v=36"></script>
+<script src="/static/js/views/etf2x.js?v=36"></script>
+<script src="/static/js/views/perf.js?v=36"></script>
+<script src="/static/js/views/nextorders.js?v=36"></script>
+<script src="/static/js/app.js?v=36"></script>
 </body>
 </html>

@@ -70,7 +70,7 @@ Fresh database: enter LINE and Webull again in the web app.
 
 1. webull.co.th → your photo → **Developer Tool** → **API Management → My Application**: apply for API access. Webull reviews it
    (1–2 working days; you get an email).
-2. **API Management → API Keys Management**: application name `TH Strategy Bot`, permissions **Market data** and **Trading**
+2. **API Management → API Keys Management**: application name `Webull Strategy Bot` (any name works), permissions **Market data** and **Trading**
    (both), IP whitelist **165.245.188.124**, 2FA on. Generate the key (SMS code + trading password). Copy the **App Key** and
    **App Secret**; *Reset Key* gives a new secret if you lose it.
 3. In the bot: **Webull → Live API keys** → paste → Save → **Connect**. Webull sends an SMS code; enter it in the Webull app

@@ -1,4 +1,4 @@
-# TH Strategy Bot
+# Webull Strategy Bot
 
 A web app and trading bot for **Webull Thailand** that runs seven strategies on one account, each with its own money and books:
 
@@ -27,7 +27,7 @@ A web app and trading bot for **Webull Thailand** that runs seven strategies on 
 ./run.sh            # creates .venv, installs, copies .env, starts on http://127.0.0.1:8000
 ```
 
-or open the folder in VS Code and press **F5 → Run TH Strategy Bot**. Needs Python 3.9+ (the Mac's own python3 works; python.org 3.12 is faster).
+or open the folder in VS Code and press **F5 → Run Webull Strategy Bot**. Needs Python 3.9+ (the Mac's own python3 works; python.org 3.12 is faster).
 Create your username and password on the first page.
 
 Offline demo (random prices): **F5 → Run (offline demo prices)**, or

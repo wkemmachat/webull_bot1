@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start TH Strategy Bot on your Mac:  ./run.sh   (then open http://127.0.0.1:8000)
+# Start Webull Strategy Bot on your Mac:  ./run.sh   (then open http://127.0.0.1:8000)
 set -e
 cd "$(dirname "$0")"
 
@@ -32,5 +32,5 @@ echo "Installing packages (first time takes a minute) …"
 [ -f .env ] || { cp .env.example .env; echo "Created .env from .env.example"; }
 mkdir -p data
 PORT="${PORT:-8000}"
-echo "TH Strategy Bot → http://127.0.0.1:$PORT   (Ctrl+C to stop)"
+echo "Webull Strategy Bot → http://127.0.0.1:$PORT   (Ctrl+C to stop)"
 exec ./.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port "$PORT" --workers 1

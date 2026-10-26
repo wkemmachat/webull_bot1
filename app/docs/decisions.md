@@ -49,6 +49,12 @@
   orders as expired after the session and gave some lots 2–3 replacement orders waiting for Monday's open. A retry is now
   only created when the lot has no newer attempt and no open order. Each tick also keeps just the newest waiting order per lot
   and marks the extra copies skipped (with a Logs entry).
+- **Name and look** (26 Oct 2026): the bot is now called **Webull Strategy Bot**.
+  - Light green is the default theme: a mint-tinted page, white cards and a deep green accent (#15803D). The accent has 5.0:1
+    contrast with white text and 4.7:1 on the page, both WCAG AA. Dark mode uses #4ADE80.
+  - Amber still means a warning and red a loss or an error. Gains and losses also carry + / − signs, so the green accent never
+    has to carry meaning on its own.
+  - When Live is chosen, the mode switch shows it in green. Settings → Theme can still switch to dark or follow the device.
 - **Regime timing**: decided after the US close, traded from the next market open with split lots (the research filled at the next
   open, which tested better than the same close).
 - **UGL in Gold #1 and Gold #2**: each strategy keeps its own orders and books; orders are not merged (simpler and easier to audit).

@@ -22,7 +22,7 @@ If the files are already in your WeBullBot folder, just open that folder in VS C
    (if it is missing, run `xcode-select --install`); Python 3.12 from python.org is a little faster.
 2. Open `http://127.0.0.1:8000` and create your **username and password** (an email address works as the username;
    the password needs 10+ characters). The bot has **one login, only yours**: there is no sign-up for anyone else.
-3. Or press **F5 → "Run TH Strategy Bot"** to start it with the debugger.
+3. Or press **F5 → "Run Webull Strategy Bot"** to start it with the debugger.
 
 ```
 # .env on your Mac

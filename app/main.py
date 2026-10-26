@@ -121,10 +121,10 @@ def login_page():
 
 @app.get("/manifest.webmanifest", include_in_schema=False)
 def manifest():
-    return J({"name": APP_NAME, "short_name": "TH Bot", "start_url": "/", "display": "standalone", "background_color": "#0B0E13",
-              "theme_color": "#0B0E13", "icons": [{"src": "/static/icons/icon-192.png?v=3", "sizes": "192x192", "type": "image/png"},
-                        {"src": "/static/icons/icon-512.png?v=3", "sizes": "512x512", "type": "image/png"},
-                        {"src": "/static/icons/favicon.svg?v=3", "sizes": "any", "type": "image/svg+xml"}]})
+    return J({"name": APP_NAME, "short_name": "Webull Bot", "start_url": "/", "display": "standalone", "background_color": "#0A0F0C",
+              "theme_color": "#0A0F0C", "icons": [{"src": "/static/icons/icon-192.png?v=4", "sizes": "192x192", "type": "image/png"},
+                        {"src": "/static/icons/icon-512.png?v=4", "sizes": "512x512", "type": "image/png"},
+                        {"src": "/static/icons/favicon.svg?v=4", "sizes": "any", "type": "image/svg+xml"}]})
 
 
 @app.get("/favicon.ico", include_in_schema=False)
