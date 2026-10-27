@@ -6,7 +6,8 @@ For each strategy with money in the mode:
 Trading this week and since the first Live order:
   fees      what Webull charged (booked per fill)
   vs open   each fill against that day's opening price, which is where the daily backtests fill: the real cost of
-            trading (spread, limit offset, timing, retries). Positive = cost (paid more on a buy / got less on a sell).
+            trading (spread, limit offset, timing, retries). Stored as a cost (positive = paid more on a buy / got less on a
+            sell); shown to you as a result: − (red) = cost, + (green) = a better price than the open.
 Reports are kept (last 26 per mode) and shown on the Portfolio page.
 """
 from __future__ import annotations
@@ -195,16 +196,17 @@ def text(r: dict) -> str:
     wc, sc = r["week_costs"], r["since_costs"]
     lines += ["", f"Trading this week: {wc['fills']} fill(s), ${wc['traded']:,.0f} traded"
               + (f" · fees ${wc['fees']:,.2f} ({_p(wc['fee_pct'], 3, False)})" if wc["fills"] else "")
-              + (f" · vs the open {'+' if wc['cost'] >= 0 else '−'}${abs(wc['cost']):,.2f} ({_p(wc['cost_pct'], 2)})"
+              + (f" · vs the open {'−' if wc['cost'] > 0 else '+'}${abs(wc['cost']):,.2f} ({_p(-wc['cost_pct'], 2)})"
                  if wc["fills"] and wc["cost_pct"] is not None else "")]
     w = r.get("worst")
     if w and w["cost_pct"] and w["cost_pct"] > 0.002:
         lines.append(f"Costliest fill: {w['name']} {w['side'].lower()} {brokers.qty_text(round(w['qty'], 4))} {w['symbol']} "
-                     f"@ ${w['avg']:,.2f} vs open ${w['open']:,.2f} ({_p(w['cost_pct'], 2)})")
+                     f"@ ${w['avg']:,.2f} vs open ${w['open']:,.2f} ({_p(-w['cost_pct'], 2)})")
     if sc["fills"]:
         lines.append(f"Since {r['since_from']}: fees ${sc['fees']:,.2f} · vs the open "
-                     f"{'+' if sc['cost'] >= 0 else '−'}${abs(sc['cost']):,.2f} ({_p(sc['cost_pct'], 2)}) on ${sc['traded']:,.0f} traded")
-    lines.append("(+ = cost: paid above the open on buys, below it on sells. The daily backtests fill at the open.)")
+                     f"{'−' if sc['cost'] > 0 else '+'}${abs(sc['cost']):,.2f} ({_p(-sc['cost_pct'], 2)}) on ${sc['traded']:,.0f} traded")
+    lines.append("(vs the open: − = a cost, paid above the open on a buy or below it on a sell; + = a better price. "
+                 "The daily backtests fill at the open.)")
     return "\n".join(lines)
 
 

@@ -50,7 +50,8 @@ and Webull test; Paper only when no real mode is on). LINE alerts → *Weekly re
   waiting for a signal, the weekly ranking of the baskets).
 - **Trading this week** and **since the first Live order**: fees Webull charged, and every fill against that day's
   **opening price**, where the daily backtests buy and sell. That difference is the real cost of trading on top of the
-  backtest (spread, limit offset, timing, retries); + = cost. The costliest fill of the week is named. For the 4H metals
+  backtest (spread, limit offset, timing, retries). Shown like any result: **− in red = a cost**, **+ in green = a better
+  price than the open**. The costliest fill of the week is named. For the 4H metals
   strategies, which trade at other times, it is a rough guide.
 
 The Portfolio page shows the latest report, the earlier weeks, trading costs per strategy and the latest fills.

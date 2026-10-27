@@ -230,6 +230,7 @@
     }
 
     const sg = (x) => x == null ? '—' : (x >= 0 ? '+' : '−') + U.usd(Math.abs(x));
+    const neg = (cost) => cost == null || Math.abs(cost) < 0.005 ? '' : cost > 0 ? 'dn' : 'up';   // a cost is red, a saving green
     const pp = (x, dp) => x == null ? '—' : (x >= 0 ? '+' : '−') + Math.abs(x * 100).toFixed(dp == null ? 2 : dp) + '%';
 
     function weeklyHtml(w) {
@@ -249,13 +250,13 @@
         <div class="grid" style="--min:170px;gap:10px">
           <div class="card" style="padding:12px 14px;background:var(--panel2)"><div class="muted small">Traded since ${U.esc(w.since || '—')}</div><div class="num" style="font-size:20px;font-weight:600">${U.usd(c.traded || 0, 0)}</div><div class="muted small">${c.fills || 0} fills</div></div>
           <div class="card" style="padding:12px 14px;background:var(--panel2)"><div class="muted small">Fees</div><div class="num" style="font-size:20px;font-weight:600">${U.usd(c.fees || 0)}</div><div class="muted small">${c.fee_pct != null ? (c.fee_pct * 100).toFixed(3) + '% of traded' : '—'}</div></div>
-          <div class="card" style="padding:12px 14px;background:var(--panel2)"><div class="muted small">Fills vs the day's open</div><div class="num ${c.cost > 0 ? 'dn' : c.cost < 0 ? 'up' : ''}" style="font-size:20px;font-weight:600">${sg(c.cost)}</div><div class="muted small">${pp(c.cost_pct)} · + = cost</div></div></div>
-        ${(w.by_strategy || []).length ? `<div class="tw"><table class="t"><thead><tr><th>Strategy</th><th class="r">Fills</th><th class="r">Traded</th><th class="r">Fees</th><th class="r">vs open</th></tr></thead><tbody>
-          ${w.by_strategy.map((x) => `<tr><td>${U.esc(x.name)}</td><td class="r num">${x.fills}</td><td class="r num">${U.usd(x.traded, 0)}</td><td class="r num">${U.usd(x.fees)}</td><td class="r num ${x.cost > 0 ? 'dn' : x.cost < 0 ? 'up' : ''}">${sg(x.cost)} · ${pp(x.cost_pct)}</td></tr>`).join('')}</tbody></table></div>` : ''}
+          <div class="card" style="padding:12px 14px;background:var(--panel2)"><div class="muted small">Fills vs the day's open</div><div class="num ${neg(c.cost)}" style="font-size:20px;font-weight:600">${sg(c.cost == null ? null : -c.cost)}</div><div class="muted small">${pp(c.cost_pct == null ? null : -c.cost_pct)} · − = cost, + = better than the open</div></div></div>
+        ${(w.by_strategy || []).length ? `<div class="tw"><table class="t"><thead><tr><th>Strategy</th><th class="r">Fills</th><th class="r">Traded</th><th class="r">Fees</th><th class="r">vs the open</th></tr></thead><tbody>
+          ${w.by_strategy.map((x) => `<tr><td>${U.esc(x.name)}</td><td class="r num">${x.fills}</td><td class="r num">${U.usd(x.traded, 0)}</td><td class="r num">${U.usd(x.fees)}</td><td class="r num ${neg(x.cost)}">${sg(x.cost == null ? null : -x.cost)} · ${pp(x.cost_pct == null ? null : -x.cost_pct)}</td></tr>`).join('')}</tbody></table></div>` : ''}
         ${(w.fills || []).length ? `<details><summary class="small" style="cursor:pointer">Latest fills vs the open (${w.fills.length})</summary><div class="tw" style="margin-top:8px"><table class="t"><thead><tr><th>Day</th><th>Strategy</th><th>Fill</th><th class="r">Price</th><th class="r">Open</th><th class="r">Cost</th></tr></thead><tbody>
           ${w.fills.map((f) => `<tr><td class="num small">${U.esc(f.day)}</td><td class="small">${U.esc((rows.find((x) => x.id === f.strategy) || {}).name || f.strategy)}</td><td class="small">${f.side === 'BUY' ? 'Buy' : 'Sell'} ${U.qty(f.qty)} ${U.esc(f.symbol)}</td>
-            <td class="r num">${U.usd(f.avg)}</td><td class="r num">${f.open ? U.usd(f.open) : '—'}</td><td class="r num ${f.cost > 0 ? 'dn' : f.cost < 0 ? 'up' : ''}">${f.cost == null ? '—' : sg(f.cost) + ' · ' + pp(f.cost_pct)}</td></tr>`).join('')}</tbody></table></div></details>` : ''}
-        <div class="muted small">The daily backtests buy and sell at the day's open, so "vs the open" is what Live pays on top of the backtest (spread, limit offset, timing, retries). The 4H metals strategies trade at other times: their numbers are a rough guide.</div>`;
+            <td class="r num">${U.usd(f.avg)}</td><td class="r num">${f.open ? U.usd(f.open) : '—'}</td><td class="r num ${neg(f.cost)}">${f.cost == null ? '—' : sg(-f.cost) + ' · ' + pp(-f.cost_pct)}</td></tr>`).join('')}</tbody></table></div></details>` : ''}
+        <div class="muted small">The daily backtests buy and sell at the day's open, so "vs the open" is what Live gains or pays compared with the backtest: red (−) = a cost (spread, limit offset, timing, retries), green (+) = a better price than the open. The 4H metals strategies trade at other times: their numbers are a rough guide.</div>`;
     }
 
     async function loadWeekly() {
