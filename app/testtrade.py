@@ -459,7 +459,8 @@ def fraction_status(mode) -> dict:
     st = db.get_state(f"fractional:{mode}") or {}
     lim, mkt = st.get("LIMIT"), st.get("MARKET")
     if lim and lim["ok"]:
-        v = "Webull accepts fractional LIMIT orders: the bot can buy fractions like whole shares."
+        v = ("Webull accepts fractional LIMIT orders: the bot adds the leftover fraction to the last lot of each buy "
+             "(Execution → Fractional shares).")
     elif mkt and mkt["ok"]:
         v = ("Webull accepts fractional orders only as MARKET orders" if lim else "Webull accepts fractional MARKET orders")\
             + (": the bot could buy whole shares by limit order and only the leftover fraction at market." if lim else

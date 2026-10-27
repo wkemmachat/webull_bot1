@@ -108,7 +108,7 @@
       return `<div class="grid" style="--min:210px">
         <div class="card"><div class="eyebrow">Value · ${U.modeLabel[mode]}</div><div class="num big" style="margin-top:6px">${U.usd(c.value)}</div>
           <div class="num small ${U.cls(c.pnl)}">${U.sgnUsd(c.pnl)} · ${U.pct(c.ret)} on ${U.usd(c.net_in, 0)}</div>${c.today ? '<div>' + U.todayLine(c) + '</div>' : ''}</div>
-        <div class="card"><div class="eyebrow">Holding</div><div class="num big" style="margin-top:6px">${pos.length ? pos.map(([k, p]) => `${U.n(p.qty, 0)} ${k}`).join(' · ') : 'Cash'}</div>
+        <div class="card"><div class="eyebrow">Holding</div><div class="num big" style="margin-top:6px">${pos.length ? pos.map(([k, p]) => `${U.qty(p.qty)} ${k}`).join(' · ') : 'Cash'}</div>
           <div class="muted num small">${U.usd(c.cash)} cash${pos.length ? ' · ' + pos.map(([k, p]) => `${k} ${U.usd(p.price)}`).join(' · ') : ''}</div></div>
         <div class="card"><div class="eyebrow">Signal now</div><div style="margin-top:8px">${U.pill(c.state_cls + ' big', st.ok ? (fam === 'regime' ? st.state : (st.state || '').toUpperCase()) : 'ERROR')}</div>
           <div class="muted small" style="margin-top:6px">${st.ok ? U.esc(st.label) + (st.signal_time ? ' · since ' + U.dt(st.signal_time) : '') : U.esc(st.error || 'not evaluated yet')}</div></div>
@@ -202,7 +202,7 @@
           <a class="btn s" href="#/health" style="margin-top:10px">Cross-check with TradingView</a></section>` : ''}
         <section class="card ${fam === 'signal' ? 'span2' : ''}"><div class="row sb" style="margin-bottom:6px"><h2 class="h2">Holdings vs target · ${U.modeLabel[mode]}</h2></div>
           <div class="tw"><table class="t"><thead><tr><th>Holding</th><th class="r">Shares</th><th class="r">Value</th><th class="r">Now</th><th class="r">Target</th></tr></thead><tbody>
-          ${d.holdings.map((h) => `<tr><td>${U.esc(h.symbol)}</td><td class="r num">${h.qty == null ? '—' : U.n(h.qty, 0)}</td><td class="r num">${U.usd(h.value)}</td>
+          ${d.holdings.map((h) => `<tr><td>${U.esc(h.symbol)}</td><td class="r num">${h.qty == null ? '—' : U.qty(h.qty)}</td><td class="r num">${U.usd(h.value)}</td>
             <td class="r num">${(h.now * 100).toFixed(1)}%</td><td class="r num">${(h.target * 100).toFixed(1)}%</td></tr>`).join('')}</tbody></table></div>
           <div class="muted small">${c.type === 'momentum_basket' ? 'Trades when the signal turns on or off, or when the weekly list changes. Names already held are never topped up or trimmed; new names get 1/' + U.esc(d.row.params.hold) + ' of the money.' : c.type === 'ibs_dip' ? 'Trades when the signal turns on or off (a dip day is a one-day trade), or when the volatility-capped size moves more than ' + U.esc(d.row.params.size_band_pct) + ' points.' : 'Trades on a new signal, or when a holding drifts more than ' + U.esc(d.row.params.rebalance_band_pct) + '% from target (e.g. after Add money).'}</div></section>
         ${fam === 'regime' ? `<section class="card"><h2 class="h2" style="margin-bottom:6px">State changes</h2>${sig.slice(0, 7).map((x) => `<div class="list-row" style="align-items:center">

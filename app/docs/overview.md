@@ -26,7 +26,8 @@ sends every order as **split lots from a start time you choose**, tells you on *
 2. When the target changes, or a holding drifts more than the rebalance band from it (for example after you add money), the bot
    makes a **plan**: N rounds of limit orders, M minutes apart, from the start time. In each round sells go first, then buys.
 3. Each lot is a limit order slightly through the market. A lot that does not fill is cancelled and re-sent at a fresh price,
-   up to 3 times. Fills are booked to the strategy that placed them.
+   up to 3 times; each retry moves the limit at least 0.5% further (at most 2% beyond the first one), and a price with no
+   trade yet that day (a thin ETF at the open) gets 0.5% more room. Fills are booked to the strategy that placed them.
 4. LINE tells you what happened, either at once or in the digest, as you choose.
 5. After the US close the **Health check** compares the bot's books with the broker and checks data, orders and backups.
 

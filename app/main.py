@@ -444,7 +444,8 @@ async def exec_settings_save(request: Request, u=Depends(user)):
     b = await body(request)
     d = b.get("defaults") or {}
     allowed = {"exec_lots", "exec_interval_min", "exec_start_mode", "exec_start_time", "exec_exit_mode", "exec_session",
-               "exec_limit_offset_pct", "exec_retries", "exec_min_lot_usd", "exec_min_trade_usd", "exec_max_order_usd", "new_money_start"}
+               "exec_limit_offset_pct", "exec_retries", "exec_min_lot_usd", "exec_min_trade_usd", "exec_max_order_usd", "new_money_start",
+               "exec_fractional_paper", "exec_fractional_test", "exec_fractional_live"}
     upd = {k: str(v) for k, v in d.items() if k in allowed}
     try:
         if "exec_lots" in upd and not (1 <= int(upd["exec_lots"]) <= 60):
@@ -457,9 +458,15 @@ async def exec_settings_save(request: Request, u=Depends(user)):
             raise ValueError("Limit offset: 0 to 2%")
         if "new_money_start" in upd and upd["new_money_start"] not in ("now", "buy"):
             raise ValueError("New money: 'now' or 'buy'")
+        for m in ("paper", "test", "live"):
+            if upd.get(f"exec_fractional_{m}") not in (None, "", "1", "0"):
+                raise ValueError("Fractional shares: on, off or automatic")
     except ValueError as e:
         _err(e)
     db.set_settings(upd)
+    for m in b.get("reset_fractions") or []:
+        if m in ("paper", "test", "live"):
+            execution.reset_fraction_refusals(m)
     for sid, ov in (b.get("overrides") or {}).items():
         clean_ov = {k: v for k, v in (ov or {}).items() if k in ("lots", "interval_min", "start_mode", "start_time", "exit_mode") and v not in ("", None)}
         S.update(sid, exec=clean_ov)

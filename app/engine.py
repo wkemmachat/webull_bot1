@@ -192,6 +192,13 @@ def daily_jobs(now):
             except Exception as e:
                 log.warning("dip zones: %s", e)
     local = now.astimezone(TZ)
+    # Webull login reminders (5, 3, 1 days before the token ends, and when it has ended): checked every 30 minutes
+    if _once("tokenwatch", local.strftime("%Y-%m-%d %H:") + str(local.minute // 30)):
+        from . import tokenwatch
+        try:
+            tokenwatch.check()
+        except Exception as e:
+            log.warning("token reminders: %s", e)
     if local.strftime("%H:%M") >= "03:30" and _once("backup", local.strftime("%Y-%m-%d")):
         try:
             backup()

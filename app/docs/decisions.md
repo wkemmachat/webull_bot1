@@ -105,3 +105,13 @@
 - **Dip zones (27 Oct 2026)**: each strategy's depth below its own backtest high, as a percentile of its last-10-year days,
   refreshed after every US close. Green "Buy zone" = 70–80th percentile, solid dark green "Strong buy zone" = 80th or deeper (Home
   banner + one LINE message per dip, re-armed above the 70th; colours as analyst ratings: Buy green, Strong buy dark green). Shown on Home cards, the Strategies list and the Expected return table. Docs → Buy zones.
+- **Webull login reminders (27 Oct 2026)**: tokens last 15 days (Webull docs). LINE at 5, 3 and 1 day(s) left and when ended
+  (only the nearest step if the bot was off; a renewed token starts again), plus a Home banner from 5 days before the end.
+- **Limits for thin ETFs (27 Oct 2026)**: ROM's first Live lot was priced from yesterday's close (no ROM trade yet at the open,
+  no bid/ask from Webull) and the ETF opened 1% higher; the retry used the same stale price. Now a quote with no trade yet in
+  today's session gets 0.5% more room, and each retry moves the limit at least 0.5% beyond the lot's first limit (cap 2%).
+- **Fractional shares in plans** (27 Oct 2026, after the Live fractional limit test passed): whole shares in every lot and the
+  leftover fraction (4 decimals) on the last lot of each ETF, so a small strategy no longer keeps up to one share of cash idle.
+  Exits sell the exact holding. Minimum fractional buy $5. Setting per mode (Auto = follows that mode's Go-live limit test;
+  Paper follows Live). A refused fractional order re-sends the lot as whole shares, switches that ETF (per account) back to
+  whole shares and sends one LINE message; it does not block the ETF or cancel the plan.

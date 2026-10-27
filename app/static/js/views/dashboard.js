@@ -19,6 +19,17 @@
     return ch;
   }
 
+  /* Home banner: a Webull login (token) that ends within 5 days, or has ended — the bot cannot trade without it */
+  function tokenBanner(list) {
+    return (list || []).filter((x) => x.status !== 'ok').map((x) => {
+      const ended = x.status === 'ended', urgent = ended || x.days_left <= 1;
+      const left = ended ? 'has ended' : x.days_left < 1 ? `ends in ${Math.max(1, Math.round(x.days_left * 24))} hours` : `ends in ${Math.ceil(x.days_left)} day${Math.ceil(x.days_left) > 1 ? 's' : ''}`;
+      return `<div class="note ${urgent ? 'err' : 'warn'} row sb" role="alert" style="flex-wrap:wrap;gap:10px">
+        <span><b>Webull ${U.esc(x.label)} login ${left}</b> (${U.esc(x.ends_text)} Bangkok). ${ended ? 'No orders can be sent until you reconnect.' : 'Renew it while the US market is closed: Reconnect, then enter the SMS code in the Webull app (Menu → Messages → OpenAPI Notifications) within 5 minutes.'}</span>
+        <a class="btn s ${urgent ? 'p' : ''}" href="#/webull">Renew now →</a></div>`;
+    }).join('');
+  }
+
   /* Home banner: strategies at their 80th underwater percentile or deeper (a buy-the-dip zone in the research) */
   function dipBanner(list) {
     const deep = list.filter((s) => s.dip && s.dip.zone === 'deep' && s.control !== 'stopped').sort((a, b) => b.dip.pct - a.dip.pct);
@@ -46,6 +57,7 @@
       el.innerHTML = `
       <div class="page-head"><div><div class="eyebrow">${U.esc(today)} · ${U.modeLabel[mode]} account</div><h1 class="h1">Dashboard</h1></div>
         <div class="row"><a class="btn" href="#/health">Run cross-check</a><button class="btn p" type="button" id="add">Add money</button></div></div>
+      ${tokenBanner(d.logins)}
       ${dipBanner(shown)}
       <div id="nextorders"></div>
       ${d.account_error ? `<div class="note warn">Account not readable: ${U.esc(d.account_error)}</div>` : ''}

@@ -34,7 +34,7 @@
           <div class="tiny muted" style="margin-top:3px">${r.state === 'running' ? U.pill('info', 'running · ' + r.rounds_left + ' round' + (r.rounds_left === 1 ? '' : 's') + ' left') : 'starts ' + U.time(r.start_at)} · ${r.lots} × ${r.interval} min · ${U.esc(REASON[r.reason] || r.reason)}</div></td>` : ''}
         <td>${it.side === 'BUY' ? U.pill('ok', 'BUY') : U.pill('err', 'SELL')}</td>
         <td class="mono"><b>${U.esc(it.symbol)}</b>${it.blocked ? ' ' + U.pill('warn', 'refused') : ''}</td>
-        <td class="r num">${it.qty == null ? '—' : (it.exact ? '' : '≈') + U.n(it.qty, 0)}${it.filled ? `<div class="tiny muted">${U.n(it.filled, 0)} done</div>` : ''}</td>
+        <td class="r num">${it.qty == null ? '—' : (it.exact ? '' : '≈') + U.qty(it.qty)}${it.filled ? `<div class="tiny muted">${U.qty(it.filled)} done</div>` : ''}</td>
         <td class="r num">${it.price ? U.usd(it.price) : '—'}</td>
         <td class="r num">${it.value == null ? '—' : '≈' + U.usd(it.value, 0)}</td>
         ${k === 0 ? `<td rowspan="${r.items.length}" class="small" style="vertical-align:top;white-space:normal;min-width:200px">
@@ -44,7 +44,7 @@
     const cards = rows.map((r) => `<div style="border:1px solid var(--line);border-radius:10px;padding:12px 14px" class="col">
         <a href="#/strategies/${U.esc(r.strategy)}" class="row" style="gap:8px;color:var(--text)">${U.dot(r.color || '#888', 10)}<b>${U.esc(r.name)}</b></a>
         <div class="tiny muted" style="margin:3px 0 8px">${r.state === 'running' ? 'running · ' + r.rounds_left + ' rounds left' : 'starts ' + U.time(r.start_at)} · ${r.lots} × ${r.interval} min</div>
-        ${r.items.map((it) => `<div class="row sb" style="gap:8px;padding:4px 0"><span class="row" style="gap:8px">${it.side === 'BUY' ? U.pill('ok', 'BUY') : U.pill('err', 'SELL')}<b class="mono">${it.qty == null ? '' : (it.exact ? '' : '≈') + U.n(it.qty, 0)} ${U.esc(it.symbol)}</b></span>
+        ${r.items.map((it) => `<div class="row sb" style="gap:8px;padding:4px 0"><span class="row" style="gap:8px">${it.side === 'BUY' ? U.pill('ok', 'BUY') : U.pill('err', 'SELL')}<b class="mono">${it.qty == null ? '' : (it.exact ? '' : '≈') + U.qty(it.qty)} ${U.esc(it.symbol)}</b></span>
           <span class="num small">${it.value == null ? '' : '≈' + U.usd(it.value, 0)}<span class="muted"> @ ${it.price ? U.usd(it.price) : '—'}</span></span></div>`).join('')}
         ${r.why ? `<div class="small" style="margin-top:6px">${U.esc(r.why)}</div>` : ''}<div class="tiny muted">After: ${Object.entries(r.after).map(([k, w]) => `${(w * 100).toFixed(0)}% ${U.esc(k)}`).join(' + ') || 'cash'}</div></div>`).join('');
     el.innerHTML = `<section class="card col" style="gap:12px;${opts.sid ? '' : 'border-color:color-mix(in srgb, var(--accent) 45%, var(--line))'}">

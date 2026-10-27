@@ -58,7 +58,7 @@ def next_orders(mode, sid=None) -> dict:
         for sym, x in sorted(buys.items(), key=lambda kv: -(p["target"].get(kv[0], 0))):
             pr = px.get(sym)
             want = p["target"].get(sym, 0) * E - L["holdings"].get(sym, 0) * (pr or 0)
-            est = max(0, math.floor(want / pr)) if pr else None
+            est = (max(0, execution._down(want / pr, execution.FRAC_DP if execution.fractional_on(mode, sym) else 0)) if pr else None)
             items.append({"side": "BUY", "symbol": sym, "qty": est, "left": est, "filled": x["filled"], "price": pr,
                           "value": round(max(want, 0), 2) if pr else None, "exact": False, "blocked": sym in blocked})
             if pr and want > 0:

@@ -132,7 +132,7 @@
           el.querySelector('#acct').innerHTML = `<section class="card"><h2 class="h2" style="margin-bottom:6px">Account (from Webull ${env}) · ${r.ms} ms</h2>
             <div class="kv"><span class="muted">Account</span><span class="num">${U.esc(acc.account_id)}</span></div><div class="kv"><span class="muted">Total value</span><span class="num">${U.usd(acc.total)}</span></div>
             <div class="kv"><span class="muted">Cash</span><span class="num">${U.usd(acc.cash)}</span></div><div class="kv"><span class="muted">Buying power</span><span class="num">${U.usd(acc.buying_power)}</span></div>
-            <div class="kv"><span class="muted">Positions</span><span class="num">${Object.entries(acc.positions || {}).map(([k, p]) => `${k} ${U.n(p.qty, 0)}`).join(', ') || 'none'}</span></div></section>`;
+            <div class="kv"><span class="muted">Positions</span><span class="num">${Object.entries(acc.positions || {}).map(([k, p]) => `${k} ${U.qty(p.qty)}`).join(', ') || 'none'}</span></div></section>`;
         } else {
           if (a === 'disconnect' && !(await U.confirm('Disconnect?', 'The saved login is put aside. Orders cannot be sent in this mode until you connect again.', { danger: true, ok: 'Disconnect' }))) return;
           d = await U.api(`/api/webull/${env}/${a}`, { body: {} });

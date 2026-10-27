@@ -39,6 +39,10 @@
     if (v == null || isNaN(v)) return '—';
     return Number(v).toLocaleString('en-US', { minimumFractionDigits: dp || 0, maximumFractionDigits: dp == null ? 2 : dp });
   };
+  U.qty = function (v) {                                  // share counts: 5 · 2.375 (fractional shares up to 4 decimals)
+    if (v == null || isNaN(v)) return '—';
+    return Number(v).toLocaleString('en-US', { maximumFractionDigits: 4 });
+  };
   U.cls = function (v) { return v > 0 ? 'up' : v < 0 ? 'dn' : ''; };
   const fmt = (o) => new Intl.DateTimeFormat('en-GB', Object.assign({ timeZone: TZ }, o));
   U.time = function (t) { return t ? fmt({ hour: '2-digit', minute: '2-digit', hour12: false }).format(t * 1000) : '—'; };

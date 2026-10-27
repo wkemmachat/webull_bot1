@@ -175,8 +175,16 @@ def _raise_cash(mode, s, amount, kind, other=None, note="", invest="now"):
     short = amount - free
     held_v = sum(p["value"] for p in v["positions"].values())
     frac = min(1.0, short / held_v * 1.02) if held_v > 0 else 1.0
-    sells = {sym: (math.ceil(q * frac) if frac < 1 else int(q)) for sym, q in L["holdings"].items()}
-    sells = {k: min(int(L["holdings"][k]), q) for k, q in sells.items() if q >= 1}
+    sells = {}
+    for sym, q in L["holdings"].items():
+        dp = execution._sell_dp(mode, sym, q)
+        if frac >= 1:
+            x = execution._down(q, dp)                            # everything: fractions included when allowed
+        else:
+            m = 10 ** min(dp, execution.FRAC_DP)
+            x = min(execution._down(q, dp), math.ceil(q * frac * m - 1e-6) / m)   # a little more than needed, rounded up
+        if x > execution.EPS:
+            sells[sym] = x
     mid = ledger.record_money(mode, kind, s.id, amount, other=other, note=note)
     pid = execution.build_plan(mode, s, {}, kind, md.now_utc(), sell_override=sells, buys=False,
                                on_done={"money_id": mid, "amount": amount, "kind": kind, "move_to": other, "invest": invest})

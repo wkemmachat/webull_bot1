@@ -6,7 +6,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from . import brokers, db, dip, execution, health, ledger, marketdata as md, markethours as mh, metals, notify, perf
+from . import brokers, db, dip, execution, health, ledger, marketdata as md, markethours as mh, metals, notify, perf, testtrade
 from . import strategies as S
 from .config import APP_NAME, DISPLAY_TZ, SCHEDULER_ENABLED
 
@@ -155,7 +155,15 @@ def dashboard(mode):
                     "bench_ret": (bench / series[-1]["capital"] - 1) if bench and series and series[-1]["capital"] else None},
             "unassigned": un, "not_bot": not_bot, "series": series, "plans": active[:4], "health": rep and {"t": rep["t"], "counts": rep["counts"],
                                                                                        "first": next((i for i in rep["items"] if i["status"] != "ok"), None)},
-            "line": notify.summary(), "next": next_up(mode, strats, active), "events": events}
+            "line": notify.summary(), "next": next_up(mode, strats, active), "events": events, "logins": _logins()}
+
+
+def _logins():
+    from . import tokenwatch
+    try:
+        return tokenwatch.logins()
+    except Exception:
+        return []
 
 
 def next_up(mode, strats, active):
@@ -314,7 +322,19 @@ def execution_settings():
             "strategies": [{"id": x.id, "name": x.name, "color": x.color, "family": x.family, "override": x.row.get("exec") or {},
                             "type_defaults": x.EXEC_DEFAULTS, "effective": execution.exec_cfg(x), "text": execution.describe_cfg(execution.exec_cfg(x))}
                            for x in strats],
-            "calendar": calendar(), "timeline": timeline()}
+            "fractional": fractional_view(s), "calendar": calendar(), "timeline": timeline()}
+
+
+def fractional_view(s=None):
+    s = s if s is not None else db.get_settings()
+    out = {}
+    for m in ("live", "test", "paper"):
+        st = execution.fractional_setting(m, s)
+        lim = testtrade.fraction_status(m).get("LIMIT") if m != "paper" else None
+        out[m] = {"on": st["on"], "source": st["source"], "value": s.get(f"exec_fractional_{m}") or "",
+                  "test": ({"ok": bool(lim.get("ok")), "at": lim.get("at"), "symbol": lim.get("symbol")} if lim else None),
+                  "refused": execution.fraction_refused(m)}
+    return out
 
 
 def calendar():

@@ -79,9 +79,95 @@ def active_plan(mode, sid):
     return db.one("SELECT * FROM plans WHERE mode=? AND strategy=? AND status='active' ORDER BY id DESC LIMIT 1", (mode, sid))
 
 
-def _split(q: int, n: int) -> list:
-    base, rem = divmod(int(q), n)
-    return [base + (1 if k < rem else 0) for k in range(n)]
+def _split(q, n: int) -> list:
+    """Whole shares spread over n lots (the first lots take the extra share); a fraction goes on the last lot."""
+    whole = int(math.floor(q + 1e-9))
+    base, rem = divmod(whole, n)
+    out = [base + (1 if k < rem else 0) for k in range(n)]
+    f = round(q - whole, 6)
+    if f > EPS:
+        out[-1] = round(out[-1] + f, 6)
+    return out
+
+
+# ---------------------------------------------------------------- fractional shares
+# Webull TH accepts fractional LIMIT orders through the API (Go-live fractional test, 27 Oct 2026: 0.5 QLD bought and sold).
+# With the setting on, every lot still buys whole shares; only the last lot of a symbol adds the leftover fraction, so the
+# money does not wait as cash. Sells sell what the strategy holds, fractions included. If Webull ever refuses a fractional
+# order for an ETF, that ETF goes back to whole shares (per account) and LINE says so once.
+FRAC_DP = 4                     # buys: shares to 0.0001
+SELL_DP = 6                     # sells: the exact booked quantity
+MIN_FRACTION_USD = 5.0          # smallest order that is less than one share
+EPS = 1e-6
+
+
+def _down(x, dp) -> float:
+    """Round a share count down to dp decimals (0 = whole shares); whole results come back as int."""
+    x = max(0.0, float(x or 0))
+    if dp <= 0:
+        return int(math.floor(x + 1e-9))
+    m = 10 ** dp
+    v = math.floor(x * m + 1e-5) / m
+    return int(round(v)) if abs(v - round(v)) < 1e-9 else v
+
+
+def is_fraction(q) -> bool:
+    return q is not None and abs(float(q) - round(float(q))) > 1e-9
+
+
+def qs(q) -> str:
+    """Share count for messages: 5 · 5.3721."""
+    return brokers.qty_text(q or 0)
+
+
+def fractional_default(mode) -> bool:
+    lim = testtrade.fraction_status(mode).get("LIMIT")
+    return bool(lim and lim.get("ok"))
+
+
+def fractional_setting(mode, settings=None) -> dict:
+    """{'on': bool, 'source': 'set' | 'test' | 'live'}. Unset: Live/Test follow their Go-live fractional test, Paper follows Live."""
+    s = settings if settings is not None else db.get_settings()
+    v = s.get(f"exec_fractional_{mode}")
+    if v in ("1", "0"):
+        return {"on": v == "1", "source": "set"}
+    if mode == "paper":
+        return {"on": fractional_setting("live", s)["on"], "source": "live"}
+    return {"on": fractional_default(mode), "source": "test"}
+
+
+def fraction_refused(mode) -> dict:
+    return db.get_state(f"frac_refused:{mode}") or {}
+
+
+def fractional_on(mode, symbol=None, settings=None) -> bool:
+    if not fractional_setting(mode, settings)["on"]:
+        return False
+    return not (symbol and symbol in fraction_refused(mode))
+
+
+def _sell_dp(mode, symbol, q, settings=None) -> int:
+    """Sells keep fractions when fractions are on, or when the strategy already holds a fraction (bought while on)."""
+    if symbol in fraction_refused(mode):
+        return 0
+    return SELL_DP if (fractional_on(mode, symbol, settings) or is_fraction(q)) else 0
+
+
+def refuse_fraction(mode, symbol, err, strat=None):
+    b = fraction_refused(mode)
+    if symbol in b:
+        return
+    b[symbol] = {"at": int(time.time()), "code": getattr(err, "code", None), "msg": str(err)[:300]}
+    db.set_state(f"frac_refused:{mode}", b)
+    name = strat.name if strat is not None else ""
+    txt = (f"Webull refused a fractional order for {symbol}: {str(err)[:160]}. The bot now buys and sells whole shares of "
+           f"{symbol} in this account (the lot is sent again as whole shares). Execution → Fractional shares can reset it.")
+    db.add_event("warn", "orders", f"Fractional order refused: {symbol}", txt, strategy=strat.id if strat else None, mode=mode)
+    notify.send("lot_failed", f"{brokers.MODE_LABEL[mode]} · {name + ': ' if name else ''}{txt}", strategy=strat.id if strat else None)
+
+
+def reset_fraction_refusals(mode):
+    db.set_state(f"frac_refused:{mode}", {})
 
 
 def _insert_order(c, plan_id, mode, sid, step, lot, lots, symbol, side, when, session, plan_qty=None, retry=0, qty=None):
@@ -105,20 +191,28 @@ def build_plan(mode, strat, target: dict, reason: str, now, broker=None, buys=Tr
             log.warning("plan %s: no price for %s: %s", strat.id, s, e)
             return None
     E = ledger.tradable_cash(L) + sum(q * px[s] for s, q in L["holdings"].items())   # cash waiting for a buy signal left out
+    settings = settings if settings is not None else db.get_settings()
+    frac = {s: fractional_on(mode, s, settings) for s in syms}
     sells = {}
     if sell_override is not None:
-        sells = {s: int(q) for s, q in sell_override.items() if int(q) >= 1}
+        for s, q in sell_override.items():
+            q = _down(min(float(q), L["holdings"].get(s, float(q))), _sell_dp(mode, s, q, settings))
+            if q > EPS:
+                sells[s] = q
     else:
         for s, held in L["holdings"].items():
-            keep = math.floor(target.get(s, 0) * E / px[s]) if s in target else 0
-            q = int(math.floor(held - keep + 1e-9))
-            if q >= 1 and (q * px[s] >= c_["min_trade_usd"] or s not in target):
+            if s in target:
+                keep = _down(target[s] * E / px[s], FRAC_DP if frac[s] else 0)
+                q = _down(held - keep, SELL_DP if frac[s] else 0)
+            else:
+                q = _down(held, _sell_dp(mode, s, held, settings))     # leaving the symbol: everything, fractions included
+            if q > EPS and (q * px[s] >= c_["min_trade_usd"] or s not in target):
                 sells[s] = q
     need = {}
     if buys:
         for s, w in target.items():
             v = w * E - L["holdings"].get(s, 0) * px[s]
-            if v >= max(c_["min_trade_usd"], px[s]):
+            if v >= max(c_["min_trade_usd"], MIN_FRACTION_USD if frac[s] else px[s]):
                 need[s] = v
     if not sells and not need:
         return None
@@ -142,11 +236,11 @@ def build_plan(mode, strat, target: dict, reason: str, now, broker=None, buys=Tr
         split = {s: _split(q, lots) for s, q in sells.items()}
         for k, t in enumerate(times):
             for s in sorted(sells):
-                if split[s][k] >= 1:
+                if split[s][k] > EPS:
                     _insert_order(c, pid, mode, strat.id, 2 * k, k + 1, lots, s, "SELL", t, sess, plan_qty=split[s][k])
             for s in sorted(need, key=lambda x: -need[x]):
                 _insert_order(c, pid, mode, strat.id, 2 * k + 1, k + 1, lots, s, "BUY", t, sess)
-    parts = [f"sell {q} {s}" for s, q in sells.items()] + [f"buy ≈${v:,.0f} {s}" for s, v in need.items()]
+    parts = [f"sell {qs(q)} {s}" for s, q in sells.items()] + [f"buy ≈${v:,.0f} {s}" for s, v in need.items()]
     db.add_event("info", "orders", f"{strat.name}: plan created ({reason})",
                  f"{', '.join(parts)} · {lots} lot(s) every {c_['interval_min']:g} min from {local(start)}", strategy=strat.id, mode=mode)
     return pid
@@ -240,6 +334,31 @@ def _limit(q, side, offset):
     return round((q.get("bid") or q["price"]) * (1 - offset), 2)
 
 
+STALE_EXTRA = 0.005      # no trade yet in today's session (thin ETF at the open): the last price is yesterday's close
+CHASE_STEP = 0.005       # each retry of a lot moves the limit this much further (a limit only caps the price paid)
+CHASE_CAP = 0.02         # never more than this beyond the lot's first limit
+
+
+def lot_limit(o, q, side, offset, now):
+    """The limit for a lot: through the quote by `offset`; wider when the quote has no trade yet today; on a retry at least
+    CHASE_STEP × retries beyond the lot's first limit (capped at CHASE_CAP), so a lot whose price ran away still fills.
+    Webull fills a buy limit at the best ask at or below it, so a higher limit does not mean a worse price by itself."""
+    base = _limit(q, side, offset)
+    sign = 1 if side == "BUY" else -1
+    b = mh.session_bounds(now.astimezone(mh.NY).date(), o.get("session") or "CORE")
+    t = q.get("time") or 0
+    if b and t and t < b[0].timestamp() and not q.get("ask" if side == "BUY" else "bid"):
+        base = round(base * (1 + sign * STALE_EXTRA), 2)
+    if (o.get("retry") or 0) > 0:
+        first = db.one("SELECT limit_price FROM orders WHERE plan_id=? AND lot=? AND symbol=? AND side=? AND retry=0 AND limit_price>0",
+                       (o["plan_id"], o["lot"], o["symbol"], side))
+        if first and first["limit_price"]:
+            f0 = float(first["limit_price"])
+            want = f0 * (1 + sign * min(CHASE_STEP * o["retry"], CHASE_CAP))
+            base = max(base, round(want, 2)) if side == "BUY" else min(base, round(want, 2))
+    return base
+
+
 def _claim(oid, cid):
     with db.tx() as c:
         n = c.execute("UPDATE orders SET status='sending', client_order_id=?, submitted_at=?, updated_at=? WHERE id=? AND status='scheduled'",
@@ -278,7 +397,11 @@ def _buy_qty(mode, strat, plan, o, limit, broker, cash_buffer):
     value = alloc / max(1, left)
     if limit <= 0:
         return 0
-    q = int(math.floor(value / limit))
+    q = int(math.floor(value / limit + 1e-9))
+    if left <= 1 and fractional_on(mode, o["symbol"]):
+        # last lot with fractions: whole shares plus the leftover fraction, keeping Webull's fee inside the free cash
+        qf = _down(min(value, free / (1 + FEE_RESERVE)) / limit, FRAC_DP)
+        return max(q, qf) if qf * limit * (1 + FEE_RESERVE) <= free + 1e-6 else q
     # last lot: whole shares leave up to one share of cash unbought (a $380 ETF on $10,000 = 3.8%). Round to the nearest
     # share when the extra one still fits in the free cash with Webull's fee (0.107%) on top.
     if left <= 1 and value - q * limit > 0.5 * limit and (q + 1) * limit * (1 + FEE_RESERVE) <= free:
@@ -369,12 +492,16 @@ def send_due(mode, now, broker, settings, positions=None, acct=None):
             continue
         try:
             q = broker.quote(o["symbol"])
-            limit = _limit(q, o["side"], c_["offset"])
+            limit = lot_limit(o, q, o["side"], c_["offset"], now)
         except Exception as e:
             _release(o["id"])
             log.warning("no price for %s: %s (next minute)", o["symbol"], e)
             continue
         L = ledger.get(mode, o["strategy"])
+        if o["side"] == "SELL":
+            dp = _sell_dp(mode, o["symbol"], o["qty"] if o["qty"] else o["plan_qty"], settings)
+        else:
+            dp = FRAC_DP if fractional_on(mode, o["symbol"], settings) else 0
         if o["side"] == "SELL":
             held = L["holdings"].get(o["symbol"], 0.0)
             avail = max(0.0, held - _pending_sell(mode, o["symbol"], o["strategy"]))
@@ -384,7 +511,7 @@ def send_due(mode, now, broker, settings, positions=None, acct=None):
             want = o["qty"] if o["qty"] else o["plan_qty"]
             last_lot = not db.one("SELECT COUNT(*) n FROM orders WHERE plan_id=? AND symbol=? AND side='SELL' AND status='scheduled' AND id<>?",
                                   (o["plan_id"], o["symbol"], o["id"]))["n"]
-            qty = math.floor(avail) if (last_lot and plan["reason"] in ("stop",)) else min(math.floor(avail), int(want or 0))
+            qty = _down(avail, dp) if (last_lot and plan["reason"] in ("stop",)) else min(_down(avail, dp), _down(want or 0, dp))
         else:
             try:
                 qty = _buy_qty(mode, strat, plan, o, limit, broker, c_)
@@ -393,22 +520,23 @@ def send_due(mode, now, broker, settings, positions=None, acct=None):
                 log.warning("sizing %s: %s", o["symbol"], e)
                 continue
             if o["qty"]:
-                qty = min(qty, int(o["qty"]))
+                qty = min(qty, _down(o["qty"], dp))
         if c_["max_order_usd"] > 0 and qty * limit > c_["max_order_usd"]:
-            qty = math.floor(c_["max_order_usd"] / limit)
-        if o["side"] == "BUY" and guard is not None and qty >= 1:
+            qty = _down(c_["max_order_usd"] / limit, dp)
+        if o["side"] == "BUY" and guard is not None and not _too_small(o["side"], qty, limit):
             allowed, why = guard.allow(qty * limit)
             if allowed < qty * limit:
-                q2 = int(math.floor(allowed / limit))
-                if q2 < 1:
+                q2 = _down(allowed / limit, dp)
+                if _too_small("BUY", q2, limit):
                     _blocked(mode, o, strat, why or "no room")
                     continue
-                db.add_event("warn", "orders", f"Buy reduced by the money guard: {o['symbol']}", f"{qty} → {q2} shares · {why}",
+                db.add_event("warn", "orders", f"Buy reduced by the money guard: {o['symbol']}", f"{qs(qty)} → {qs(q2)} shares · {why}",
                              strategy=strat.id, mode=mode)
                 qty = q2
-        if qty < 1:
+        if _too_small(o["side"], qty, limit):
             db.run("UPDATE orders SET status='skipped', qty=0, limit_price=?, error=?, updated_at=? WHERE id=?",
-                   (limit, "nothing to trade (less than 1 share)", int(time.time()), o["id"]))
+                   (limit, "nothing to trade (less than 1 share)" if dp == 0 or qty <= EPS else
+                    f"nothing to trade (less than ${MIN_FRACTION_USD:g} as a fraction)", int(time.time()), o["id"]))
             continue
         db.run("UPDATE orders SET qty=?, limit_price=?, updated_at=? WHERE id=?", (qty, limit, int(time.time()), o["id"]))
         if o["lot"] == 1 and o["step"] in (0, 1) and o["retry"] == 0:
@@ -428,6 +556,12 @@ def send_due(mode, now, broker, settings, positions=None, acct=None):
             db.run("UPDATE orders SET status='failed', error=?, updated_at=? WHERE id=? AND status='sending'",
                    (f"refused: {e}"[:300], int(time.time()), o["id"]))
             sent.append(o["id"])
+            if is_fraction(qty) and o["symbol"] not in fraction_refused(mode):
+                refuse_fraction(mode, o["symbol"], e, strat)          # whole shares from now on for this ETF
+                whole = int(math.floor(qty + 1e-9))
+                if whole >= 1 and plan["status"] == "active":
+                    _retry(o, whole, now, f"fractional order refused: {e}", int(_f(settings.get("exec_retries"), 3)) + 1)
+                continue
             if e.permanent:
                 block_symbol(mode, o["symbol"], e.code, str(e), strat)
                 cancel_plan(o["plan_id"], f"Webull refuses {o['symbol']}: {e.code}", broker)
@@ -446,12 +580,29 @@ def send_due(mode, now, broker, settings, positions=None, acct=None):
     return sent
 
 
+def _too_small(side, qty, limit) -> bool:
+    """Nothing to send: no shares, or a buy of less than one share worth under MIN_FRACTION_USD."""
+    if qty is None or qty <= EPS:
+        return True
+    return side == "BUY" and qty < 1 and qty * (limit or 0) < MIN_FRACTION_USD
+
+
+def _worth_retry(mode, o, left) -> bool:
+    if left >= 1 - 1e-9:
+        return True
+    if left <= EPS or o["symbol"] in fraction_refused(mode):
+        return False
+    if o["side"] == "SELL":
+        return True                                   # the rest of a fractional sell
+    return fractional_on(mode, o["symbol"]) and left * (o["limit_price"] or 0) >= MIN_FRACTION_USD
+
+
 def _retry(o, qty_left, now, why, retries):
     strat_name = (S.row(o["strategy"]) or {}).get("name", o["strategy"])
     if o["retry"] + 1 > retries:
-        notify.send("lot_failed", f"{brokers.MODE_LABEL[o['mode']]} · {strat_name}: {o['side']} {qty_left:.0f} {o['symbol']} failed "
+        notify.send("lot_failed", f"{brokers.MODE_LABEL[o['mode']]} · {strat_name}: {o['side']} {qs(qty_left)} {o['symbol']} failed "
                     f"{retries + 1} times ({why}). Please check Webull.", strategy=o["strategy"], critical=True)
-        db.add_event("error", "orders", f"Lot failed: {o['side']} {qty_left:.0f} {o['symbol']}", why, strategy=o["strategy"], mode=o["mode"])
+        db.add_event("error", "orders", f"Lot failed: {o['side']} {qs(qty_left)} {o['symbol']}", why, strategy=o["strategy"], mode=o["mode"])
         return
     when = mh.next_open(now + timedelta(minutes=1), o["session"] or "CORE")
     with db.tx() as c:
@@ -571,7 +722,7 @@ def poll(mode, now, broker, only_id=None, settings=None):
                               (filled, filled * avg, o["id"], o["applied_qty"] or 0)).rowcount
             if n == 1:
                 ledger.book_fill(mode, o["strategy"], o["symbol"], o["side"], dq, dv)
-                notify.send("lot_filled", f"{brokers.MODE_LABEL[mode]} · {o['side']} {dq:.0f} {o['symbol']} @ ${avg:,.2f} "
+                notify.send("lot_filled", f"{brokers.MODE_LABEL[mode]} · {o['side']} {qs(dq)} {o['symbol']} @ ${avg:,.2f} "
                             f"(lot {o['lot']}/{o['lots']})", strategy=o["strategy"])
         fee = float(st.get("fee") or 0.0)
         if fee > (o["fee"] or 0) + 1e-9:                  # broker fees come out of the strategy's cash, not yours
@@ -600,23 +751,23 @@ def poll(mode, now, broker, only_id=None, settings=None):
                         new = "partial" if filled > 0 else "cancelled"
                         db.run("UPDATE orders SET error=? WHERE id=?",
                                ("expired: day order from a closed session (Webull would not cancel it)", o["id"]))
-                        db.add_event("info", "orders", f"Old order treated as expired: {o['side']} {o['qty']:.0f} {o['symbol']}",
+                        db.add_event("info", "orders", f"Old order treated as expired: {o['side']} {qs(o['qty'])} {o['symbol']}",
                                      f"Sent {local(_dt(o['submitted_at'] or _ts(now)))}; its trading session is over, so it can no "
-                                     f"longer fill. Filled before: {filled:.0f}.", strategy=o["strategy"], mode=mode)
+                                     f"longer fill. Filled before: {qs(filled)}.", strategy=o["strategy"], mode=mode)
                         status = "EXPIRED"
                     else:
                         checks = (o["checks"] or 0) + 1
                         db.run("UPDATE orders SET checks=?, error=? WHERE id=?", (checks, f"cancel failed: {e}"[:300], o["id"]))
                         if checks == 5:
-                            notify.send("lot_failed", f"{brokers.MODE_LABEL[mode]} · Could not cancel {o['side']} {o['qty']:.0f} "
+                            notify.send("lot_failed", f"{brokers.MODE_LABEL[mode]} · Could not cancel {o['side']} {qs(o['qty'])} "
                                         f"{o['symbol']} (lot {o['lot']}/{o['lots']}): {e}. The bot will not send a replacement "
                                         "while it may still be open. Please check it in the Webull app.", strategy=o["strategy"], critical=True)
         db.run("UPDATE orders SET filled_qty=?, avg_price=?, status=COALESCE(?,status), updated_at=? WHERE id=?",
                (filled, avg if filled else o["avg_price"], new, int(time.time()), o["id"]))
         if new in ("partial", "cancelled", "failed"):
             left = (o["qty"] or 0) - filled
-            if left >= 1 and plan and plan["status"] == "active":
-                _retry(o, left, now, f"order {status.lower()} with {left:.0f} left", retries)
+            if _worth_retry(mode, o, left) and plan and plan["status"] == "active":
+                _retry(o, left, now, f"order {status.lower()} with {qs(left)} left", retries)
 
 
 def dedupe_retries() -> int:
@@ -686,7 +837,7 @@ def finish_plans(mode):
             row = S.row(p["strategy"])
             if row and row["control"] == "stopping":
                 S.update(p["strategy"], control="stopped")
-        txt = "\n".join(f"{x['side']} {x['qty']:.0f} {x['symbol']} @ ${x['avg']:,.2f} avg" for x in summary if x["qty"])
+        txt = "\n".join(f"{x['side']} {qs(x['qty'])} {x['symbol']} @ ${x['avg']:,.2f} avg" for x in summary if x["qty"])
         db.add_event("info", "orders", f"{name}: plan #{p['id']} done", txt or "nothing filled", strategy=p["strategy"], mode=mode)
         if summary:
             notify.send("plan_done", f"{brokers.MODE_LABEL[mode]} · {name} · plan done ({p['reason']})\n{txt}"

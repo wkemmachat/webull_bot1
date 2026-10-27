@@ -44,8 +44,8 @@ correctly — before a strategy needs it.
 
 ## Fractional shares test: 0.5 share, sold back
 
-The bot buys **whole shares** today. A small strategy therefore keeps up to one share of cash idle: $500 in QLD (about $88 a
-share) buys 5 shares and leaves about $59, roughly 12%, uninvested. Webull's API documentation says orders may carry decimal
+Without fractions a small strategy keeps up to one share of cash idle: $500 in QLD (about $88 a share) buys 5 shares and
+leaves about $59, roughly 12%, uninvested. Webull's API documentation says orders may carry decimal
 quantities, but whether Webull Thailand accepts them through the API, and as which order type, is only known by trying.
 
 Under the Test trade table, **Fractional test · limit** buys 0.5 share of the ETF you pick with a limit order (the order type the
@@ -54,9 +54,33 @@ unassigned like any test. The box remembers, per mode, whether each order type w
 answer). A refused fraction does not block the ETF for the strategies, and fractional tests do not count for the Go-live
 symbol list.
 
-What happens next depends on the answer: limit accepted → the bot can be allowed to buy fractions like whole shares; only market
-accepted → whole shares by limit order and only the leftover fraction at market; both refused → whole shares stay (give each
-strategy at least about $1,000). The setting itself is added after the test.
+**Result in Live (27 Oct 2026): limit accepted** (0.5 QLD bought at $89.11 and sold back, fees $0.09). So fractions are on
+for Live (**Execution → Fractional shares**). A mode whose limit test passed turns fractions on by itself (Auto); you
+can force On or Off per mode there.
+
+### How the bot uses fractions
+
+- Each lot still buys **whole shares**. The **last lot** of an ETF in a plan adds the leftover fraction (e.g. 33.62 ROM instead of
+  33), as a limit order like every other lot, with Webull's fee kept inside the strategy's free cash.
+- A buy smaller than one share is sent when it is worth at least **$5**; smaller leftovers stay as cash.
+- **Sells** sell exactly what the strategy holds when it leaves an ETF (and on Stop & sell, or a full withdrawal), fractions
+  included, so nothing is left over.
+- **Safety switch**: if Webull refuses a fractional order for an ETF, the bot sends the lot again as whole shares, uses whole
+  shares for that ETF from then on (in that account only) and tells you once on LINE. Execution → Fractional shares lists those
+  ETFs with a **Reset** button.
+- Paper follows Live unless you set it yourself.
+
+## Webull login: renew every 15 days
+
+Webull's OpenAPI login (token) lasts **15 days** by default and is renewed by hand: **Webull page → Reconnect**, then enter the
+SMS code in the Webull app (Menu → Messages → OpenAPI Notifications) within 5 minutes. The bot reminds you:
+
+- **LINE** when 5, 3 and 1 day(s) are left, and once more if it has ended (the last two are sent even in quiet hours);
+- **Home**: an amber banner from 5 days before the end, red on the last day or once it has ended, with a **Renew now** button;
+- the daily Health check (3 days before) and the end date on the Webull page.
+
+Renew while the US market is closed (Bangkok daytime or a weekend) and a few days early. Without a valid login the bot sends no
+orders and cannot read the account; queued plans simply wait — nothing is sold by mistake.
 
 ## Your checks (you tick them)
 
