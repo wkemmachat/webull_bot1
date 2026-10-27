@@ -7,8 +7,10 @@
   --accent: #4ADE80; --accent-hi: #86EFAC; --on-accent: #052E16;
   --up: #3DD598; --dn: #FF7A7A; --info: #9DBEFF;
   --ok-bg: #0E2A1A; --ok-fg: #5BE08F; --warn-bg: #2E2410; --warn-fg: #F5C76B; --err-bg: #331618; --err-fg: #FF9C9C; --info-bg: #14223A;
-  /* dip zones (a strategy's underwater percentile): blue 70–80, purple 80–100; text ≥ 7:1 on its background */
-  --dip1-bg: #10263F; --dip1-fg: #9CCBFF; --dip1-line: #4C8FD6; --dip2-bg: #24183F; --dip2-fg: #D2BEFF; --dip2-line: #9B7BEA;
+  /* buy zones (a strategy's underwater percentile), analyst-rating colours: Buy = green, Strong buy = solid dark green.
+     Dark mode: buy text 10.5:1 on its background, strong-buy text 7.8:1 on its fill */
+  --dip1-bg: #0F2E1C; --dip1-fg: #86EFAC; --dip1-line: #22C55E; --dip1-tint: #0F2418;
+  --dip2-bg: #34D399; --dip2-fg: #052E16; --dip2-line: #34D399; --dip2-tint: #0E3322;
   --chart-bg: #0E1411; --chart-grid: #1B241E; --chart-text: #98A89E;
   --radius: 14px;
   --font: 'IBM Plex Sans', 'IBM Plex Sans Thai', system-ui, -apple-system, sans-serif;
@@ -25,7 +27,9 @@
   --accent: #15803D; --accent-hi: #166534; --on-accent: #FFFFFF;
   --up: #12805C; --dn: #C4343F; --info: #2558C9;
   --ok-bg: #E3F3E8; --ok-fg: #166534; --warn-bg: #FDF2DC; --warn-fg: #8A5A00; --err-bg: #FDE8EA; --err-fg: #B42330; --info-bg: #E6EEFC;
-  --dip1-bg: #E2EEFF; --dip1-fg: #174A8C; --dip1-line: #3B7DD8; --dip2-bg: #EEE6FF; --dip2-fg: #4F2A9E; --dip2-line: #7C4DDB;
+  /* light: Buy = mint pill with dark-green text (8.3:1) and a green edge; Strong buy = solid emerald pill with white text (5.5:1) */
+  --dip1-bg: #DCFCE7; --dip1-fg: #14532D; --dip1-line: #16A34A; --dip1-tint: #F0FBF3;
+  --dip2-bg: #047857; --dip2-fg: #FFFFFF; --dip2-line: #047857; --dip2-tint: #DDF5E7;
   --chart-bg: #FFFFFF; --chart-grid: #E8F0EA; --chart-text: #55635B;
   color-scheme: light;
 }
@@ -310,11 +314,12 @@ table.t { width: 100%; border-collapse: collapse; }
 .th-sort .arr { font-size: 9px; min-width: 9px; color: var(--accent); }
 
 /* dip zones: pill + a coloured edge on the strategy's card / row */
-.pill.dip1 { background: var(--dip1-bg); color: var(--dip1-fg); font-weight: 600; }
-.pill.dip2 { background: var(--dip2-bg); color: var(--dip2-fg); font-weight: 600; }
-.dipz1 { box-shadow: inset 4px 0 0 var(--dip1-line); background: color-mix(in srgb, var(--dip1-bg) 45%, var(--panel)); }
-.dipz2 { box-shadow: inset 4px 0 0 var(--dip2-line); background: color-mix(in srgb, var(--dip2-bg) 55%, var(--panel)); }
-tr.dipz1 > td:first-child { box-shadow: inset 4px 0 0 var(--dip1-line); } tr.dipz2 > td:first-child { box-shadow: inset 4px 0 0 var(--dip2-line); }
+.pill.dip1 { background: var(--dip1-bg); color: var(--dip1-fg); font-weight: 600; box-shadow: inset 0 0 0 1px var(--dip1-line); }
+.pill.dip2 { background: var(--dip2-bg); color: var(--dip2-fg); font-weight: 700; letter-spacing: .01em; }
+.dipz1 { box-shadow: inset 4px 0 0 var(--dip1-line); background: var(--dip1-tint); }
+.dipz2 { box-shadow: inset 6px 0 0 var(--dip2-line); background: var(--dip2-tint); }
+tr.dipz1 > td:first-child { box-shadow: inset 4px 0 0 var(--dip1-line); } tr.dipz2 > td:first-child { box-shadow: inset 6px 0 0 var(--dip2-line); }
 tr.dipz1, tr.dipz2 { box-shadow: none; }
-.note.dip { background: var(--dip2-bg); color: var(--dip2-fg); border-left: 4px solid var(--dip2-line); }
+.note.dip { background: var(--dip2-tint); color: var(--text); border-left: 6px solid var(--dip2-line); }
+.note.dip b { color: var(--dip2-line); }
 .note.dip a { color: inherit; text-decoration: underline; }

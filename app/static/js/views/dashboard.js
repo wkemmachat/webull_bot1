@@ -23,7 +23,7 @@
   function dipBanner(list) {
     const deep = list.filter((s) => s.dip && s.dip.zone === 'deep' && s.control !== 'stopped').sort((a, b) => b.dip.pct - a.dip.pct);
     if (!deep.length) return '';
-    return `<div class="note dip" role="status" style="display:block;line-height:1.55"><b>Deep dip:</b> ${deep.map((s) => `<a href="#/strategies/${U.esc(s.id)}">${U.esc(s.name)}</a> ${U.ordinal(s.dip.pct)} percentile (${s.dip.depth.toFixed(0)}% below its high)`).join(' · ')}.
+    return `<div class="note dip" role="status" style="display:block;line-height:1.55"><b>▲▲ Strong buy zone:</b> ${deep.map((s) => `<a href="#/strategies/${U.esc(s.id)}">${U.esc(s.name)}</a> ${U.ordinal(s.dip.pct)} percentile (${s.dip.depth.toFixed(0)}% below its high)`).join(' · ')}.
       <span style="opacity:.85">In the backtests, money added in this zone was more often up a year later — a statistic, not a promise; dips can go deeper first. <a href="#/docs/strategy-dips">How it works</a></span></div>`;
   }
 

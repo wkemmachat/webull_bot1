@@ -41,7 +41,7 @@ def test_line_once_per_dip_and_rearm(clean, monkeypatch):
     monkeypatch.setattr(dip, "compute", fake)
     q = lambda: db.rows("SELECT * FROM line_queue WHERE event='dip'")
     dip.refresh_all()
-    assert len(q()) == 1 and "Deep dip · QLD regime" in q()[0]["text"]
+    assert len(q()) == 1 and "Strong buy zone · QLD regime" in q()[0]["text"]
     dip.refresh_all()                                    # still deep: no second message
     assert len(q()) == 1
     vals["pct"] = 75.0

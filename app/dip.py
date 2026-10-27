@@ -5,8 +5,8 @@ Research (27 Oct 2026, the bot's own code, 2016–2026 and from 2008): buying wh
 later). It is a statistic, not a promise: in 2008 deep dips kept falling.
 
   pct      share of the window's days (last 10 years of the backtest) that were LESS deep than today (0 = at a new high)
-  zone     "dip"  for 70 ≤ pct < 80     (shown in blue)
-           "deep" for pct ≥ 80          (shown in purple, LINE alert + Home banner on entry)
+  zone     "dip"  for 70 ≤ pct < 80     ("Buy zone", green)
+           "deep" for pct ≥ 80          ("Strong buy zone", solid dark green; LINE alert + Home banner on entry)
 Refreshed once a day after the US close (and on start when missing). LINE fires when a strategy enters ≥ 80 and is armed
 again only after it climbs back above the 70th percentile.
 """
@@ -88,9 +88,9 @@ def refresh_all(now=None, send=True) -> dict:
             txt = (f"{s.name} is {d['depth']:.0f}% below its backtest high: deeper than {d['pct']:.0f}% of its days in the last "
                    f"{d['years']:g} years (80th percentile = {d['p80']:.0f}%, 90th = {d['p90']:.0f}%). In the backtests, money added "
                    "in this zone was more often up a year later — not a promise; dips can go deeper first.")
-            db.add_event("info", "strategy", f"{s.name}: deep dip ({d['pct']:.0f}th percentile, {d['depth']:.0f}%)", txt, strategy=s.id)
+            db.add_event("info", "strategy", f"{s.name}: strong buy zone ({d['pct']:.0f}th percentile, {d['depth']:.0f}%)", txt, strategy=s.id)
             if send:
-                notify.send("dip", f"Deep dip · {s.name}\n{txt}", strategy=s.id)
+                notify.send("dip", f"Strong buy zone · {s.name}\n{txt}", strategy=s.id)
         elif new_deep:
             alerted = True                                # stopped: no message, but do not fire later for the same dip
         db.set_state(f"dip:{s.id}", {**d, "at": int(time.time()), "alerted": alerted})

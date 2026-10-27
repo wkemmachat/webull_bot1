@@ -103,5 +103,5 @@
   back). The result per mode and order type decides whether a "fractional shares" option is added; until then the bot buys whole
   shares. Orders send Webull a decimal quantity ("0.5") only for these tests.
 - **Dip zones (27 Oct 2026)**: each strategy's depth below its own backtest high, as a percentile of its last-10-year days,
-  refreshed after every US close. Blue = 70–80th percentile, purple = 80th or deeper (Home banner + one LINE "Deep dip" per
-  dip, re-armed above the 70th). Shown on Home cards, the Strategies list and the Expected return table. Docs → Dip zones.
+  refreshed after every US close. Green "Buy zone" = 70–80th percentile, solid dark green "Strong buy zone" = 80th or deeper (Home
+  banner + one LINE message per dip, re-armed above the 70th; colours as analyst ratings: Buy green, Strong buy dark green). Shown on Home cards, the Strategies list and the Expected return table. Docs → Buy zones.
