@@ -154,16 +154,22 @@ def invest_now(mode, sid):
     return {"ok": True, "amount": round(amt, 2)}
 
 
-def _raise_cash(mode, s, amount, kind, other=None, note="", invest="now"):
-    """Free `amount` of cash in strategy s; returns ('done', moved) or ('pending', plan_id)."""
+def _raise_cash(mode, s, amount, kind, other=None, note="", invest="now", everything=False):
+    """Free `amount` of cash in strategy s; returns ('done', moved) or ('pending', plan_id).
+    everything: all of it at today's prices (the dialog's amount was priced a moment earlier and may be a little off)."""
     L = ledger.get(mode, s.id)
     v = ledger.value(mode, s.id)
-    if amount > v["value"] + 0.01:
-        raise ValueError(f"{s.name} is worth ${v['value']:,.2f}; you asked for ${amount:,.2f}")
+    if everything:
+        amount = round(v["value"], 2)
+        if amount <= 0:
+            raise ValueError(f"{s.name} holds nothing to take out")
+    elif amount > v["value"] + 0.01:
+        raise ValueError(f"{s.name} is worth ${v['value']:,.2f} now (prices move); you asked for ${amount:,.2f}. "
+                         "Press Everything to take all of it.")
     free = max(0.0, L["cash"] - ledger.pending_strategy_buys(mode, s.id))
     if free + 0.01 >= amount:
         mid = ledger.record_money(mode, kind, s.id, amount, other=other, note=note)
-        moved = ledger.take_cash(mode, s.id, amount, money_id=mid, to_pool=(kind == "withdraw"))
+        moved = ledger.take_cash(mode, s.id, free if everything else amount, money_id=mid, to_pool=(kind == "withdraw"))
         return "done", moved, mid
     ap = execution.active_plan(mode, s.id)
     if ap:
@@ -187,7 +193,8 @@ def _raise_cash(mode, s, amount, kind, other=None, note="", invest="now"):
             sells[sym] = x
     mid = ledger.record_money(mode, kind, s.id, amount, other=other, note=note)
     pid = execution.build_plan(mode, s, {}, kind, md.now_utc(), sell_override=sells, buys=False,
-                               on_done={"money_id": mid, "amount": amount, "kind": kind, "move_to": other, "invest": invest})
+                               on_done={"money_id": mid, "amount": amount, "kind": kind, "move_to": other, "invest": invest,
+                                        "all": bool(everything)})
     if not pid:
         db.run("UPDATE money SET status='failed', note=COALESCE(note,'') || ' · could not build a sell plan' WHERE id=?", (mid,))
         raise ValueError("Could not create the sell plan (no price?). Try again in a minute.")
@@ -195,12 +202,12 @@ def _raise_cash(mode, s, amount, kind, other=None, note="", invest="now"):
     return "pending", pid, mid
 
 
-def withdraw(mode, sid, amount, note=""):
+def withdraw(mode, sid, amount, note="", everything=False):
     s = _strat(sid)
-    amount = round(float(amount), 2)
-    if amount <= 0:
+    amount = round(float(amount or 0), 2)
+    if amount <= 0 and not everything:
         raise ValueError("Enter an amount above 0")
-    st, x, mid = _raise_cash(mode, s, amount, "withdraw", note=note)
+    st, x, mid = _raise_cash(mode, s, amount, "withdraw", note=note, everything=everything)
     if st == "done":
         db.add_event("info", "money", f"Withdrew ${x:,.2f} from {s.name}", "From the strategy's cash; now in bot unassigned", strategy=sid, mode=mode)
         notify.send("money", f"{brokers.MODE_LABEL[mode]} · Withdrew ${x:,.2f} from {s.name} (back to bot unassigned).", strategy=sid)
@@ -209,15 +216,15 @@ def withdraw(mode, sid, amount, note=""):
     return {"status": "pending", "plan_id": x}
 
 
-def move(mode, src, dst, amount, note="", invest=None):
+def move(mode, src, dst, amount, note="", invest=None, everything=False):
     a, b = _strat(src), _strat(dst)
     invest = _invest(invest)
     if src == dst:
         raise ValueError("Pick two different strategies")
-    amount = round(float(amount), 2)
-    if amount <= 0:
+    amount = round(float(amount or 0), 2)
+    if amount <= 0 and not everything:
         raise ValueError("Enter an amount above 0")
-    st, x, mid = _raise_cash(mode, a, amount, "move", other=dst, note=note, invest=invest)
+    st, x, mid = _raise_cash(mode, a, amount, "move", other=dst, note=note, invest=invest, everything=everything)
     if st == "done":
         ledger.credit(mode, dst, x, hold=(invest == "wait"))
         db.add_event("info", "money", f"Moved ${x:,.2f}: {a.name} → {b.name}", "", strategy=src, mode=mode)
@@ -229,7 +236,10 @@ def move(mode, src, dst, amount, note="", invest=None):
 def after_plan(mode, plan, od):
     """Called when a withdraw/move sell plan finishes."""
     sid = plan["strategy"]
-    moved = ledger.take_cash(mode, sid, float(od["amount"]), money_id=od.get("money_id"), to_pool=not od.get("move_to"))
+    want = float(od["amount"])
+    if od.get("all"):                                    # Everything: whatever the sale brought in
+        want = max(want, ledger.get(mode, sid)["cash"])
+    moved = ledger.take_cash(mode, sid, want, money_id=od.get("money_id"), to_pool=not od.get("move_to"))
     s = S.get(sid)
     name = s.name if s else sid
     if od.get("move_to"):
@@ -238,7 +248,7 @@ def after_plan(mode, plan, od):
         msg = f"Moved ${moved:,.2f} from {name} to {t.name if t else od['move_to']}."
     else:
         msg = f"Withdrew ${moved:,.2f} from {name} (back to bot unassigned)."
-    if moved + 0.5 < float(od["amount"]):
+    if moved + 0.5 < float(od["amount"]) and not od.get("all"):
         msg += f" Asked for ${float(od['amount']):,.2f}; prices moved during the sale."
     db.add_event("info", "money", msg, f"Plan #{plan['id']}", strategy=sid, mode=mode)
     notify.send("money", f"{brokers.MODE_LABEL[mode]} · {msg}", strategy=sid)

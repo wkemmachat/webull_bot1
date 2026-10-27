@@ -223,7 +223,7 @@
           <div class="f"><label for="ma">${tab === 'add' ? 'Amount to add' : tab === 'withdraw' ? 'Amount to withdraw' : 'Amount to move'} (USD)</label>
             <input class="in num" id="ma" inputmode="decimal" style="height:54px;font-size:22px" placeholder="0.00">
             <div class="row" style="gap:6px">${(tab === 'add' ? [1000, 5000, 10000] : [1000, 5000]).map((v) => `<button class="btn s" data-q="${v}">${U.usd(v, 0)}</button>`).join('')}
-              <button class="btn s" data-q="${tab === 'add' ? Math.max(0, d.unassigned || 0) : r.value}">${tab === 'add' ? 'All bot unassigned' : 'Everything'}</button></div>
+              <button class="btn s" data-q="${tab === 'add' ? Math.max(0, d.unassigned || 0) : r.value}" ${tab === 'add' ? '' : 'data-all="1"'}>${tab === 'add' ? 'All bot unassigned' : 'Everything'}</button></div>
             <span class="h">${tab === 'add' ? 'Bot unassigned: ' + U.usd(d.unassigned) + (d.unassigned > 0 ? '' : ' — allocate money to the bot first (Money → Allocate to bot)') : U.esc(r.name || '') + ' is worth ' + U.usd(r.value) + ' · cash in it ' + U.usd(r.cash)}</span></div>
           ${tab !== 'withdraw' ? `${tab === 'move' ? '<div class="note info">Frees the cash in the first strategy (selling evenly if needed), then gives it to the second.</div>' : ''}
             <div class="col" style="gap:8px"><span class="lbl">${tab === 'move' ? 'The receiving strategy invests it' : 'Invest it'}</span>
@@ -233,7 +233,9 @@
           <label class="row small" style="color:var(--text2)"><input type="checkbox" checked disabled style="width:18px;height:18px;accent-color:var(--accent)">A LINE message is sent when it is done (if Money alerts are on)</label>
           <div class="row" style="justify-content:flex-end"><button class="btn" id="mc">Cancel</button><button class="btn p" id="mgo">${tab === 'add' ? 'Add money' : tab === 'withdraw' ? 'Withdraw' : 'Move money'}</button></div></div>`;
           U.on(box, '[data-t]', 'click', (e, b) => { tab = b.dataset.t; draw(); });
-          U.on(box, '[data-q]', 'click', (e, b) => { box.querySelector('#ma').value = (+b.dataset.q).toFixed(2); });
+          let all = false;                                   // Everything: the server takes all of it at today's prices
+          U.on(box, '[data-q]', 'click', (e, b) => { box.querySelector('#ma').value = (+b.dataset.q).toFixed(2); all = !!b.dataset.all; });
+          box.querySelector('#ma').addEventListener('input', () => { all = false; });
           U.on(box, 'input[name=inv]', 'change', (e, b) => { invest = b.value; box.querySelectorAll('.opt').forEach((o) => o.classList.toggle('on', o.querySelector('input').checked)); });
           box.querySelector('#ms').addEventListener('change', draw);
           box.querySelector('#mc').onclick = close;
@@ -242,6 +244,7 @@
             if (!(amount > 0)) throw new Error('Enter an amount');
             const b = { mode, strategy: box.querySelector('#ms').value, amount, invest };
             if (tab === 'move') b.other = box.querySelector('#mt').value;
+            if (all && tab !== 'add') b.all = true;
             const r = await U.api('/api/money/' + tab, { body: b });
             U.toast(r.status === 'pending' ? 'Selling with a split plan; the money moves when it finishes' : r.warning ? 'Done · ' + r.warning : 'Done');
             close(); if (onDone) onDone();

@@ -366,9 +366,10 @@ async def money_action(action: str, request: Request, u=Depends(user)):
         if action == "add":
             return moneyops.add(mode, b.get("strategy"), b.get("amount"), b.get("invest"), b.get("note", ""))
         if action == "withdraw":
-            return moneyops.withdraw(mode, b.get("strategy"), b.get("amount"), b.get("note", ""))
+            return moneyops.withdraw(mode, b.get("strategy"), b.get("amount"), b.get("note", ""), everything=bool(b.get("all")))
         if action == "move":
-            return moneyops.move(mode, b.get("strategy"), b.get("other"), b.get("amount"), b.get("note", ""), b.get("invest"))
+            return moneyops.move(mode, b.get("strategy"), b.get("other"), b.get("amount"), b.get("note", ""), b.get("invest"),
+                                 everything=bool(b.get("all")))
         if action == "protect":
             amt = round(float(b.get("amount") or 0), 2)
             if amt < 0:

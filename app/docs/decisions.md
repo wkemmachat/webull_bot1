@@ -119,3 +119,6 @@
   mode (all active ones while none has); errors that already have their answer no longer block "No errors" (Webull's 50M THB
   single-stock rule, a failed Test trade of an ETF that passed later); Health no longer marks the handled 50M THB rule as an
   error every day; Test trades widen and chase their limit like lots (thin ETFs such as ROM).
+- **Money → Everything** (27 Oct 2026): the button now sends "all" and the server takes the whole strategy at today's prices
+  (sells every holding, fractions included, and moves what the sale brings in). Before, the dialog's value was a few seconds
+  old, so a small price move made the server refuse it ("worth $150.52; you asked for $150.63").
