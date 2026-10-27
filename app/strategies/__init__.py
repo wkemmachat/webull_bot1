@@ -36,6 +36,8 @@ DEFAULTS = [
      {"trade": "USD", "vol_symbol": "USD", "compare_symbol": "SMH", "gold_etf": "GLD", "cash_symbol": "BIL", "st_atr": 20, "st_mult": 4.5,
       "ma_days": 200, "ibs_max": 0.15, "adx_min": 0, "target_vol_pct": 40, "leverage": 1, "vol_days": 20, "dip_full_size": True,
       "size_band_pct": 20, "tbill_cash": True}, {}),
+    ("rom_tbd", "trend_dip", "ROM Trend + RSI(2)", "#20C997",
+     {"signal": "IYW", "trade": "ROM", "cash_symbol": "", "ma_days": 150, "rsi_len": 2, "rsi_buy": 5.0, "exit_ma": 10}, {}),
 ]
 # Earlier defaults: a strategy still on exactly these settings is moved to the new ones once (lower-cost versions, 26 Oct 2026:
 # IBS-dip T-bill half as cash + QLD IBS < 0.15; metals flat in cash instead of SGOV).

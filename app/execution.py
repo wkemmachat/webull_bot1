@@ -711,6 +711,24 @@ def _drift(mode, strat, target, prices):
     return max((abs(w.get(k, 0.0) - target.get(k, 0.0)) for k in keys), default=0.0)
 
 
+def finish_stops():
+    """A strategy set to Stop & sell becomes Stopped once no mode holds its shares or runs a plan for it. Its stop plan
+    normally does this when it finishes; this covers a strategy that had nothing to sell, or whose stop plan was cancelled."""
+    out = []
+    for r in S.rows():
+        if r.get("control") != "stopping":
+            continue
+        held = db.one("SELECT COUNT(*) n FROM holdings WHERE strategy=? AND qty>1e-9", (r["id"],))["n"]
+        running = db.one("SELECT COUNT(*) n FROM plans WHERE strategy=? AND status='active'", (r["id"],))["n"]
+        if held or running:
+            continue
+        S.update(r["id"], control="stopped")
+        db.add_event("info", "strategy", f"{r['name']}: stopped", "Nothing left to sell in any mode, so Stop & sell is complete. "
+                     "Money still in it stays as cash until you withdraw it or set the strategy back to Active.", strategy=r["id"])
+        out.append(r["id"])
+    return out
+
+
 def waiting_for_buy(mode, strat, L=None):
     """None if the strategy may buy; else the time since when it has been waiting for its next BUY signal."""
     L = L or ledger.get(mode, strat.id)

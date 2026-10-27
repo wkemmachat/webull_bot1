@@ -4,7 +4,7 @@
 - **Three money layers**: Webull account → allocated to the bot (strategies + bot unassigned) → strategies. Cash you do not
   allocate is never used. Withdrawals go back to bot unassigned; *Return to Webull* hands money back.
 - **Money per strategy**: each strategy has its own dollar capital you add or withdraw (as in the AI x Alpaca bot), not a
-  percentage of one pot. Paper starts every strategy with $10,000; a new install's paper account is $150,000 (eleven strategies).
+  percentage of one pot. Paper starts every strategy with $10,000; a new install's paper account is $150,000 (twelve strategies).
 - **New money**: invest at today's signal by default; switch to *wait for the next buy signal* in Execution → When new money arrives
   (or per deposit). Waiting money stays as plain cash in the strategy, outside its plans.
 - **QLD + Trend + bear-dip** (added 23 Oct 2026 from the ETF Strategy Lab): same timing as the regimes (decide after the close,
@@ -84,3 +84,21 @@
   be created on the bot's own computer (or from `.env` on the server). 5 wrong tries → 15-minute lock and a LINE alert.
 - **Charts**: TradingView Lightweight Charts drawing the bot's own indicator values, so the chart always matches what was traded.
 - **Language**: English, with Thai terms in the glossary.
+- **First Live allocation review (27 Oct 2026)**:
+  - *Invest now* on a strategy with cash waiting for its next buy signal ends the wait; the bot buys toward today's target from
+    the next check (the next market open if it is closed).
+  - Stopped and stopping strategies are left out of *Give to strategies* and *Move* targets; + Add to one warns (screen + LINE).
+  - *Stop & sell* finishes by itself when no mode holds the strategy's shares or runs a plan for it (before, a strategy with
+    nothing to sell stayed "stopping" for good).
+  - Health's independent recompute now covers the C2-7 baskets (SMA, RSI, Supertrend and the state rule); it reported a false
+    error for both before.
+  - Go-live → Test trade lists only the ETFs of strategies that are not stopped, and leaves out single-stock 2x ETFs once Webull's
+    50M THB rule applies to the account.
+  - Money movements → How shows the note and how the money invests (e.g. "split · waits in cash for the next buy signal").
+- **Timeframe check (27 Oct 2026)**: the six daily 2x ETF strategies stay on daily bars. On 4h and 2h bars (TradingView, the bot's
+  own code, next-bar-open fills, 0.11% fee) none was clearly better: "same numbers" lost 7–52 points a year over 10 years, "same
+  time span" tied (QLD regime) or lost (Semis, ROM, both IBS-dip), except QLD + Trend + bear-dip on 4h (+4–5 points, deeper
+  fall, behind in the last 2 years), kept as a research note. Details: Docs → Daily vs 4h vs 2h bars.
+- **Fractional shares (27 Oct 2026)**: Go-live → Test trade has a fractional test (0.5 share by limit or market order, sold
+  back). The result per mode and order type decides whether a "fractional shares" option is added; until then the bot buys whole
+  shares. Orders send Webull a decimal quantity ("0.5") only for these tests.

@@ -10,13 +10,13 @@
 | C2-7 Momentum 2x | **+53.8%** | −33.3% | 1.27 | +93.9% | high |
 | QLD Trend + IBS-dip | **+34.4%** | −27.2% | 1.25 | +51.1% | high |
 | USD Trend + IBS-dip | **+58.7%** | −38.1% | 1.22 | +84.6% | very high |
+| ROM Trend + RSI(2) | **+50.0%** | −37.7% | 1.19 | +25.6% | very high |
 | Gold #1 · Supertrend + ADX | +7.7% † | −13.2% † | — | +36.1% | medium |
 | Gold #2 · Supertrend 30/2.5 | +9.0% † | −13.4% † | — | +29.5% | medium |
 | Silver #1 · Donchian 30/15 | +12.7% † | −33.9% † | — | −13.1% | very high |
 | Silver #2 · Supertrend 10/3 | +14.4% † | −34.3% † | — | +10.9% | very high |
 
-Bot backtests on real prices, 26 Oct 2026. C2-7 Momentum 2x needs single-stock 2x ETFs, which Webull Thailand allows only from
-50M THB: on your account it works like C2-7 Momentum 1x (see its page). † Gold and silver: the research's 10-year ETF test, lowered by what Webull's real fee costs in the bot's 2-year backtest (Yahoo has only 2 years of hourly futures prices). QQQ held over the same 10 years: about 20% a year, worst fall −35%.
+Bot backtests on real prices, 26 Oct 2026. † Gold and silver: the research's 10-year ETF test, lowered by what Webull's real fee costs in the bot's 2-year backtest (Yahoo has only 2 years of hourly futures prices). QQQ held over the same 10 years: about 20% a year, worst fall −35%.
 
 | Strategy | Holds | Since 2007 (or its start): a year / worst fall | Last 5 years |
 |---|---|---|---|
@@ -27,6 +27,7 @@ Bot backtests on real prices, 26 Oct 2026. C2-7 Momentum 2x needs single-stock 2
 | C2-7 Momentum 2x | 7 stocks via 2x ETFs or GLD+SGOV | +53.8% / −33.3% (from 2016) | +76.1% |
 | QLD Trend + IBS-dip | QLD (vol-capped) or GLD + cash | +29.1% / −30.6% (from 2007) | +44.8% |
 | USD Trend + IBS-dip | USD (vol-capped, 100% on dips) or GLD + cash | +36.7% / −51.5% (from 2007) | +76.7% |
+| ROM Trend + RSI(2) | ROM or cash | +30.0% / −66.1% (from 2007) | +41.2% |
 | Gold #1 · Supertrend + ADX | UGL or cash | see the strategy page | — |
 | Gold #2 · Supertrend 30/2.5 | UGL or cash | see the strategy page | — |
 | Silver #1 · Donchian 30/15 | AGQ or cash | see the strategy page | — |
@@ -46,7 +47,7 @@ Bot backtests on real prices, 26 Oct 2026. C2-7 Momentum 2x needs single-stock 2
 
 | Group | Strategies | Why |
 |---|---|---|
-| Nasdaq | QLD regime, QLD + Trend + bear-dip, QLD Trend + IBS-dip, C2-7 Momentum 1x/2x | same index, SMA200-type signals: in and out at similar times (QLD Trend + IBS-dip the least: monthly correlation about 0.7) |
+| Nasdaq | QLD regime, QLD + Trend + bear-dip, QLD Trend + IBS-dip, ROM Trend + RSI(2), C2-7 Momentum 1x/2x | same index, SMA200-type signals: in and out at similar times (QLD Trend + IBS-dip the least: monthly correlation about 0.7) |
 | Semiconductors | 2x Semis regime, USD Trend + IBS-dip | both hold USD; 2x Semis reads SMH, USD Trend + IBS-dip reads USD itself (monthly correlation about 0.6) |
 | Gold | Gold #1, Gold #2 | same futures, similar Supertrend: usually both long or both flat |
 | Silver | Silver #1, Silver #2 | same futures; silver crashes hit both |

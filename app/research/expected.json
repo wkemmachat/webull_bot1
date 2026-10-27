@@ -198,6 +198,25 @@
     "cagr": 17.2,
     "maxdd": -34.3
    }
+  },
+  "rom_tbd": {
+   "doc": "strategy-rom-tbd",
+   "reviewed": "2026-10-26",
+   "expect": {
+    "cagr": 50.0,
+    "maxdd": -37.9,
+    "basis": "research, real fee",
+    "period": "Oct 2016 – Oct 2026",
+    "note": "2x ETF research (26 Oct 2026) at Webull's real fee; the bot's own backtest code gave 50.0% (research engine 50.9%)."
+   },
+   "research": {
+    "source": "2x ETF Strategy Research · ROM Trend + RSI(2) (QLD + Trend + bear-dip rules on ROM, signal IYW)",
+    "period": "Oct 2016 – Oct 2026",
+    "cagr": 50.9,
+    "maxdd": -37.9,
+    "sharpe": 1.2,
+    "bench": "2008-2016 (not tuned on): 15.0% a year; ROM held 10 years: 37.1% a year, worst fall −67.6%"
+   }
   }
  },
  "log": [
@@ -208,6 +227,10 @@
   {
    "date": "2026-10-26",
    "what": "Webull's real fee (0.10% + 7% VAT = 0.107%, used as 0.11% per buy and per sell) in every backtest, and lower-cost settings: IBS-dip strategies keep the T-bill half as cash (QLD IBS also dips only below IBS 0.15), metals stay in cash while flat. Each expected return = research return adjusted by the change measured in the bot's backtest; worst falls = the worse of research and bot backtest."
+  },
+  {
+   "date": "2026-10-26",
+   "what": "Added ROM Trend + RSI(2) (from the 2x ETF research): expected 50.0% a year at the real fee, worst fall −37.9%."
   }
  ]
 }

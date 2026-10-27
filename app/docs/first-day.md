@@ -1,7 +1,7 @@
 <!--{"title": "First-day checklist", "group": "Start here"}-->
 # First-day checklist
 
-1. **Sign in** and open the Dashboard. The eleven strategies should show a state (LONG, FLAT, 2x, trend, IN, OFF …) within a couple of minutes.
+1. **Sign in** and open the Dashboard. The twelve strategies should show a state (LONG, FLAT, 2x, trend, IN, OFF …) within a couple of minutes.
 2. **Strategies → each strategy**: check the chart. Gold #1 shows the Supertrend line and the ADX panel; the regimes show
    both the signal index (QQQ or SMH) and the traded ETF (QLD or USD).
 3. **Health check → Run check now**. Everything should be ok except perhaps the LINE and backup lines on day one.

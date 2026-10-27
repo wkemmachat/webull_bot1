@@ -67,6 +67,9 @@ def main(out: Path, days: int, now=None):
                      "BIL": daily(7, nd, 91.0, 0.00015, 0.0003, now), "SGOV": daily(8, nd, 100.2, 0.00015, 0.0003, now),
                      "SPY": daily(9, nd, 500, 0.0005, 0.01, now)}.items():
         df.to_csv(out / f"{name}_1d.csv", index=False)
+    iyw = daily(10, nd, 150, 0.0008, 0.014, now)                     # US technology (ROM's index) and ROM itself
+    for name, df in {"IYW": iyw, "ROM": lever(iyw, 2, 60)}.items():
+        df.to_csv(out / f"{name}_1d.csv", index=False)
     return out
 
 

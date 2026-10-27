@@ -58,8 +58,28 @@
       if (r.status === 'ok') return `${U.pill('ok', 'OK')} <span class="muted small">${U.esc(when)}</span>`;
       if (r.status === 'queued') return `${U.pill('', 'Queued')} <span class="muted small">${U.esc(r.error || '')}</span>`;
       if (r.status === 'buying' || r.status === 'selling') return `${U.pill('warn', r.status === 'buying' ? 'Buying…' : 'Selling…')} <span class="spin"></span>`;
-      if (r.status === 'holding') return `${U.pill('err', `Holding ${r.left} share${r.left > 1 ? 's' : ''}`)}`;
+      if (r.status === 'holding') return `${U.pill('err', `Holding ${+(+r.left).toFixed(6)} share${r.left > 1 ? 's' : ''}`)}`;
       return `${U.pill('err', r.code === 'OPENAPI_IS_TH_FIRST_ETF_PLACE' ? 'Needs permission' : r.code ? 'Refused' : 'Failed')} <span class="muted small">${U.esc(when)}</span>`;
+    }
+    function frHtml(d) {
+      const f = d.fractional || {}, tests = d.fractional_tests || [];
+      const busy = tests.some((r) => ['queued', 'buying', 'selling', 'holding'].includes(r.status));
+      const one = (k, label) => { const x = f[k]; return `<div class="row" style="gap:8px"><span class="small" style="width:120px">${label}</span>${x ? U.pill(x.ok ? 'ok' : 'err', x.ok ? 'Accepted' : 'Refused') + ` <span class="muted small">${U.esc(x.symbol)} · ${U.esc(U.dt(x.at))}</span>` : '<span class="muted small">not tested</span>'}</div>`; };
+      const syms = d.symbols.map((s) => s.symbol);
+      const def = syms.includes('QLD') ? 'QLD' : syms[0];
+      return `<div class="col" style="gap:10px;border-top:1px solid var(--line2);padding-top:14px;margin-top:4px">
+        <div><h3 style="margin:0;font-size:15px;font-weight:600">Fractional shares: buy 0.5 share, sell it back</h3>
+          <div class="muted small" style="max-width:760px;margin-top:4px">The bot buys whole shares today, so a small strategy keeps up to one share of cash idle ($500 in QLD ≈ 5 shares, about 12% not invested). This checks whether Webull accepts fractions through the API — first as a limit order (what the bot uses), then, if refused, as a market order.</div></div>
+        ${one('LIMIT', 'Limit order')}${one('MARKET', 'Market order')}
+        <div class="small" style="color:var(--text2)">→ ${U.esc(f.verdict || '')}</div>
+        <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><select class="in" id="frs" style="width:auto">${syms.map((x) => `<option ${x === def ? 'selected' : ''}>${U.esc(x)}</option>`).join('')}</select>
+          <button class="btn p" data-fr="LIMIT" ${busy ? 'disabled' : ''}>Fractional test · limit</button>
+          <button class="btn" data-fr="MARKET" ${busy ? 'disabled' : ''}>Fractional test · market</button></div>
+        ${tests.length ? `<div class="tw"><table class="t"><thead><tr><th>When</th><th>ETF</th><th>Order</th><th>Result</th><th></th></tr></thead><tbody>${tests.map((r) => `<tr>
+          <td class="num small">${U.esc(U.dt(r.created_at))}</td><td class="mono">${U.esc(r.symbol)}</td><td class="small">${U.esc((r.order_type || 'LIMIT').toLowerCase())} · ${r.qty}</td>
+          <td style="white-space:normal">${ttState(r)}<div class="small muted">${U.esc(r.result || r.error || '')}</div>${r.raw && r.status === 'failed' ? `<details><summary class="muted small" style="cursor:pointer">Webull's own answer</summary><pre class="mono small" style="white-space:pre-wrap;word-break:break-all;margin:6px 0">${U.esc(r.raw)}</pre></details>` : ''}</td>
+          <td class="r">${r.status === 'holding' ? `<button class="btn s" data-sell="${r.id}">Sell again</button> <button class="btn s" data-gone="${r.id}">I sold it</button>` : ''}</td></tr>`).join('')}</tbody></table></div>` : ''}
+      </div>`;
     }
     function ttRender(box, d) {
       const lowPool = d.pool < 150;
@@ -94,7 +114,8 @@
           <label class="small muted" for="ttq">Shares per test</label>
           <select class="in" id="ttq" style="width:auto">${Array.from({ length: d.max_qty }, (_, i) => i + 1).map((n) => `<option ${n === ttQty ? 'selected' : ''}>${n}</option>`).join('')}</select>
           <button class="btn p" id="ttall" ${d.running ? 'disabled' : ''}>Test all ${d.symbols.length} ETFs</button>
-          <span class="muted small">One at a time; each takes about 10–60 seconds when the market is open.</span></div>`;
+          <span class="muted small">One at a time; each takes about 10–60 seconds when the market is open.</span></div>
+        ${frHtml(d)}`;
       box.querySelector('#ttq').onchange = (e) => { ttQty = +e.target.value; ttRender(box, d); };
       const go = async (syms, btn) => {
         const what = syms.length === 1 ? syms[0] : `${syms.length} ETFs (${syms.join(', ')})`;
@@ -105,6 +126,14 @@
         await U.busy(btn, async () => { ttLoad(await U.api('/api/testtrade/start', { body: { mode: gmode, symbols: syms, qty: ttQty } })); U.toast('Test trade started'); });
       };
       U.on(box, '[data-tt]', 'click', (e, b) => go([b.dataset.tt], b));
+      U.on(box, '[data-fr]', 'click', async (e, b) => {
+        const sym = box.querySelector('#frs').value, ot = b.dataset.fr;
+        const ok = await U.confirm(`Fractional test in ${U.modeLabel[gmode]}?`,
+          `Buy <b>0.5 share</b> of ${U.esc(sym)} with a <b>${ot === 'MARKET' ? 'market' : 'limit'}</b> order, then sell the 0.5 straight back. It checks whether Webull accepts fractional orders through the API. Paid from bot unassigned.`
+          + (live ? '<br><br><b>These are real orders on your Webull account.</b>' : ''), { ok: 'Buy and sell 0.5', word: live ? 'TEST' : undefined });
+        if (!ok) return;
+        await U.busy(b, async () => { ttLoad(await U.api('/api/testtrade/start', { body: { mode: gmode, symbols: [sym], fractional: true, order_type: ot } })); U.toast('Fractional test started'); });
+      });
       box.querySelector('#ttall').onclick = (e) => go(d.symbols.filter((s) => !(s.last && ['queued', 'buying', 'selling', 'holding'].includes(s.last.status))).map((s) => s.symbol), e.target);
       U.on(box, '[data-sell]', 'click', (e, b) => U.busy(b, async () => ttLoad(await U.api('/api/testtrade/sell', { body: { id: +b.dataset.sell } }))));
       U.on(box, '[data-gone]', 'click', async (e, b) => {

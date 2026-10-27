@@ -45,10 +45,10 @@
       </section>
       <section class="card flush"><div class="row sb" style="padding:16px 20px 4px"><h2 class="h2">Capital per strategy</h2><span class="muted small">Return is measured on net money in, so adding money never looks like profit.</span></div>
         <div class="tw"><table class="t"><thead><tr><th>Strategy</th><th class="r">Money in</th><th class="r">Taken out</th><th class="r">Net capital</th><th class="r">Value now</th><th class="r">P&amp;L</th><th class="r">Share</th><th class="r">Actions</th></tr></thead><tbody>
-        ${d.rows.map((r) => `<tr><td><a href="#/strategies/${r.id}" class="row" style="gap:10px;color:var(--text)">${U.dot(r.color, 10)}<b style="font-weight:500">${U.esc(r.name)}</b>${r.waiting ? ' ' + U.pill('warn', U.usd(r.waiting, 0) + ' waits for a buy signal') : ''}</a></td>
+        ${d.rows.map((r) => `<tr><td><a href="#/strategies/${r.id}" class="row" style="gap:10px;color:var(--text)">${U.dot(r.color, 10)}<b style="font-weight:500">${U.esc(r.name)}</b>${r.waiting ? ' ' + U.pill('warn', U.usd(r.waiting, 0) + ' waits for a buy signal') : ''}${r.control === 'stopped' || r.control === 'stopping' ? ' ' + U.pill(r.net_in > 0.5 ? 'err' : '', r.control === 'stopped' ? 'stopped · does not buy' : 'stopping · does not buy') : ''}</a></td>
           <td class="r num">${U.usd(r.cap_in, 0)}</td><td class="r num muted">${U.usd(r.cap_out, 0)}</td><td class="r num">${U.usd(r.net_in, 0)}</td><td class="r num" style="font-weight:600">${U.usd(r.value)}</td>
           <td class="r num ${U.cls(r.pnl)}">${U.sgnUsd(r.pnl, 0)} · ${U.pct(r.ret)}</td><td class="r num muted">${(r.share * 100).toFixed(1)}%</td>
-          <td class="r"><span class="row" style="gap:6px;justify-content:flex-end;flex-wrap:nowrap"><button class="btn s" data-k="add" data-s="${r.id}">+ Add</button><button class="btn s" data-k="withdraw" data-s="${r.id}">− Withdraw</button></span></td></tr>`).join('')}</tbody>
+          <td class="r"><span class="row" style="gap:6px;justify-content:flex-end;flex-wrap:nowrap">${r.waiting > 0 && r.control !== 'stopped' && r.control !== 'stopping' ? `<button class="btn s" data-now="${r.id}" title="Invest the waiting cash now, at today's signal">Invest now</button>` : ''}<button class="btn s" data-k="add" data-s="${r.id}">+ Add</button><button class="btn s" data-k="withdraw" data-s="${r.id}">− Withdraw</button></span></td></tr>`).join('')}</tbody>
         <tfoot><tr><td>Total</td><td class="r num">${U.usd(tin, 0)}</td><td class="r num">${U.usd(tout, 0)}</td><td class="r num">${U.usd(tnet, 0)}</td><td class="r num">${U.usd(d.total, 0)}</td><td class="r num ${U.cls(d.total - tnet)}">${U.sgnUsd(d.total - tnet, 0)}</td><td class="r num">100%</td><td></td></tr></tfoot></table></div>
         <div class="row" style="padding:10px 20px 14px;gap:8px"><button class="btn s" data-k="move">Move between strategies</button></div></section>
       <div class="grid" style="--min:380px">
@@ -57,7 +57,7 @@
           ${d.moves.map((m) => { const k = KIND[m.kind] || ['', m.kind]; const W = mode === 'paper' ? 'Account' : 'Webull';
             const path = m.kind === 'to_bot' ? `${W} → Bot` : m.kind === 'to_webull' ? `Bot → ${W}` : m.kind === 'add' ? `Bot → ${U.esc(m.name)}` : m.kind === 'withdraw' ? `${U.esc(m.name)} → Bot` : `${U.esc(m.name)} → ${U.esc(m.other_name || '')}`;
             return `<tr><td class="num">${U.dt(m.t)}</td><td>${U.pill(k[0], k[1])}</td><td>${path}</td><td class="r num">${U.usd(m.done_amount || m.amount)}</td>
-            <td class="muted small wrap">${U.esc(m.note || (m.invest === 'wait' ? 'waits in cash for the next buy signal' : m.plan_id ? 'sell plan #' + m.plan_id : ''))}</td>
+            <td class="muted small wrap">${U.esc([m.note, m.invest === 'wait' ? 'waits in cash for the next buy signal' : m.invest === 'now' && (m.kind === 'add' || m.kind === 'move') ? 'invests at the signal' : '', m.plan_id ? 'sell plan #' + m.plan_id : ''].filter(Boolean).join(' · '))}</td>
             <td>${U.pill(m.status === 'done' ? 'ok' : m.status === 'pending' ? 'warn' : 'err', m.status === 'pending' ? 'selling…' : m.status)}</td></tr>`; }).join('') || '<tr><td colspan="6" class="muted">No money movements yet</td></tr>'}</tbody></table></div></section>
         <section class="card col" style="gap:12px;align-self:flex-start"><h2 class="h2">Rules that keep money safe</h2>
           <div><b>Only what you allocate.</b> <span class="muted">The bot trades only with money you allocated to it. Cash you did not allocate, and shares you bought yourself, are never touched.</span></div>
@@ -69,6 +69,22 @@
       U.on(el, '[data-f]', 'click', (e, b) => V.fundDialog(b.dataset.f, load));
       U.on(el, '[data-split]', 'click', () => V.splitDialog(load));
       U.on(el, '[data-protect]', 'click', () => V.protectDialog(f, load));
+      U.on(el, '[data-now]', 'click', (e, b) => {
+        const r = d.rows.find((x) => x.id === b.dataset.now) || {};
+        U.modal('Invest the waiting cash now?', `<div class="col" style="gap:14px">
+          <div><b>${U.usd(r.waiting)}</b> in <b>${U.esc(r.name || '')}</b> is waiting for the strategy's next BUY signal. Invest it now instead: the bot buys toward today's target with a split plan (at the next market open if the market is closed).</div>
+          <div class="muted small">Use this when the strategy is already in a position today (for example QLD regime at 2x): its next BUY can be weeks or months away, and the backtest is always invested at the current signal.</div>
+          <div class="row" style="justify-content:flex-end"><button class="btn" id="nc">Cancel</button><button class="btn p" id="ngo">Invest now</button></div></div>`, {
+          width: 520,
+          onOpen: (box, close) => {
+            box.querySelector('#nc').onclick = close;
+            box.querySelector('#ngo').onclick = (ev) => U.busy(ev.target, async () => {
+              const x = await U.api('/api/money/invest-now', { body: { mode, strategy: r.id } });
+              U.toast(`${U.usd(x.amount)} invested at today's signal`); close(); load();
+            });
+          },
+        });
+      });
     }
     await load();
     return { cleanup: () => {}, refresh: () => load().catch(() => {}), every: 60000 };
@@ -134,7 +150,7 @@
     const mode = U.mode();
     const d = await U.api('/api/money?mode=' + mode);
     const pool = Math.max(0, (d.fund || {}).pool || 0);
-    const rows = d.rows.filter((r) => r.control !== 'stopped');
+    const rows = d.rows.filter((r) => r.control !== 'stopped' && r.control !== 'stopping');
     let invest = d.new_money_start === 'buy' ? 'wait' : 'now';
     U.modal('Give to strategies', `
       <div class="col" style="gap:14px">
@@ -177,7 +193,7 @@
           if (!Object.keys(allocations).length) throw new Error('Enter an amount, or press Split equally');
           if (sum() > pool + 0.004) throw new Error('That is more than bot unassigned');
           const r = await U.api('/api/money/split', { body: { mode, allocations, invest } });
-          U.toast(`Gave ${U.usd(r.total)} to ${r.count} strateg${r.count === 1 ? 'y' : 'ies'}`);
+          U.toast(`Gave ${U.usd(r.total)} to ${r.count} strateg${r.count === 1 ? 'y' : 'ies'}` + ((r.warnings || []).length ? ' · ' + r.warnings.join(' ') : ''));
           close(); if (onDone) onDone();
         });
       },
@@ -188,7 +204,9 @@
   V.moneyDialog = async function (kind, sid, onDone) {
     const mode = U.mode();
     const d = await U.api('/api/money?mode=' + mode);
-    const rows = d.rows.filter((r) => r.control !== 'stopped' || kind !== 'add');
+    const off = (r) => r.control === 'stopped' || r.control === 'stopping';
+    const all = d.rows, rows = d.rows.filter((r) => !off(r) || kind !== 'add');
+    const toRows = all.filter((r) => !off(r));
     let tab = kind || 'add', invest = d.new_money_start === 'buy' ? 'wait' : 'now';
     U.modal(`Money · ${U.modeLabel[mode]}`, '<div id="mb"></div>', {
       onOpen: (box, close) => {
@@ -200,7 +218,7 @@
           <div class="seg" style="width:100%;display:grid;grid-template-columns:repeat(3,1fr)">${['add', 'withdraw', 'move'].map((k) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${k[0].toUpperCase() + k.slice(1)}</button>`).join('')}</div>
           <div class="col" style="gap:16px;margin-top:16px">
           ${tab === 'move' ? `<div class="fs"><div class="f"><label for="ms">From</label><select class="in" id="ms">${opts(s)}</select></div>
-            <div class="f"><label for="mt">To</label><select class="in" id="mt">${opts(rows.find((x) => x.id !== s) ? rows.find((x) => x.id !== s).id : '')}</select></div></div>`
+            <div class="f"><label for="mt">To</label><select class="in" id="mt">${toRows.map((x) => `<option value="${x.id}" ${x.id === (toRows.find((y) => y.id !== s) || {}).id ? 'selected' : ''}>${U.esc(x.name)} — ${U.usd(x.value, 0)}</option>`).join('')}</select></div></div>`
             : `<div class="f"><label for="ms">Strategy</label><select class="in" id="ms">${opts(s)}</select></div>`}
           <div class="f"><label for="ma">${tab === 'add' ? 'Amount to add' : tab === 'withdraw' ? 'Amount to withdraw' : 'Amount to move'} (USD)</label>
             <input class="in num" id="ma" inputmode="decimal" style="height:54px;font-size:22px" placeholder="0.00">
@@ -225,7 +243,7 @@
             const b = { mode, strategy: box.querySelector('#ms').value, amount, invest };
             if (tab === 'move') b.other = box.querySelector('#mt').value;
             const r = await U.api('/api/money/' + tab, { body: b });
-            U.toast(r.status === 'pending' ? 'Selling with a split plan; the money moves when it finishes' : 'Done');
+            U.toast(r.status === 'pending' ? 'Selling with a split plan; the money moves when it finishes' : r.warning ? 'Done · ' + r.warning : 'Done');
             close(); if (onDone) onDone();
           });
         }

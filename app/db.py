@@ -139,7 +139,7 @@ def con():
 
 
 # columns added after the first release: (table, column, definition)
-MIGRATIONS = [("ledger", "hold_amt", "REAL DEFAULT 0"), ("orders", "fee", "REAL DEFAULT 0"), ("plans", "goal", "TEXT")]
+MIGRATIONS = [("ledger", "hold_amt", "REAL DEFAULT 0"), ("orders", "fee", "REAL DEFAULT 0"), ("plans", "goal", "TEXT"), ("test_trades", "order_type", "TEXT")]
 
 
 def init():

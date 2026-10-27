@@ -93,7 +93,8 @@ def split(mode, allocations: dict, invest=None, note=""):
     out = {}
     for sid, a in alloc.items():
         out[sid] = add(mode, sid, min(a, ledger.pool_cash(mode)), invest, note or "split")
-    return {"count": len(out), "total": tot, "pool": ledger.pool_cash(mode)}
+    warns = [r["warning"] for r in out.values() if r.get("warning")]
+    return {"count": len(out), "total": tot, "pool": ledger.pool_cash(mode), **({"warnings": warns} if warns else {})}
 
 
 def equal_split(total: float, sids: list) -> dict:
@@ -105,18 +106,52 @@ def equal_split(total: float, sids: list) -> dict:
     return {sid: (base + (1 if i < rem else 0)) / 100 for i, sid in enumerate(sids)}
 
 
+def stopped_warning(s) -> str:
+    """Money given to a strategy that is stopped (or stopping) is never invested: say so."""
+    c = (s.row or {}).get("control")
+    if c in ("stopped", "stopping"):
+        return (f"{s.name} is {'stopped' if c == 'stopped' else 'set to Stop & sell'}, so it will not buy with this money. "
+                "Set it back to Active on its page, or move the money to another strategy.")
+    return ""
+
+
 def add(mode, sid, amount, invest=None, note=""):
     s = _strat(sid)
     invest = _invest(invest)
     amount = round(float(amount), 2)
     mid = ledger.add_money(mode, sid, amount, note=note, invest=invest)
     L = ledger.value(mode, sid)
-    db.add_event("info", "money", f"Added ${amount:,.2f} to {s.name}", f"{brokers.MODE_LABEL[mode]} · capital now ${L['net_in']:,.2f}"
-                 + (f" · {WAIT_TXT}" if invest == "wait" else " · invests at the current signal"),
+    warn = stopped_warning(s)
+    db.add_event("warn" if warn else "info", "money", f"Added ${amount:,.2f} to {s.name}",
+                 f"{brokers.MODE_LABEL[mode]} · capital now ${L['net_in']:,.2f}"
+                 + (f" · {WAIT_TXT}" if invest == "wait" else " · invests at the current signal") + (f" · {warn}" if warn else ""),
                  strategy=sid, mode=mode)
     notify.send("money", f"{brokers.MODE_LABEL[mode]} · Added ${amount:,.2f} to {s.name}. Capital now ${L['net_in']:,.2f}."
-                + (f" It is {WAIT_TXT}." if invest == "wait" else ""), strategy=sid)
-    return {"id": mid, "capital": L["net_in"]}
+                + (f" It is {WAIT_TXT}." if invest == "wait" else "") + (f"\n⚠ {warn}" if warn else ""), strategy=sid)
+    return {"id": mid, "capital": L["net_in"], **({"warning": warn} if warn else {})}
+
+
+def invest_now(mode, sid):
+    """Cash that waits for the next buy signal joins the strategy now: it buys toward today's target (split plan)."""
+    s = _strat(sid)
+    L = ledger.get(mode, sid)
+    amt = ledger.waiting_cash(L)
+    if not L.get("hold_cash") or amt <= 0.005:
+        raise ValueError(f"{s.name} has no cash waiting for a buy signal")
+    warn = stopped_warning(s)
+    if warn:
+        raise ValueError(warn)
+    ledger.end_wait(mode, sid)
+    ap = execution.active_plan(mode, sid)
+    if ap and ap["reason"] not in ("withdraw", "move"):
+        execution.cancel_plan(ap["id"], "waiting cash joins the plan")
+    ledger.set_applied_target(mode, sid, None)          # the next check plans with all the money
+    db.add_event("info", "money", f"{s.name}: ${amt:,.2f} waiting cash invested now (your choice)",
+                 f"{brokers.MODE_LABEL[mode]} · it buys toward today's target from the next check (at the market open if closed)",
+                 strategy=sid, mode=mode)
+    notify.send("money", f"{brokers.MODE_LABEL[mode]} · {s.name}: the ${amt:,.2f} that waited for a buy signal is invested now "
+                "at today's signal.", strategy=sid)
+    return {"ok": True, "amount": round(amt, 2)}
 
 
 def _raise_cash(mode, s, amount, kind, other=None, note="", invest="now"):

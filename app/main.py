@@ -380,6 +380,8 @@ async def money_action(action: str, request: Request, u=Depends(user)):
             return moneyops.to_bot(mode, b.get("amount"), b.get("note", ""))
         if action == "to-webull":
             return moneyops.to_webull(mode, b.get("amount"), b.get("note", ""))
+        if action == "invest-now":
+            return moneyops.invest_now(mode, b.get("strategy"))
         if action == "split":
             alloc = b.get("allocations")
             if b.get("equal"):
@@ -624,7 +626,8 @@ async def testtrade_action(action: str, request: Request, u=Depends(user)):
     try:
         if action == "start":
             m = mode_of(b.get("mode"))
-            testtrade.start(m, b.get("symbols") or [], b.get("qty", 1))
+            testtrade.start(m, b.get("symbols") or [], b.get("qty", 1), fractional=bool(b.get("fractional")),
+                            order_type=b.get("order_type") or "LIMIT")
         elif action in ("sell", "closed"):
             t = db.one("SELECT mode FROM test_trades WHERE id=?", (int(b.get("id") or 0),))
             if not t:
@@ -937,8 +940,8 @@ def data_refresh(u=Depends(user)):
 
 # ---------------------------------------------------------------- docs
 DOC_ORDER = ["overview", "quick-start-mac", "first-day", "modes", "dashboard", "strategies", "backtest", "money", "orders", "line", "health", "golive",
-             "strategy-compare", "expected-returns", "strategy-gold1", "strategy-gold2", "strategy-silver1", "strategy-silver2", "strategy-qld", "strategy-semis",
-             "strategy-qld-tbd", "strategy-qld-ibs", "strategy-usd-ibs", "strategy-c27",
+             "strategy-compare", "strategy-timeframes", "expected-returns", "strategy-gold1", "strategy-gold2", "strategy-silver1", "strategy-silver2", "strategy-qld", "strategy-semis",
+             "strategy-qld-tbd", "strategy-qld-ibs", "strategy-usd-ibs", "strategy-rom-tbd", "strategy-c27",
              "deploy", "update", "backups", "plugins", "layout", "tests", "troubleshooting", "glossary", "decisions"]
 
 

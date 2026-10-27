@@ -29,3 +29,16 @@ def test_one_refusal_blocks_every_single_stock_etf_and_falls_back_to_stocks(clea
     finally:
         X.unblock_symbols("live")
     assert views.strategy_card("live", s)["notice"] is None
+
+
+def test_startup_applies_the_rule_from_a_refused_test_trade(clean):
+    """As on the live server: the refusal is in test_trades.code / result (error is empty)."""
+    from app import engine
+    db.run("INSERT INTO test_trades(mode, symbol, qty, status, created_at, updated_at, code, result) VALUES(?,?,?,?,?,?,?,?)",
+           ("live", "AAPU", 1, "failed", 1, 1, brokers.SINGLE_STOCK_LEV_CODE, "Webull refused the buy: " + MSG))
+    try:
+        assert not X.single_stock_refused("live")
+        engine._single_stock_rule_from_tests()
+        assert X.single_stock_refused("live") and "NVDL" in X.blocked_symbols("live")
+    finally:
+        X.unblock_symbols("live")

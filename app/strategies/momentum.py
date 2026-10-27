@@ -342,3 +342,49 @@ class MomentumBasket(RegimeStrategy):
 
     def params_key(self):
         return hashlib.sha1(json.dumps(self.params, sort_keys=True).encode()).hexdigest()[:10]
+
+    # ---------------------------------------------------------------- health check: independent recompute
+    def check_table(self, now, rows=12):
+        """SMA, RSI (Wilder, written out) and Supertrend (health's own loop) recomputed apart from app.indicators,
+        then the trend / dip / out rule replayed from those numbers."""
+        import math
+        from ..health import ref_supertrend
+        p = self.params
+        fr = self.frame(now)
+        h, l, c = (fr[k].values.astype(float).tolist() for k in ("h", "l", "c"))
+        n, ma, ex, buy = p["rsi_len"], p["ma_days"], p["exit_ma"], p["rsi_buy"]
+        gains = [0.0] + [max(c[i] - c[i - 1], 0.0) for i in range(1, len(c))]
+        losses = [0.0] + [max(c[i - 1] - c[i], 0.0) for i in range(1, len(c))]
+        rs = [float("nan")] * len(c)
+        ag, al = sum(gains[1:n + 1]) / n, sum(losses[1:n + 1]) / n
+        for i in range(n, len(c)):
+            if i > n:
+                ag = (ag * (n - 1) + gains[i]) / n
+                al = (al * (n - 1) + losses[i]) / n
+            rs[i] = 50.0 if (al == 0 and ag == 0) else (100.0 if al == 0 else 100 - 100 / (1 + ag / al))
+        line, up = ref_supertrend(h, l, c, p["st_atr"], p["st_mult"])
+        state, dip = [], False
+        for i in range(len(c)):
+            se = sum(c[i - ex + 1:i + 1]) / ex if i >= ex - 1 else float("nan")
+            if dip and se == se and c[i] > se:
+                dip = False
+            elif not dip and rs[i] == rs[i] and rs[i] < buy:
+                dip = True
+            if i < ma - 1 or math.isnan(line[i]):
+                state.append("")
+                continue
+            sl = sum(c[i - ma + 1:i + 1]) / ma
+            state.append("trend" if (up[i] and c[i] > sl) else ("dip" if dip else "out"))
+        cols = ["Close", f"SMA{ma} · bot", f"SMA{ma} · check", f"RSI({n}) · bot", f"RSI({n}) · check",
+                "Supertrend · bot", "Supertrend · check", "State bot / check"]
+        out, worst = [], 0.0
+        for i in range(len(c) - rows, len(c)):
+            sl = sum(c[i - ma + 1:i + 1]) / ma
+            a, r_b, st_b = float(fr["sma_long"].iloc[i]), float(fr["rsi"].iloc[i]), float(fr["st_line"].iloc[i])
+            diff = max(abs(a - sl) / sl, abs(r_b - rs[i]) / 100, abs(st_b - line[i]) / max(abs(line[i]), 1e-9))
+            if fr["state"].iloc[i] != state[i]:
+                diff = max(diff, 1.0)
+            worst = max(worst, diff)
+            out.append({"t": int(pd.Timestamp(fr.index[i]).timestamp()),
+                        "vals": [c[i], a, sl, r_b, rs[i], st_b, line[i], f"{fr['state'].iloc[i]} / {state[i]}"], "ok": diff < 1e-6})
+        return cols, out, worst

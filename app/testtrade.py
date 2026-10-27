@@ -28,6 +28,8 @@ WORKING = ("queued", "buying", "selling")
 TRY_S = 120                 # cancel and re-price an unfilled order after this long
 BUY_TRIES, SELL_TRIES = 3, 5
 MAX_QTY, MAX_VALUE = 5, 1500.0
+FRACTION = 0.5              # the fractional-share test buys half a share
+ORDER_TYPES = ("LIMIT", "MARKET")
 
 
 
@@ -35,10 +37,13 @@ class TestTradeError(ValueError):
     pass
 
 
-def symbols() -> dict:
-    """{symbol: [strategy names]} — every ETF a (not archived) strategy can hold."""
+def symbols(in_use=False) -> dict:
+    """{symbol: [strategy names]} — every ETF a (not archived) strategy can hold. in_use: only strategies that are not
+    stopped (what Go-live needs tested)."""
     out = {}
     for s in S.all_instances():
+        if in_use and (s.row or {}).get("control") == "stopped":
+            continue
         for sym in (s.test_symbols() if hasattr(s, "test_symbols") else s.trade_symbols()) or []:
             out.setdefault(sym, []).append(s.name)
     return dict(sorted(out.items()))
@@ -63,6 +68,17 @@ def _get(tid):
     return db.one("SELECT * FROM test_trades WHERE id=?", (tid,))
 
 
+def is_fraction(q) -> bool:
+    q = float(q or 0)
+    return abs(q - round(q)) > 1e-9
+
+
+def qs(q) -> str:
+    """Share count for messages: 1 → "1", 0.5 → "0.5"."""
+    q = float(q or 0)
+    return f"{q:.0f}" if not is_fraction(q) else f"{q:.6f}".rstrip("0").rstrip(".")
+
+
 def working(mode) -> bool:
     return bool(db.one(f"SELECT COUNT(*) n FROM test_trades WHERE mode=? AND status IN ('queued','buying','selling')", (mode,))["n"])
 
@@ -77,8 +93,9 @@ def held(mode) -> dict:
 
 
 # ---------------------------------------------------------------- start
-def start(mode, syms, qty=1):
-    """Queue test trades for one or more symbols. Returns the new ids."""
+def start(mode, syms, qty=1, fractional=False, order_type="LIMIT"):
+    """Queue test trades for one or more symbols. Returns the new ids. fractional: buy and sell half a share of ONE ETF
+    (does Webull accept fractional orders through the API, as a limit or a market order?)."""
     from . import execution
     if mode not in brokers.MODES:
         raise TestTradeError("Unknown mode")
@@ -89,12 +106,21 @@ def start(mode, syms, qty=1):
     bad = [s for s in syms if s not in allowed]
     if bad:
         raise TestTradeError(f"{', '.join(bad)} is not used by any strategy")
-    try:
-        qty = int(qty)
-    except (TypeError, ValueError):
-        raise TestTradeError("Shares must be a whole number")
-    if not 1 <= qty <= MAX_QTY:
-        raise TestTradeError(f"Shares: 1 to {MAX_QTY}")
+    order_type = str(order_type or "LIMIT").upper()
+    if order_type not in ORDER_TYPES:
+        raise TestTradeError("Order type: LIMIT or MARKET")
+    if fractional:
+        if len(syms) != 1:
+            raise TestTradeError("The fractional test runs on one ETF at a time")
+        qty = FRACTION
+    else:
+        order_type = "LIMIT"
+        try:
+            qty = int(qty)
+        except (TypeError, ValueError):
+            raise TestTradeError("Shares must be a whole number")
+        if not 1 <= qty <= MAX_QTY:
+            raise TestTradeError(f"Shares: 1 to {MAX_QTY}")
     if db.get_setting("trading_paused") == "1":
         raise TestTradeError("All trading is paused. Resume it first (top right)")
     broker = brokers.get(mode)
@@ -110,11 +136,13 @@ def start(mode, syms, qty=1):
         ids = []
         with db.tx() as c:
             for s in syms:
-                cur = c.execute("INSERT INTO test_trades(mode,symbol,qty,status,created_at,updated_at,log) VALUES(?,?,?,?,?,?,?)",
-                                (mode, s, qty, "queued", _now(), _now(), json.dumps([[_now(), f"queued: buy {qty} then sell"]])))
+                what = f"{qs(qty)} ({order_type.lower()} order, fractional test)" if fractional else qs(qty)
+                cur = c.execute("INSERT INTO test_trades(mode,symbol,qty,status,created_at,updated_at,log,order_type) VALUES(?,?,?,?,?,?,?,?)",
+                                (mode, s, qty, "queued", _now(), _now(), json.dumps([[_now(), f"queued: buy {what} then sell"]]),
+                                 order_type))
                 ids.append(cur.lastrowid)
-        db.add_event("info", "testtrade", f"Test trade queued: {', '.join(syms)} ({qty} share{'s' if qty > 1 else ''})", "",
-                     mode=mode)
+        db.add_event("info", "testtrade", f"Test trade queued: {', '.join(syms)} ({qs(qty)} share{'s' if qty > 1 else ''}"
+                     + (f", fractional {order_type.lower()} test" if fractional else "") + ")", "", mode=mode)
     tick(mode)
     return ids
 
@@ -136,9 +164,9 @@ def forget(tid):
         raise TestTradeError("Only a test that still holds shares can be closed this way")
     left = (t["bought"] or 0) - (t["sold"] or 0)
     _upd(tid, status="failed", sold=t["bought"], finished_at=_now(),
-         result=f"closed by you: {left:.0f} share(s) sold outside the bot", log=_log(t, "closed by you"))
+         result=f"closed by you: {qs(left)} share(s) sold outside the bot", log=_log(t, "closed by you"))
     db.add_event("warn", "testtrade", f"Test trade {t['symbol']} closed by hand",
-                 f"{left:.0f} share(s) were sold outside the bot. Add the sale's money to the bot again on the Money page "
+                 f"{qs(left)} share(s) were sold outside the bot. Add the sale's money to the bot again on the Money page "
                  "(Webull → bot) if you want it back in bot unassigned.", mode=t["mode"])
 
 
@@ -173,6 +201,8 @@ def tick(mode, now=None):
 def _fail(t, result, code=None, raw=None, notify_it=False):
     _upd(t["id"], status="failed", finished_at=_now(), result=result, code=code, raw=raw if raw is not None else t.get("raw"),
          log=_log(t, result))
+    if is_fraction(t["qty"]):
+        _fraction_result(t, False, result, code)
     db.add_event("error", "testtrade", f"Test trade {t['symbol']} failed", result, mode=t["mode"])
     if notify_it:
         notify.send("lot_failed", f"{brokers.MODE_LABEL[t['mode']]} · Test trade {t['symbol']}: {result}")
@@ -199,7 +229,7 @@ def _begin(t, broker, now):
     limit = execution._limit(q, "BUY", _offset())
     value = qty * limit
     if value > MAX_VALUE:
-        return _fail(t, f"{qty:.0f} × ${limit:,.2f} = ${value:,.2f} is more than the ${MAX_VALUE:,.0f} test limit. Use 1 share.")
+        return _fail(t, f"{qs(qty)} × ${limit:,.2f} = ${value:,.2f} is more than the ${MAX_VALUE:,.0f} test limit. Use 1 share.")
     need = value * 1.01 + 2
     pool = ledger.pool_cash(t["mode"])
     if pool < need:
@@ -219,6 +249,10 @@ def _begin(t, broker, now):
     _send(t, broker, "BUY", qty, limit, now)
 
 
+def _market(t) -> bool:
+    return (t.get("order_type") or "LIMIT").upper() == "MARKET"
+
+
 def _offset():
     try:
         return float(db.get_setting("exec_limit_offset_pct") or 0.10) / 100
@@ -229,18 +263,20 @@ def _offset():
 def _send(t, broker, side, qty, limit, now):
     cid = f"tsbt{t['mode'][0]}{t['id']}{side[0]}{(t['tries'] or 0) + 1}{secrets.token_hex(3)}"[:32]
     status = "buying" if side == "BUY" else "selling"
+    mkt = _market(t)
     _upd(t["id"], status=status, side=side, cid=cid, limit_price=limit, sent_at=_now(), tries=(t["tries"] or 0) + 1,
          o_filled=0, o_value=0, o_fee=0, error=None, first_sent=t.get("first_sent") or _now(),
-         log=_log(t, f"{side} {qty:.0f} @ ${limit:,.2f} limit (try {(t['tries'] or 0) + 1})"))
+         log=_log(t, f"{side} {qs(qty)} " + (f"at market (≈ ${limit:,.2f})" if mkt else f"@ ${limit:,.2f} limit")
+                  + f" (try {(t['tries'] or 0) + 1})"))
     try:
-        broker.place(t["symbol"], side, qty, limit, "CORE", cid)
+        broker.place(t["symbol"], side, qty, None if mkt else limit, "CORE", cid)
     except brokers.BrokerRejected as e:
         t = _get(t["id"])
         if side == "BUY":
-            if e.permanent:
+            if e.permanent and not is_fraction(t["qty"]):      # a refused fraction says nothing about the ETF itself
                 from . import execution
                 execution.block_symbol(t["mode"], t["symbol"], e.code, str(e))
-            return _fail(t, f"Webull refused the buy: {e}", code=e.code)
+            return _fail(t, f"Webull refused the {'fractional ' if is_fraction(t['qty']) else ''}buy: {e}", code=e.code)
         _upd(t["id"], status="holding", error=f"Webull refused the sell: {e}"[:300], code=e.code,
              log=_log(t, f"sell refused: {e}"))
         _alert_holding(_get(t["id"]), f"Webull refused the sale: {e}")
@@ -310,10 +346,10 @@ def _step(t, broker, now):
         t = _get(t["id"])
         raw = _raw(broker, t["cid"]) if dead else t["raw"]
         if side == "BUY":
-            if (t["bought"] or 0) >= 1 - 1e-9:
+            if (t["bought"] or 0) >= float(t["qty"]) - 1e-9:
                 secs = _now() - (t["first_sent"] or _now())
                 _upd(t["id"], status="selling", cid=None, tries=0, buy_secs=secs, raw=raw,
-                     log=_log(t, f"bought {t['bought']:.0f} @ ${t['buy_value'] / t['bought']:,.2f} · fee ${t['buy_fee']:,.2f}"))
+                     log=_log(t, f"bought {qs(t['bought'])} @ ${t['buy_value'] / t['bought']:,.2f} · fee ${t['buy_fee']:,.2f}"))
                 return _start_sell(_get(t["id"]), broker, now)
             if t["tries"] >= BUY_TRIES or status in ("FAILED", "REJECTED"):
                 return _fail(t, f"buy not filled: Webull says {status} after {t['tries']} tr{'y' if t['tries'] == 1 else 'ies'}",
@@ -323,7 +359,7 @@ def _step(t, broker, now):
         left = (t["bought"] or 0) - (t["sold"] or 0)
         if left <= 1e-9:
             return _finish(t)
-        _upd(t["id"], cid=None, raw=raw, log=_log(t, f"sell {status.lower()}: {left:.0f} left"))
+        _upd(t["id"], cid=None, raw=raw, log=_log(t, f"sell {status.lower()}: {qs(left)} left"))
         return _start_sell(_get(t["id"]), broker, now)
     if age >= TRY_S or not _market_ok(now):
         try:
@@ -335,8 +371,9 @@ def _step(t, broker, now):
 
 def _start_sell(t, broker, now):
     from . import execution
-    left = int(math.floor((t["bought"] or 0) - (t["sold"] or 0) + 1e-9))
-    if left < 1:
+    rest = (t["bought"] or 0) - (t["sold"] or 0)
+    left = round(rest, 6) if is_fraction(t["qty"]) else int(math.floor(rest + 1e-9))
+    if left < (1e-6 if is_fraction(t["qty"]) else 1):
         return _finish(t)
     if (t["tries"] or 0) >= SELL_TRIES:
         _upd(t["id"], status="holding", cid=None, error=f"the sale did not fill in {SELL_TRIES} tries",
@@ -358,9 +395,16 @@ def _finish(t):
     t = _get(t["id"])
     cost = (t["buy_value"] or 0) - (t["sell_value"] or 0) + (t["buy_fee"] or 0) + (t["sell_fee"] or 0)
     secs = _now() - (t["sent_at"] or _now())
-    res = (f"bought {t['bought']:.0f} @ ${t['buy_value'] / max(t['bought'], 1e-9):,.2f}, sold @ "
+    res = (f"bought {qs(t['bought'])} @ ${t['buy_value'] / max(t['bought'], 1e-9):,.2f}, sold @ "
            f"${t['sell_value'] / max(t['sold'], 1e-9):,.2f} · fees ${t['buy_fee'] + t['sell_fee']:,.2f} · cost ${cost:,.2f}")
     _upd(t["id"], status="ok", finished_at=_now(), sell_secs=secs, result=res, error=None, log=_log(t, "done: " + res))
+    if is_fraction(t["qty"]):
+        _fraction_result(t, True, res)
+        db.add_event("info", "testtrade", f"Fractional test {t['symbol']} OK ({(t.get('order_type') or 'LIMIT').lower()} order)", res,
+                     mode=t["mode"])
+        notify.send("lot_filled", f"{brokers.MODE_LABEL[t['mode']]} · Fractional test {t['symbol']} OK "
+                    f"({(t.get('order_type') or 'LIMIT').lower()} order): {res}")
+        return
     from . import execution
     b = execution.blocked_symbols(t["mode"])
     if t["symbol"] in b:                          # it works now: let the strategies trade it again
@@ -372,8 +416,8 @@ def _finish(t):
 
 def _alert_holding(t, why):
     left = (t["bought"] or 0) - (t["sold"] or 0)
-    db.add_event("error", "testtrade", f"Test trade {t['symbol']}: {left:.0f} share(s) still held", why, mode=t["mode"])
-    notify.send("lot_failed", f"{brokers.MODE_LABEL[t['mode']]} · Test trade {t['symbol']}: {why}. {left:.0f} share(s) are still "
+    db.add_event("error", "testtrade", f"Test trade {t['symbol']}: {qs(left)} share(s) still held", why, mode=t["mode"])
+    notify.send("lot_failed", f"{brokers.MODE_LABEL[t['mode']]} · Test trade {t['symbol']}: {why}. {qs(left)} share(s) are still "
                 "held. Go-live page → Sell again, or sell them in the Webull app and press 'I sold it'.", critical=True)
 
 
@@ -385,6 +429,8 @@ def view(mode) -> dict:
     rows = db.rows("SELECT * FROM test_trades WHERE mode=? ORDER BY id DESC LIMIT 200", (mode,))
     latest, last_ok = {}, {}
     for r in rows:
+        if is_fraction(r["qty"]):
+            continue                                  # shown in the fractional block, not as the ETF's test
         latest.setdefault(r["symbol"], r)
         if r["status"] == "ok":
             last_ok.setdefault(r["symbol"], r)
@@ -395,7 +441,34 @@ def view(mode) -> dict:
                     "last": _pub(r) if r else None, "last_ok": _pub(last_ok[s]) if s in last_ok else None})
     return {"mode": mode, "symbols": out, "pool": ledger.pool_cash(mode), "running": working(mode),
             "market_open": _market_ok(md.now_utc()), "history": [_pub(r) for r in rows[:30]],
-            "max_qty": MAX_QTY}
+            "max_qty": MAX_QTY, "fractional": fraction_status(mode),
+            "fractional_tests": [_pub(r) for r in rows if is_fraction(r["qty"])][:6]}
+
+
+def _fraction_result(t, ok, text, code=None):
+    """Remember, per mode and order type, whether Webull accepted a fractional order (the base for a fractional setting)."""
+    k = f"fractional:{t['mode']}"
+    st = db.get_state(k) or {}
+    st[(t.get("order_type") or "LIMIT").upper()] = {"ok": bool(ok), "text": str(text)[:300], "code": code, "symbol": t["symbol"],
+                                                     "at": _now()}
+    db.set_state(k, st)
+
+
+def fraction_status(mode) -> dict:
+    """{'LIMIT': {...} | None, 'MARKET': {...} | None, 'verdict': text}"""
+    st = db.get_state(f"fractional:{mode}") or {}
+    lim, mkt = st.get("LIMIT"), st.get("MARKET")
+    if lim and lim["ok"]:
+        v = "Webull accepts fractional LIMIT orders: the bot can buy fractions like whole shares."
+    elif mkt and mkt["ok"]:
+        v = ("Webull accepts fractional orders only as MARKET orders" if lim else "Webull accepts fractional MARKET orders")\
+            + (": the bot could buy whole shares by limit order and only the leftover fraction at market." if lim else
+               ". Run the limit test too.")
+    elif lim or mkt:
+        v = "Webull refused fractional orders through the API so far." + ("" if (lim and mkt) else " Try the other order type.")
+    else:
+        v = "Not tested yet."
+    return {"LIMIT": lim, "MARKET": mkt, "verdict": v}
 
 
 def _pub(r):
@@ -410,10 +483,13 @@ def _pub(r):
 
 
 def status_for_golive(mode) -> dict:
-    """{symbol: 'ok' | 'permission' | 'refused' | 'failed' | None}"""
+    """{symbol: 'ok' | 'permission' | 'refused' | 'failed' | None} for the ETFs of strategies that are not stopped. Single-stock
+    2x ETFs are left out once Webull's 50M THB rule applies to this account (the bot holds the stocks instead)."""
+    from . import execution
+    skip = execution.single_stock_etfs() if execution.single_stock_refused(mode) else set()
     out = {}
-    for s in symbols():
-        r = db.one("SELECT status, code FROM test_trades WHERE mode=? AND symbol=? AND status IN ('ok','failed','holding') "
+    for s in [x for x in symbols(in_use=True) if x not in skip]:
+        r = db.one("SELECT status, code FROM test_trades WHERE mode=? AND symbol=? AND qty>=1 AND status IN ('ok','failed','holding') "
                    "ORDER BY (status='ok') DESC, id DESC LIMIT 1", (mode, s))
         if not r:
             out[s] = None

@@ -308,6 +308,10 @@ def tick(now=None):
                     db.add_event("error", "orders", f"{s.name}: could not plan orders", str(e), strategy=sid, mode=mode)
         execution.process(now, settings)
         try:
+            execution.finish_stops()
+        except Exception:
+            log.exception("finish stops")
+        try:
             notify.dispatch()
         except Exception as e:
             log.exception("line dispatch")
@@ -337,9 +341,12 @@ def _single_stock_rule_from_tests():
     """A Test trade refused with Webull's single-stock leveraged-ETF rule (before this version treated it as one ETF only):
     apply the account rule now, so no strategy keeps trying those ETFs."""
     try:
-        rows = db.rows("SELECT mode, symbol, error FROM test_trades WHERE error LIKE ? ORDER BY id", (f"%{brokers.SINGLE_STOCK_LEV_CODE}%",))
+        like = f"%{brokers.SINGLE_STOCK_LEV_CODE}%"
+        rows = db.rows("SELECT mode, symbol, error, result FROM test_trades WHERE code=? OR error LIKE ? OR result LIKE ? ORDER BY id",
+                       (brokers.SINGLE_STOCK_LEV_CODE, like, like))
     except Exception:
         return
     for r in rows:
         if not execution.single_stock_refused(r["mode"]):
-            execution.block_symbol(r["mode"], r["symbol"], brokers.SINGLE_STOCK_LEV_CODE, r["error"] or brokers.SINGLE_STOCK_LEV_CODE)
+            execution.block_symbol(r["mode"], r["symbol"], brokers.SINGLE_STOCK_LEV_CODE,
+                                   r["result"] or r["error"] or brokers.SINGLE_STOCK_LEV_CODE)

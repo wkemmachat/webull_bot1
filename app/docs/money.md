@@ -34,6 +34,11 @@ Webull account               $100
   - *Wait for the next buy signal*: the money stays as cash inside the strategy until a **new** BUY comes. For the gold and silver
     strategies that is the next BUY (a 4H close that starts a long); for QLD / Semis it is a step up in state (off → 1x, 1x → 2x,
     0.5x → 2x …). Sell signals and step-downs do not start it. Money already in the strategy keeps trading as usual.
+  - Waiting can be long. A strategy that is already in a position today (QLD regime at 2x, QLD + Trend + bear-dip in its
+    trend) only gives a new BUY after it has stepped down first, which can take months. The backtests are always invested at the
+    current signal, so for those **Invest now** (on the strategy's row, shown while cash waits) is closer to the tested result.
+  - A strategy that is stopped, or set to Stop & sell, never buys. It is left out of *Give to strategies* and of *Move* targets;
+    money added to it anyway (with + Add) gets a warning on screen and on LINE. Set it back to Active first.
 - **Withdraw** (on a strategy): the strategy's free cash first; if that is not enough, the bot sells its holdings evenly with a
   split plan. The cash goes back to **bot unassigned**.
 - **Move**: from one strategy straight to another (selling evenly first if needed).

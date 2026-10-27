@@ -440,7 +440,7 @@ class WebullBroker:
     def place(self, symbol, side, qty, limit, session, cid):
         trade, _ = self._clients()
         order = {"combo_type": "NORMAL", "client_order_id": cid, "symbol": symbol, "instrument_type": "EQUITY",
-                 "market": "US", "order_type": "LIMIT" if limit else "MARKET", "quantity": str(int(qty)),
+                 "market": "US", "order_type": "LIMIT" if limit else "MARKET", "quantity": qty_text(qty),
                  "support_trading_session": session if limit else "CORE", "side": side,
                  "time_in_force": "DAY", "entrust_type": "QTY"}
         if limit:
@@ -491,6 +491,14 @@ class WebullBroker:
         aid = self._acct_id()
         self._json(self._call(lambda: trade.order_v3.cancel_order(aid, cid), "cancel order"), "cancel order")
         return True
+
+
+def qty_text(qty) -> str:
+    """Webull's quantity field: whole shares as "5"; a fraction (fractional-share test) as "0.5" (up to 6 decimals)."""
+    q = float(qty)
+    if abs(q - round(q)) < 1e-9:
+        return str(int(round(q)))
+    return f"{q:.6f}".rstrip("0").rstrip(".")
 
 
 _override: dict = {}

@@ -42,6 +42,22 @@ correctly — before a strategy needs it.
 - In **Live** the checklist item "Every ETF … bought and sold once" is a must: run Test all on the first market day after
   connecting the Live key, before switching strategies on.
 
+## Fractional shares test: 0.5 share, sold back
+
+The bot buys **whole shares** today. A small strategy therefore keeps up to one share of cash idle: $500 in QLD (about $88 a
+share) buys 5 shares and leaves about $59, roughly 12%, uninvested. Webull's API documentation says orders may carry decimal
+quantities, but whether Webull Thailand accepts them through the API, and as which order type, is only known by trying.
+
+Under the Test trade table, **Fractional test · limit** buys 0.5 share of the ETF you pick with a limit order (the order type the
+bot uses) and sells the 0.5 straight back; **Fractional test · market** does the same with market orders. Paid from bot
+unassigned like any test. The box remembers, per mode, whether each order type was **accepted** or **refused** (with Webull's own
+answer). A refused fraction does not block the ETF for the strategies, and fractional tests do not count for the Go-live
+symbol list.
+
+What happens next depends on the answer: limit accepted → the bot can be allowed to buy fractions like whole shares; only market
+accepted → whole shares by limit order and only the leftover fraction at market; both refused → whole shares stay (give each
+strategy at least about $1,000). The setting itself is added after the test.
+
 ## Your checks (you tick them)
 
 Compare the bot's Trades with Webull's order history on 3 days · indicator values vs TradingView · LINE alerts on your phone ·

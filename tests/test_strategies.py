@@ -4,7 +4,7 @@ import pytest
 from app import strategies as S
 from conftest import NOW
 
-IDS = ["gold_sta", "gold_st30", "silver_dc", "silver_st", "qld_regime", "semis_regime", "qld_tbd"]
+IDS = ["gold_sta", "gold_st30", "silver_dc", "silver_st", "qld_regime", "semis_regime", "qld_tbd", "rom_tbd"]
 
 
 def test_six_defaults_seeded():
