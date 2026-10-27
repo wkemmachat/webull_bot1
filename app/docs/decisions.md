@@ -111,7 +111,7 @@
   no bid/ask from Webull) and the ETF opened 1% higher; the retry used the same stale price. Now a quote with no trade yet in
   today's session gets 0.5% more room, and each retry moves the limit at least 0.5% beyond the lot's first limit (cap 2%).
 - **Fractional shares in plans** (27 Oct 2026, after the Live fractional limit test passed): whole shares in every lot and the
-  leftover fraction (4 decimals) on the last lot of each ETF, so a small strategy no longer keeps up to one share of cash idle.
+  leftover fraction (2 decimals) on the last lot of each ETF, so a small strategy no longer keeps up to one share of cash idle.
   Exits sell the exact holding. Minimum fractional buy $5. Setting per mode (Auto = follows that mode's Go-live limit test;
   Paper follows Live). A refused fractional order re-sends the lot as whole shares, switches that ETF (per account) back to
   whole shares and sends one LINE message; it does not block the ETF or cancel the plan.
@@ -122,3 +122,8 @@
 - **Money → Everything** (27 Oct 2026): the button now sends "all" and the server takes the whole strategy at today's prices
   (sells every holding, fractions included, and moves what the sale brings in). Before, the dialog's value was a few seconds
   old, so a small price move made the server refuse it ("worth $150.52; you asked for $150.63").
+- **Fractions: 2 decimals and exact fills** (27 Oct 2026, first Live fractional orders): Webull executes the exact fractional
+  quantity (1.6581 QLD, 1.3439 USD) but its order status reports it rounded to 2 decimals (1.66, 1.34). The bot booked the
+  rounded number, so the Stop & sell of QLD regime sold 1.66 and took 0.0019 QLD (≈ $0.17) of your own QLD, and 2x Semis
+  showed 29.66 USD instead of 29.6561. Now buys use 2 decimals, a FILLED fractional order is booked at its exact quantity, and a
+  one-time repair corrected the USD books (the QLD difference was already settled by the sale).

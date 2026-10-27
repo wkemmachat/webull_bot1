@@ -14,7 +14,7 @@ A **plan** moves one strategy from what it holds to its target.
   price, up to 3 times; then the lot is marked failed and LINE tells you (critical).
 - **Small plans** use fewer lots so each lot is at least $200 (Execution → Smallest lot).
 - **Fractional shares** (Execution → Fractional shares, on for Live since 27 Oct 2026): lots buy whole shares and the last lot of
-  each ETF adds the leftover fraction; exits sell fractions too. Quantities show up to 4 decimals (33.6152).
+  each ETF adds the leftover fraction; exits sell fractions too. Fractions use 2 decimals (33.62), as Webull reports them.
 - **Safety**: every order has a unique client order id. If Webull does not answer, the bot looks the order up before it ever sends
   a replacement. It never sells more shares than the account really holds.
 

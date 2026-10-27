@@ -95,7 +95,7 @@ def _split(q, n: int) -> list:
 # With the setting on, every lot still buys whole shares; only the last lot of a symbol adds the leftover fraction, so the
 # money does not wait as cash. Sells sell what the strategy holds, fractions included. If Webull ever refuses a fractional
 # order for an ETF, that ETF goes back to whole shares (per account) and LINE says so once.
-FRAC_DP = 4                     # buys: shares to 0.0001
+FRAC_DP = 2                     # buys: shares to 0.01 (Webull reports fractional fills with 2 decimals)
 SELL_DP = 6                     # sells: the exact booked quantity
 MIN_FRACTION_USD = 5.0          # smallest order that is less than one share
 EPS = 1e-6
@@ -713,6 +713,10 @@ def poll(mode, now, broker, only_id=None, settings=None):
                 log.warning("order status %s: %s", o["client_order_id"], e)
             continue
         filled = float(st.get("filled_qty") or 0)
+        if (st.get("status") or "").upper() == "FILLED" and is_fraction(o["qty"]) and abs(filled - float(o["qty"])) < 0.01:
+            # Webull fills the exact fractional quantity but reports it rounded to 2 decimals (1.6581 → "1.66"):
+            # a FILLED order filled what was asked
+            filled = float(o["qty"])
         avg = st.get("avg_price") or o["limit_price"] or 0
         dq = filled - (o["applied_qty"] or 0)
         if dq > 1e-9:
@@ -794,6 +798,33 @@ def dedupe_retries() -> int:
                          "Several replacement orders were waiting for the same lot; only the newest one is kept, so the lot is "
                          "bought or sold once.", strategy=sid, mode=mode)
     return len(extra)
+
+
+def repair_fraction_fills():
+    """Once (27 Oct 2026): the first fractional orders were booked with Webull's rounded fill (1.3439 sold, booked 1.34).
+    Book the small difference where the strategy still holds the symbol, so the books match the account again."""
+    if db.get_state("repair_fraction_fills"):
+        return []
+    out = []
+    for o in db.rows("SELECT * FROM orders WHERE status='filled' AND qty IS NOT NULL AND applied_qty IS NOT NULL"):
+        q, a = float(o["qty"]), float(o["applied_qty"] or 0)
+        d = q - a
+        if not is_fraction(q) or not (1e-9 < abs(d) < 0.01):
+            continue
+        avg = (o["applied_value"] or 0) / a if a else (o["limit_price"] or 0)
+        held = ledger.get(o["mode"], o["strategy"])["holdings"].get(o["symbol"], 0.0)
+        # SELL more than booked / BUY less than booked → the strategy holds less: only while it still holds that much
+        less = (o["side"] == "SELL" and d > 0) or (o["side"] == "BUY" and d < 0)
+        if less and held < abs(d) - 1e-9:
+            out.append(f"{o['side']} {o['symbol']} #{o['id']}: {qs(abs(d))} already settled by a later sale")
+            continue
+        ledger.book_fill(o["mode"], o["strategy"], o["symbol"], "SELL" if less else "BUY", abs(d), abs(d) * avg)
+        db.run("UPDATE orders SET filled_qty=?, applied_qty=?, applied_value=? WHERE id=?", (q, q, q * avg, o["id"]))
+        out.append(f"{o['side']} {o['symbol']} #{o['id']}: booked {qs(q)} (was {qs(a)})")
+    db.set_state("repair_fraction_fills", int(time.time()))
+    if out:
+        db.add_event("warn", "orders", "Fractional fills corrected to Webull's exact quantity", "; ".join(out)[:900])
+    return out
 
 
 def repair_cancel_refusals():
@@ -1034,6 +1065,7 @@ def process(now=None, settings=None):
         out = {}
         try:
             repair_cancel_refusals()
+            repair_fraction_fills()
             dedupe_retries()
         except Exception as e:
             log.warning("repair: %s", e)
