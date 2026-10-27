@@ -81,6 +81,8 @@ def _explained(mode, e) -> str | None:
             return "single-stock 2x ETFs need 50M THB at Webull TH (C2-7 2x holds the stocks)"
     if title.startswith("Test trade ") and title.endswith(" failed"):
         sym = title[len("Test trade "):-len(" failed")].split()[0]
+        if sym in execution.single_stock_etfs() and execution.single_stock_refused(mode):
+            return "single-stock 2x ETFs need 50M THB at Webull TH (C2-7 2x holds the stocks)"
         ok = db.one("SELECT finished_at t FROM test_trades WHERE mode=? AND symbol=? AND status='ok' AND qty>=1 AND finished_at>=? "
                     "ORDER BY finished_at LIMIT 1", (mode, sym, e["t"]))
         if ok:

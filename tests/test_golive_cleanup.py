@@ -60,3 +60,13 @@ def test_health_treats_the_handled_single_stock_rule_as_ok(clean, clock):
         assert it["status"] == "error" and "QLD" in it["detail"]
     finally:
         X.unblock_symbols("paper")
+
+
+def test_refused_single_stock_test_trades_are_explained(clean):
+    X.block_symbol("live", "AAPU", brokers.SINGLE_STOCK_LEV_CODE, "refused")
+    try:
+        db.add_event("error", "testtrade", "Test trade AMUU failed", "refused", mode="live")
+        it = _item(golive.report("live"), "errors")
+        assert it["status"] == "ok" and "50M THB" in it["detail"]
+    finally:
+        X.unblock_symbols("live")
