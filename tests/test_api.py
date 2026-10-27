@@ -244,3 +244,16 @@ def test_symbol_chart_api(client):
     assert r["ok"] and r["sym"] == "QQQ" and r["symbols"]
     assert client.get("/api/backtest/c27_mom/chart?sym=ZZZZ").json()["ok"] is False
     assert client.get("/api/backtest/qld_regime/chart").json()["ok"] is False
+
+
+def test_plans_carry_estimates_and_badge_per_mode(client):
+    from app import engine
+    sign_in(client)
+    engine.tick()
+    d = client.get("/api/plans?mode=paper").json()
+    assert "next" in d and d["rule_code"] and isinstance(d["single_stock"], list)
+    if d["plans"]:
+        p = d["plans"][0]
+        assert "est" in p
+    top = client.get("/api/topbar").json()
+    assert "plans_by_mode" in top["issues"]

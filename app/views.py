@@ -60,7 +60,8 @@ def topbar():
 def _issue_counts():
     rep = health.latest()
     plans = db.one("SELECT COUNT(*) n FROM plans WHERE status='active'")["n"]
-    return {"health": (rep["counts"]["warn"] + rep["counts"]["error"]) if rep else 0, "plans": plans}
+    by_mode = {r["mode"]: r["n"] for r in db.rows("SELECT mode, COUNT(*) n FROM plans WHERE status='active' GROUP BY mode")}
+    return {"health": (rep["counts"]["warn"] + rep["counts"]["error"]) if rep else 0, "plans": plans, "plans_by_mode": by_mode}
 
 
 def _state(sid):

@@ -402,7 +402,18 @@ def plans(mode: str = "paper", status: Optional[str] = None, limit: int = 30, u=
               "done_today": sum(p["status"] in ("done", "cancelled") and (p["finished_at"] or 0) > time.time() - 86400 for p in allp)}
     sel = [p for p in allp if (status in (None, "", "all") or (status == "done" and p["status"] in ("done", "cancelled"))
                                or p["state"] == status)][:limit]
-    return {"plans": sel, "counts": counts, "blocked": execution.blocked_symbols(m)}
+    try:                                                   # estimated buys, the signal behind each plan, money in the strategy
+        from . import preview
+        nx = preview.next_orders(m)
+        est = {r["plan"]: {k: r[k] for k in ("items", "why", "value", "cash", "after")} for r in nx["rows"]}
+        nxt = {"next_start": nx["next_start"], "buys": nx["buys"], "sells": nx["sells"], "warnings": nx["warnings"]}
+    except Exception as e:
+        log.warning("plans estimate: %s", e)
+        est, nxt = {}, None
+    for p in sel:
+        p["est"] = est.get(p["id"])
+    return {"plans": sel, "counts": counts, "blocked": execution.blocked_symbols(m), "next": nxt,
+            "rule_code": brokers.SINGLE_STOCK_LEV_CODE, "single_stock": sorted(execution.single_stock_etfs())}
 
 
 @app.post("/api/orders/unblock")

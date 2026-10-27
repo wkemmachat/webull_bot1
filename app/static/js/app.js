@@ -68,7 +68,8 @@
     pb.innerHTML = top.paused ? 'Resume<span class="hide-s"> trading</span>' : 'Pause<span class="hide-s"> all trading</span>';
     pb.className = top.paused ? 'btn p s' : 'btn d s';
     const cp = document.getElementById('cnt-plans');
-    cp.textContent = top.issues.plans; cp.classList.toggle('hidden', !top.issues.plans);
+    const np = top.issues.plans_by_mode ? (top.issues.plans_by_mode[U.mode()] || 0) : top.issues.plans;   // the mode you are looking at
+    cp.textContent = np; cp.classList.toggle('hidden', !np);
     const ch = document.getElementById('cnt-health');
     ch.textContent = top.issues.health; ch.classList.toggle('hidden', !top.issues.health);
   }

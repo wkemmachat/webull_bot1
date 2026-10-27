@@ -1,6 +1,14 @@
 (function () {
   const V = window.Views || (window.Views = {});
 
+  /* "in 8 h 25 min" until t (seconds) */
+  function until(t) {
+    const s = Math.round(t - Date.now() / 1000);
+    if (s <= 0) return 'now';
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+    return 'in ' + (h ? h + ' h ' : '') + m + ' min';
+  }
+
   function lotClass(o) {
     if (o.status === 'filled' && o.retry > 0) return 'l-retry';
     return 'l-' + o.status;
@@ -18,24 +26,41 @@
     });
     const rounds = {};
     p.orders.forEach((o) => { const k = o.lot; (rounds[k] = rounds[k] || []).push(o); });
+    const est = p.est || {};
+    const estBuy = {};                                       // symbol → {qty, value, price} estimated from the latest price
+    (est.items || []).forEach((i) => { if (i.side === 'BUY') estBuy[i.symbol] = i; });
+    const nRounds = Object.keys(rounds).length || 1;
     const lotsHtml = Object.keys(rounds).sort((a, b) => a - b).map((k) => {
       const os = rounds[k];
       const st = os.some((o) => o.status === 'failed') ? 'l-failed' : os.every((o) => o.status === 'scheduled') ? 'l-scheduled'
         : os.every((o) => ['filled', 'skipped', 'partial', 'cancelled'].includes(o.status)) ? (os.some((o) => o.retry > 0) ? 'l-retry' : os.every((o) => o.status === 'skipped') ? 'l-skipped' : 'l-filled') : 'l-submitted';
       const r = Math.max(0, ...os.map((o) => o.retry));
-      return `<div class="lot ${st}" title="Round ${k}: ${os.map((o) => `${o.side} ${o.qty || o.plan_qty || ''} ${o.symbol} ${o.status}`).join(', ')}">${k}${r ? ' ↻' + r : ''}</div>`;
+      const when = os[0] && os[0].scheduled_at ? U.time(os[0].scheduled_at) : '';
+      const what = os.map((o) => {
+        const q = o.qty || o.plan_qty;
+        if (q) return `${o.side === 'SELL' ? 'sell' : 'buy'} ${q} ${o.symbol}`;
+        const e = estBuy[o.symbol];
+        if (!e || e.qty == null) return `buy ${o.symbol}`;
+        const base = Math.floor(e.qty / nRounds), rem = e.qty - base * nRounds;      // whole shares spread over the rounds
+        const mine = base + (Number(k) <= rem ? 1 : 0);
+        return mine ? `buy ≈${mine} ${o.symbol}` : '';
+      }).filter(Boolean).join(' · ') || 'small top-up if needed';
+      return `<div class="lot ${st}" title="Round ${k}${when ? ' at ' + when : ''}: ${os.map((o) => `${o.side} ${o.qty || o.plan_qty || ''} ${o.symbol} ${o.status}`).join(', ')}"><b>Lot ${k}${r ? ' ↻' + r : ''}</b><span class="tiny num" style="display:block">${when}</span><span class="tiny" style="display:block;opacity:.85">${U.esc(what)}</span></div>`;
     }).join('');
     const stateCls = p.state === 'queued' ? 'warn' : p.state === 'running' ? 'info' : p.status === 'done' ? 'ok' : 'err';
-    const stateTxt = p.state === 'queued' ? 'Queued · starts ' + U.dt(p.start_at) : p.state === 'running' ? 'Running' : p.status === 'done' ? 'Done · ' + U.dt(p.finished_at) : 'Cancelled';
+    const stateTxt = p.state === 'queued' ? 'Queued · starts ' + U.dt(p.start_at) + ' · ' + until(p.start_at) : p.state === 'running' ? 'Running' : p.status === 'done' ? 'Done · ' + U.dt(p.finished_at) : 'Cancelled';
     const fills = p.orders.filter((o) => o.status !== 'scheduled');
     return `<section class="card col" style="gap:14px;${compact ? 'padding:14px;margin-bottom:12px' : ''}" data-plan="${p.id}">
       <div class="row sb" style="align-items:flex-start"><div class="col" style="gap:5px">
         <div class="row" style="gap:10px">${U.dot(p.color || '#888', 12)}<b style="font-size:16px">${U.esc(p.name)} · ${U.esc(p.reason)}</b>${U.pill(stateCls, stateTxt)}<span class="muted small">#${p.id}</span></div>
-        <span class="muted small">${U.esc(p.note || '')} Target: ${Object.entries(p.target || {}).map(([k, v]) => `${(v * 100).toFixed(0)}% ${k}`).join(' + ') || 'cash'} · created ${U.dt(p.created_at)}</span></div>
+        <span class="muted small">${U.esc(p.note || '')} Target: ${Object.entries(p.target || {}).map(([k, v]) => `${(v * 100).toFixed(0)}% ${k}`).join(' + ') || 'cash'}${est.value != null ? ` of ${U.usd(est.value, 0)}` : ''} · created ${U.dt(p.created_at)}</span>
+        ${est.why ? `<span class="small" style="color:var(--text2)">Why: ${U.esc(est.why)}</span>` : ''}</div>
         ${p.status === 'active' && !compact ? `<div class="row" style="gap:8px">${p.state === 'queued' ? '<button class="btn s" data-act="start-now">Start now</button>' : ''}<button class="btn d s" data-act="cancel">Cancel plan</button></div>` : ''}</div>
       <div class="grid" style="--min:170px;gap:12px">
         ${Object.entries(sells).map(([s, x]) => `<div><div class="eyebrow">Sell</div><div class="num" style="font-size:18px;font-weight:600">${U.n(x.filled, 0)} / ${U.n(x.plan, 0)} ${U.esc(s)}</div><div class="muted num small">${x.filled ? 'avg ' + U.usd(x.value / x.filled) : 'not filled yet'}</div></div>`).join('')}
-        ${Object.entries(buys).map(([s, x]) => `<div><div class="eyebrow">Buy</div><div class="num" style="font-size:18px;font-weight:600">${U.n(x.filled, 0)} ${U.esc(s)}</div><div class="muted num small">${x.filled ? U.usd(x.value, 0) + ' · avg ' + U.usd(x.value / x.filled) : 'sized when each lot is sent'}</div></div>`).join('')}
+        ${Object.entries(buys).map(([s, x]) => { const e = estBuy[s];
+          if (x.filled) return `<div><div class="eyebrow">Bought</div><div class="num" style="font-size:18px;font-weight:600">${U.n(x.filled, 0)} ${U.esc(s)}</div><div class="muted num small">${U.usd(x.value, 0)} · avg ${U.usd(x.value / x.filled)}${e && e.qty ? ` · ≈${e.qty} still to buy` : ''}</div></div>`;
+          return `<div><div class="eyebrow">Buy (estimate)</div><div class="num" style="font-size:18px;font-weight:600">${e && e.qty != null ? '≈' + e.qty : '—'} ${U.esc(s)}</div><div class="muted num small">${e && e.price ? `≈${U.usd(e.value, 0)} at ${U.usd(e.price)} · exact shares when each lot is sent` : 'sized when each lot is sent'}${e && e.blocked ? ' · <span class="dn">Webull refuses it</span>' : ''}</div></div>`; }).join('')}
         <div><div class="eyebrow">Rounds</div><div class="num" style="font-size:18px;font-weight:600">${p.lots} × ${p.interval_min} min</div><div class="muted small">each round: sells, then buys</div></div>
         <div><div class="eyebrow">Window (BKK)</div><div class="num" style="font-size:18px;font-weight:600">${p.window ? U.time(p.window[0]) + ' → ' + U.time(p.window[1]) : '—'}</div><div class="muted small">US regular session</div></div>
       </div>
@@ -48,6 +73,37 @@
     </section>`;
   };
 
+  /* tonight's plans at a glance */
+  function nextHtml(d) {
+    const n = d.next, q = d.counts.queued + d.counts.running;
+    if (!n || !q) return '';
+    return `<section class="card row sb" style="gap:14px;flex-wrap:wrap;padding:16px 20px">
+      <div><div class="eyebrow">${d.counts.running ? 'Trading now' : 'Next US open'}</div>
+        <div style="font-size:18px;font-weight:600;margin-top:2px">${n.next_start ? U.dt(n.next_start) + ' <span class="muted small" style="font-weight:400">' + until(n.next_start) + '</span>' : 'running'}</div></div>
+      <div class="row" style="gap:8px;flex-wrap:wrap">${U.pill('', q + ' plan' + (q > 1 ? 's' : ''))}${U.pill('ok', 'Buys ≈' + U.usd(n.buys, 0))}${U.pill(n.sells ? 'err' : '', 'Sells ' + U.usd(n.sells, 0))}</div>
+      <div class="muted small" style="flex-basis:100%">Buys are estimated from the latest price; the exact shares are fixed when each lot is sent. Start now sends the first lot at once while the market is open.</div>
+      ${(n.warnings || []).map((w) => `<div class="note warn small" style="flex-basis:100%;margin:0">${U.esc(w)}</div>`).join('')}</section>`;
+  }
+
+  /* refused symbols: Webull's 50M THB single-stock rule is an account rule (one quiet line); anything else needs you (red, with the button) */
+  function blockedHtml(d) {
+    const all = Object.entries(d.blocked || {});
+    if (!all.length) return '';
+    const rule = all.filter(([, b]) => b.code === d.rule_code), other = all.filter(([, b]) => b.code !== d.rule_code);
+    let h = '';
+    if (other.length) {
+      h += `<div class="note err" style="flex-direction:column;align-items:flex-start;gap:6px"><b>Webull refuses ${other.map(([s]) => U.esc(s)).join(', ')} — no orders for ${other.length > 1 ? 'them' : 'it'} until you fix it and press the button</b>
+        ${other.map(([s, b]) => `<span>${U.esc(s)}: ${U.esc(b.msg)}${b.hint ? ' → ' + U.esc(b.hint) : ''}</span>`).join('')}
+        <button class="btn s" id="unb">I fixed it — try again now</button></div>`;
+    }
+    if (rule.length) {
+      h += `<details class="note info small" style="display:block;margin:0"><summary style="cursor:pointer"><b>Single-stock 2x ETFs are off for this account</b> — Webull Thailand allows them only for clients with 50M THB or more (${rule.length} ETFs: ${rule.slice(0, 4).map(([s]) => U.esc(s)).join(', ')}${rule.length > 4 ? ' …' : ''}). C2-7 Momentum 2x holds the stocks themselves instead. Nothing to fix.</summary>
+        <div style="margin-top:8px">${rule.map(([s]) => U.esc(s)).join(', ')}</div>
+        ${other.length ? '' : '<div style="margin-top:8px">If Webull changes this for your account, <button class="btn s" id="unb">try them again</button></div>'}</details>`;
+    }
+    return h;
+  }
+
   V.orders = async function (el) {
     const mode = U.mode();
     let status = 'all';
@@ -57,9 +113,8 @@
       el.innerHTML = `<div class="page-head"><div><div class="eyebrow">Split execution · ${U.modeLabel[mode]}</div><h1 class="h1">Orders</h1>
         <div class="muted" style="margin-top:4px">Every signal becomes a plan: lots of limit orders sent a few minutes apart, from the start time you set.</div></div>
         <a class="btn" href="#/execution">Execution settings</a></div>
-        ${Object.keys(d.blocked || {}).length ? `<div class="note err" style="flex-direction:column;align-items:flex-start;gap:6px"><b>Webull refuses ${Object.keys(d.blocked).join(', ')} — no orders for ${Object.keys(d.blocked).length > 1 ? 'them' : 'it'} until you press the button below</b>
-          ${Object.entries(d.blocked).map(([s, b]) => `<span>${U.esc(s)}: ${U.esc(b.msg)}${b.hint ? ' → ' + U.esc(b.hint) : ''}</span>`).join('')}
-          <button class="btn s" id="unb">I fixed it — try again now</button></div>` : ''}
+        ${nextHtml(d)}
+        ${blockedHtml(d)}
         <div class="seg" style="align-self:flex-start" id="st">${[['all', 'All'], ['queued', 'Queued · ' + d.counts.queued], ['running', 'Running · ' + d.counts.running], ['done', 'Done']].map(([k, l]) => `<button data-s="${k}" class="${status === k ? 'on' : ''}">${l}</button>`).join('')}</div>
         ${d.plans.map((p) => V.planCard(p)).join('') || '<div class="card empty">No plans here. Plans appear when a strategy\'s target changes or money is added.</div>'}
         <div class="row small muted" style="gap:16px"><span class="row" style="gap:6px"><span class="lot l-scheduled" style="width:20px;height:14px"></span>scheduled</span>
