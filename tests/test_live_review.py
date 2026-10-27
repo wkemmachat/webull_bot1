@@ -70,3 +70,13 @@ def test_golive_symbols_skip_stopped_strategies_and_refused_single_stock_etfs(cl
         assert "AAPU" in set(testtrade.status_for_golive("test"))  # the rule is per account
     finally:
         X.unblock_symbols("live")
+
+
+def test_stopped_strategy_without_money_is_marked_idle(clean):
+    from app import views
+    S.update("c27_mom2x", control="stopped")
+    cards = {c["id"]: c for c in views.strategies_list("live")["strategies"]}
+    assert cards["c27_mom2x"]["idle"] is True                    # stopped, nothing in Live
+    assert cards["qld_regime"]["idle"] is False                  # active
+    paper = {c["id"]: c for c in views.dashboard("paper")["strategies"]}
+    assert paper["c27_mom2x"]["idle"] is False                   # stopped but still holds its paper cash

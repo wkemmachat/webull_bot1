@@ -110,6 +110,8 @@ def strategy_card(mode, s, prices=None):
     cfg = execution.exec_cfg(s)
     return {"id": s.id, "name": s.name, "color": s.color, "type": s.type, "family": s.family, "timeframe": s.timeframe,
             "control": s.row.get("control"), "line_on": bool(s.row.get("line_on")), "flow": d.get("flow"), "rule": d.get("rule"),
+            # stopped and empty in this mode: the pages hide it unless "Show stopped" is on
+            "idle": s.row.get("control") == "stopped" and not ap and abs(v["value"] or 0) < 0.5 and not v["positions"],
             "state": st.get("state"), "label": label, "state_label": state_label, "activity": activity,
             "state_cls": _state_class(s, st),
             "waiting_since": waiting, "ok": bool(st.get("ok")),

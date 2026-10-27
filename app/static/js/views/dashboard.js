@@ -25,7 +25,9 @@
     async function load() {
       const d = await U.api('/api/dashboard?mode=' + mode);
       const b = d.bot, acct = d.account || {};
-      const split = d.strategies.map((s) => ({ name: s.name, color: s.color, v: s.value }));
+      const showIdle = U.showIdle(), idleN = d.strategies.filter((s) => s.idle).length;
+      const shown = d.strategies.filter((s) => showIdle || !s.idle);
+      const split = shown.map((s) => ({ name: s.name, color: s.color, v: s.value }));
       if (d.unassigned) split.push({ name: 'Bot unassigned', color: 'var(--accent)', v: Math.max(0, d.unassigned) });
       if (d.not_bot != null) split.push({ name: 'Not for the bot', color: 'var(--line)', v: Math.max(0, d.not_bot) });
       const tot = acct.total || split.reduce((x, y) => x + y.v, 0);
@@ -41,7 +43,7 @@
       <div class="grid" style="--min:340px">
         <section class="card span2 col" style="gap:14px">
           <div class="row sb" style="align-items:flex-start">
-            <div><div class="eyebrow">Bot equity · ${d.strategies.length} strategies</div>
+            <div><div class="eyebrow">Bot equity · ${d.strategies.length - idleN} strategies</div>
               <div class="num huge" style="margin-top:6px">${U.usd(b.value)}</div>
               <div class="row" style="gap:18px;margin-top:8px">
                 <span>Today <b class="num ${U.cls(b.today)}">${b.today == null ? '—' : U.sgnUsd(b.today) + ' (' + U.pct(b.today_pct, 2) + ')'}</b></span>
@@ -75,8 +77,8 @@
         <a class="card" href="#/line" style="color:var(--text)"><div class="eyebrow">LINE · last 24 h</div><div class="num big" style="margin-top:6px">${d.line.sent_24h} sent · ${d.line.failed_24h} failed</div>
           <div class="muted small">${d.line.configured ? 'Next digest ' + (d.line.next_digest || '—') : 'Not set up yet'}${d.line.quota && d.line.quota.limit ? ` · ${d.line.quota.used}/${d.line.quota.limit} this month` : ''}</div></a>
       </div>
-      <div class="row sb"><h2 class="h2" style="font-size:18px">Strategies</h2><a href="#/strategies" class="small">All strategies →</a></div>
-      <div class="grid" style="--min:300px">${d.strategies.map((s) => `
+      <div class="row sb"><h2 class="h2" style="font-size:18px">Strategies</h2><span class="row small" style="gap:12px">${U.idleToggle(idleN, showIdle)}<a href="#/strategies">All strategies →</a></span></div>
+      <div class="grid" style="--min:300px">${shown.map((s) => `
         <a class="card scard" href="#/strategies/${s.id}">
           <div class="row" style="gap:10px">${U.dot(s.color, 10)}<b style="font-size:15px">${U.esc(s.name)}</b><span class="pill" style="margin-left:auto">${s.type === 'momentum_basket' ? 'Stock basket' : s.family === 'regime' ? 'Daily regime' : '4H signal'}</span></div>
           <div class="row sb" style="align-items:flex-end">
@@ -97,7 +99,8 @@
             <div class="num muted small nowrap">${U.dt(e.t)}</div></div>`).join('') || '<div class="empty">No activity yet</div>'}</section>
       </div>`;
       if (chart) chart.remove();
-      V.renderAlloc(el.querySelector('#alloc'), d.strategies);
+      V.renderAlloc(el.querySelector('#alloc'), shown);
+      U.on(el, '[data-idle]', 'click', () => { U.showIdle(!showIdle); load(); });
       el.querySelector('#nextorders').innerHTML = oldNo;
       V.renderNextOrders(el.querySelector('#nextorders'));
       if (oldExp && oldExp.firstChild) { el.querySelector('#expect').replaceWith(oldExp); if (oldExp._expRefresh) oldExp._expRefresh(); } else V.renderExpected(el.querySelector('#expect'));

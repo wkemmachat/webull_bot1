@@ -86,6 +86,18 @@
     const lab = s.today.live ? 'Today' : new Date(s.today.day + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
     return `<span class="num small ${U.cls(s.today.pnl)}" title="${s.today.live ? 'This US session so far' : 'Last completed US session'} (money moved that day left out)">${lab} ${U.sgnUsd(s.today.pnl, 0)}${s.today.pct != null ? ' (' + U.pct(s.today.pct, 2) + ')' : ''}</span>`;
   };
+  /* Stopped strategies with no money in this mode are hidden on Home and Strategies unless the viewer shows them */
+  U.showIdle = function (v) {
+    try {
+      if (v === undefined) return localStorage.getItem('showIdle') === '1';
+      localStorage.setItem('showIdle', v ? '1' : '0');
+    } catch (e) { U._showIdle = !!v; }
+    return v === undefined ? !!U._showIdle : v;
+  };
+  U.idleToggle = function (n, on) {
+    if (!n) return '';
+    return `<span class="muted">${on ? '' : `${n} stopped with no money hidden`}</span><button class="btn s" data-idle="1">${on ? 'Hide stopped (' + n + ')' : 'Show stopped (' + n + ')'}</button>`;
+  };
   U.ddLine = function (s) {
     if (!s.dd) return '';
     return `<span class="muted small" title="From the backtest since ${U.esc(s.dd.from || '')}: the deepest fall below a previous high, and the longest time before a new high">Worst fall <b class="dn">${s.dd.worst.toFixed(0)}%</b>${s.dd.longest_days != null ? ' · underwater up to ' + U.durShort(s.dd.longest_days) : ''}</span>`;
