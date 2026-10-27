@@ -6,6 +6,7 @@
 (function () {
   const V = window.Views || (window.Views = {});
   const cache = {};          // mode → {d, at}
+  V.expectedForget = () => { Object.keys(cache).forEach((k) => delete cache[k]); };   // e.g. after Show / Hide stopped
   const planner = {};        // mode → {total, pct: {sid: percent}} while the ratio planner is open
   const HAIRCUTS = [0, 15, 30, 50];
   const N = [1, 2, 3];
@@ -94,6 +95,8 @@
     async function fetchData(force) {
       if (!force && cache[mode] && Date.now() - cache[mode].at < 120000) return cache[mode].d;
       const x = await U.api('/api/expected?mode=' + mode);
+      // stopped strategies with no money are hidden here too, like on Home and Strategies ("Show stopped")
+      if (!U.showIdle()) x.strategies = x.strategies.filter((s) => !s.idle);
       cache[mode] = { d: x, at: Date.now() };
       return x;
     }

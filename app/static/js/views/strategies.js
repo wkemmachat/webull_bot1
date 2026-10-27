@@ -55,7 +55,7 @@
       V.renderAlloc(el.querySelector('#alloc'), vis);
       if (oldExp && oldExp.firstChild) { el.querySelector('#expect').replaceWith(oldExp); if (oldExp._expRefresh) oldExp._expRefresh(); } else V.renderExpected(el.querySelector('#expect'));
       U.on(el, '#fam button', 'click', (e, b) => { filter = b.dataset.f; load(); });
-      U.on(el, '[data-idle]', 'click', () => { U.showIdle(!showIdle); load(); });
+      U.on(el, '[data-idle]', 'click', () => { U.showIdle(!showIdle); if (V.expectedForget) V.expectedForget(); load(); });
       U.on(el, '.seg[data-id] button', 'click', async (e, b) => {
         const id = b.parentElement.dataset.id, c = b.dataset.c;
         const words = { active: ['Make it active?', 'It follows every signal again: buys, sells and rebalances.'],

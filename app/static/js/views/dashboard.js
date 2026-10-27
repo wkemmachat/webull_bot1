@@ -100,7 +100,7 @@
       </div>`;
       if (chart) chart.remove();
       V.renderAlloc(el.querySelector('#alloc'), shown);
-      U.on(el, '[data-idle]', 'click', () => { U.showIdle(!showIdle); load(); });
+      U.on(el, '[data-idle]', 'click', () => { U.showIdle(!showIdle); if (V.expectedForget) V.expectedForget(); load(); });
       el.querySelector('#nextorders').innerHTML = oldNo;
       V.renderNextOrders(el.querySelector('#nextorders'));
       if (oldExp && oldExp.firstChild) { el.querySelector('#expect').replaceWith(oldExp); if (oldExp._expRefresh) oldExp._expRefresh(); } else V.renderExpected(el.querySelector('#expect'));

@@ -442,6 +442,7 @@ def view(mode: str) -> dict:
         if tr:
             tr["text"] = TRACK_TEXT[tr["status"]]
         rows.append({"id": s.id, "name": s.name, "color": s.color, "value": round(v["value"], 2), "net_in": round(v["net_in"] or 0, 2),
+                     "idle": (s.row or {}).get("control") == "stopped" and abs(v["value"] or 0) < 0.5 and not v["positions"],
                      "basis": b, "mu": mu, "vol": sig,
                      "ranges": ranges(mu, sig) if mu is not None else None,
                      "check": {"ok": c.get("ok"), "error": c.get("error"), "cagr": bt, "years": c.get("years"), "from": c.get("from"),

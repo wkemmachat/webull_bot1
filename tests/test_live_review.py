@@ -80,3 +80,10 @@ def test_stopped_strategy_without_money_is_marked_idle(clean):
     assert cards["qld_regime"]["idle"] is False                  # active
     paper = {c["id"]: c for c in views.dashboard("paper")["strategies"]}
     assert paper["c27_mom2x"]["idle"] is False                   # stopped but still holds its paper cash
+
+
+def test_expected_table_marks_stopped_empty_strategies(clean):
+    from app import expected
+    S.update("c27_mom2x", control="stopped")
+    rows = {r["id"]: r for r in expected.view("live")["strategies"]}
+    assert rows["c27_mom2x"]["idle"] is True and rows["usd_ibs"]["idle"] is False
