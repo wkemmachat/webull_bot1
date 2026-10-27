@@ -30,7 +30,7 @@ MANUAL = [
     ("m_margin", "Checked whether my Webull account can borrow (margin). Cash account preferred",
      "A cash account cannot borrow, so even a mistake cannot spend more than the cash.", False),
     ("m_small", "Plan: start Live with 2–3 strategies and small amounts, then add more after 2 good weeks",
-     "Whole shares only: give each strategy at least $1,000 (QLD ≈ $100+ a share).", True),
+     "Fractional shares are on in Live, so small amounts work; still start with a few strategies and add after 2 good weeks.", True),
 ]
 
 
@@ -68,6 +68,24 @@ def _ny(t):
 def _item(out, key, title, ok, value, detail="", how="", link="", must=False, warn=False, at=None):
     out.append({"key": key, "title": title, "status": "ok" if ok else ("warn" if warn else "todo"), "value": value,
                 "detail": detail, "how": how, "link": link, "must": must, "at": at})
+
+
+def _explained(mode, e) -> str | None:
+    """Errors that already have their answer: Webull's single-stock 2x ETF rule (the bot holds the stocks instead), and a
+    failed Test trade of an ETF that passed a later Test trade."""
+    from . import execution
+    title = e["title"] or ""
+    if title.startswith("Webull refuses "):
+        sym = title.split()[2] if len(title.split()) > 2 else ""
+        if sym in execution.single_stock_etfs() and execution.single_stock_refused(mode):
+            return "single-stock 2x ETFs need 50M THB at Webull TH (C2-7 2x holds the stocks)"
+    if title.startswith("Test trade ") and title.endswith(" failed"):
+        sym = title[len("Test trade "):-len(" failed")].split()[0]
+        ok = db.one("SELECT finished_at t FROM test_trades WHERE mode=? AND symbol=? AND status='ok' AND qty>=1 AND finished_at>=? "
+                    "ORDER BY finished_at LIMIT 1", (mode, sym, e["t"]))
+        if ok:
+            return f"{sym} test trade passed later ({_ny(ok['t']).strftime('%d %b')})"
+    return None
 
 
 def report(mode="test"):
@@ -124,10 +142,20 @@ def report(mode="test"):
           "A BUY/SELL or regime change that the bot turned into orders.", "Signals come on their own; gold and silver trade most often.",
           "#/strategies")
 
-    errs = db.rows("SELECT t, title FROM events WHERE level='error' AND (mode=? OR mode IS NULL) AND t>=? "
-                   "AND title NOT LIKE 'Buy blocked%' ORDER BY t DESC LIMIT 5", (mode, now - 3 * 86400))
-    _item(ops, "errors", "No errors in the last 3 days", not errs, f"{len(errs)} error(s)" if errs else "none",
-          "; ".join(f"{_ny(e['t']).strftime('%d %b')}: {e['title']}" for e in errs[:3]),
+    errs, explained = [], []
+    for e in db.rows("SELECT t, title FROM events WHERE level='error' AND (mode=? OR mode IS NULL) AND t>=? "
+                     "AND title NOT LIKE 'Buy blocked%' ORDER BY t DESC LIMIT 50", (mode, now - 3 * 86400)):
+        why = _explained(mode, e)
+        (explained if why else errs).append((e, why))
+    detail = "; ".join(f"{_ny(e['t']).strftime('%d %b')}: {e['title']}" for e, _ in errs[:3])
+    if explained:
+        seen = []
+        for _, w in explained:
+            if w not in seen:
+                seen.append(w)
+        detail = (detail + " · " if detail else "") + "explained: " + "; ".join(seen[:3])
+    _item(ops, "errors", "No errors in the last 3 days", not errs, f"{len(errs)} error(s)" if errs else
+          ("none" if not explained else f"none open · {len(explained)} explained"), detail,
           "Open Logs → Errors. Each one needs an explanation before going live.", "#/logs", must=True)
 
     if mode in ("test", "live"):
@@ -166,7 +194,8 @@ def report(mode="test"):
     last = db.one("SELECT MAX(finished_at) t FROM test_trades WHERE mode=? AND status='ok'", (mode,))
     _item(tests, "t_symbols", "Every ETF the strategies use: bought and sold once (Test trade below)",
           bool(tt) and len(okk) == len(tt), f"{len(okk)} / {len(tt)} OK", det,
-          "Use the Test trade box on this page: it buys 1 share and sells it back, paid from bot unassigned."
+          "Use the Test trade box on this page: it buys 1 share and sells it back, paid from bot unassigned. Only strategies "
+          "with money in this mode count; test a strategy's ETFs before you give it money."
           + (" The shared test accounts refuse leveraged ETFs: those pass only in Live (or your own test account)." if mode == "test" else ""),
           "#/golive", must=(mode == "live"), warn=bool(okk) and not bad and not todo, at=last and last["t"])
     test("t_withdraw", "Withdraw from a strategy that holds ETFs (it sells evenly)",

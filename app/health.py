@@ -233,7 +233,7 @@ def run(now=None, send=True):
         for sym, q in books.items():
             have = ((acct.get("positions") or {}).get(sym) or {}).get("qty", 0.0)
             if q > have + 1e-6:
-                diffs.append(f"{sym}: bot {q:.0f} vs account {have:.0f}")
+                diffs.append(f"{sym}: bot {brokers.qty_text(round(q, 4))} vs account {brokers.qty_text(round(have, 4))}")
         _item(items, f"books_{mode}", label, f"{label}: bot books = account positions", "error" if diffs else "ok",
               "; ".join(diffs) if diffs else f"{len(books)} symbol(s), all present in the account.",
               "Something was sold by hand or an order filled without the bot seeing it. Check Positions." if diffs else "", "#/positions")
@@ -247,9 +247,15 @@ def run(now=None, send=True):
               "The bot's books have more cash than the account (money left Webull?). Return money to Webull or withdraw from a strategy."
               if st == "error" else "", "#/money")
         from . import execution
-        blk = execution.blocked_symbols(mode)
+        allb = execution.blocked_symbols(mode)
+        # Webull's 50M THB single-stock 2x rule is an account rule the bot already works around (C2-7 2x holds the stocks)
+        rule = sorted(k for k, v in allb.items() if v.get("code") == brokers.SINGLE_STOCK_LEV_CODE)
+        blk = {k: v for k, v in allb.items() if k not in rule}
+        note = (f" Single-stock 2x ETFs ({len(rule)}) are refused by Webull's 50M THB rule; the bot holds the stocks instead."
+                if rule else "")
         _item(items, f"refused_{mode}", label, f"{label}: Webull accepts every traded symbol", "error" if blk else "ok",
-              "; ".join(f"{k}: {v['msg']}" for k, v in blk.items()) if blk else "No symbol is refused by Webull.",
+              ("; ".join(f"{k}: {v['msg']}" for k, v in blk.items()) if blk else "No other symbol is refused by Webull." if rule
+               else "No symbol is refused by Webull.") + note,
               "; ".join(v.get("hint", "") for v in blk.values()) if blk else "", "#/orders")
         floor = float(settings.get(f"protect_floor_{mode}") or 0)
         gb = db.get_state(f"guard_block:{mode}") or {}

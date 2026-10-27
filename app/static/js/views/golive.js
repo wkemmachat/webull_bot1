@@ -69,7 +69,7 @@
       const def = syms.includes('QLD') ? 'QLD' : syms[0];
       return `<div class="col" style="gap:10px;border-top:1px solid var(--line2);padding-top:14px;margin-top:4px">
         <div><h3 style="margin:0;font-size:15px;font-weight:600">Fractional shares: buy 0.5 share, sell it back</h3>
-          <div class="muted small" style="max-width:760px;margin-top:4px">The bot buys whole shares today, so a small strategy keeps up to one share of cash idle ($500 in QLD ≈ 5 shares, about 12% not invested). This checks whether Webull accepts fractions through the API — first as a limit order (what the bot uses), then, if refused, as a market order.</div></div>
+          <div class="muted small" style="max-width:760px;margin-top:4px">Checks whether Webull accepts fractions through the API — first as a limit order (what the bot uses), then, if refused, as a market order. Once the limit test passes, the bot adds the leftover fraction to the last lot of each buy, so a small strategy does not keep up to one share of cash idle (Execution → Fractional shares).</div></div>
         ${one('LIMIT', 'Limit order')}${one('MARKET', 'Market order')}
         <div class="small" style="color:var(--text2)">→ ${U.esc(f.verdict || '')}</div>
         <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><select class="in" id="frs" style="width:auto">${syms.map((x) => `<option ${x === def ? 'selected' : ''}>${U.esc(x)}</option>`).join('')}</select>

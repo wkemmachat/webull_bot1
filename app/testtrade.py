@@ -37,12 +37,26 @@ class TestTradeError(ValueError):
     pass
 
 
-def symbols(in_use=False) -> dict:
+def funded(mode) -> set:
+    """Strategies that hold money in this mode (cash, shares or a running plan)."""
+    out = set()
+    for s in S.all_instances():
+        L = ledger.get(mode, s.id)
+        if L["cash"] > 0.5 or L["holdings"] or db.one("SELECT 1 x FROM plans WHERE mode=? AND strategy=? AND status='active'",
+                                                       (mode, s.id)):
+            out.add(s.id)
+    return out
+
+
+def symbols(in_use=False, mode=None) -> dict:
     """{symbol: [strategy names]} — every ETF a (not archived) strategy can hold. in_use: only strategies that are not
-    stopped (what Go-live needs tested)."""
+    stopped (what Go-live needs tested); with a mode, only the ones that have money there (all of them while none has)."""
     out = {}
+    have = funded(mode) if mode else set()
     for s in S.all_instances():
         if in_use and (s.row or {}).get("control") == "stopped":
+            continue
+        if in_use and have and s.id not in have:
             continue
         for sym in (s.test_symbols() if hasattr(s, "test_symbols") else s.trade_symbols()) or []:
             out.setdefault(sym, []).append(s.name)
@@ -226,7 +240,7 @@ def _begin(t, broker, now):
     except Exception as e:
         _upd(t["id"], error=f"no price yet: {e}"[:300])
         return
-    limit = execution._limit(q, "BUY", _offset())
+    limit = _test_limit(q, "BUY", t["tries"] or 0)
     value = qty * limit
     if value > MAX_VALUE:
         return _fail(t, f"{qs(qty)} × ${limit:,.2f} = ${value:,.2f} is more than the ${MAX_VALUE:,.0f} test limit. Use 1 share.")
@@ -251,6 +265,17 @@ def _begin(t, broker, now):
 
 def _market(t) -> bool:
     return (t.get("order_type") or "LIMIT").upper() == "MARKET"
+
+
+def _test_limit(q, side, tries):
+    """Like a lot: through the quote, 0.5% wider when Webull shows no bid/ask (thin ETFs such as ROM), and each new try
+    0.5% further (at most 2%). A limit only caps the price; a liquid ETF still fills at the market."""
+    from . import execution
+    base = execution._limit(q, side, _offset())
+    sign = 1 if side == "BUY" else -1
+    extra = (execution.STALE_EXTRA if not q.get("ask" if side == "BUY" else "bid") else 0.0) \
+        + min(execution.CHASE_STEP * tries, execution.CHASE_CAP)
+    return round(base * (1 + sign * extra), 2)
 
 
 def _offset():
@@ -388,7 +413,7 @@ def _start_sell(t, broker, now):
     except Exception as e:
         _upd(t["id"], error=f"no price yet: {e}"[:300])
         return
-    _send(t, broker, "SELL", left, execution._limit(q, "SELL", _offset()), now)
+    _send(t, broker, "SELL", left, _test_limit(q, "SELL", t["tries"] or 0), now)
 
 
 def _finish(t):
@@ -489,7 +514,7 @@ def status_for_golive(mode) -> dict:
     from . import execution
     skip = execution.single_stock_etfs() if execution.single_stock_refused(mode) else set()
     out = {}
-    for s in [x for x in symbols(in_use=True) if x not in skip]:
+    for s in [x for x in symbols(in_use=True, mode=mode) if x not in skip]:
         r = db.one("SELECT status, code FROM test_trades WHERE mode=? AND symbol=? AND qty>=1 AND status IN ('ok','failed','holding') "
                    "ORDER BY (status='ok') DESC, id DESC LIMIT 1", (mode, s))
         if not r:

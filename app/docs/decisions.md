@@ -115,3 +115,7 @@
   Exits sell the exact holding. Minimum fractional buy $5. Setting per mode (Auto = follows that mode's Go-live limit test;
   Paper follows Live). A refused fractional order re-sends the lot as whole shares, switches that ETF (per account) back to
   whole shares and sends one LINE message; it does not block the ETF or cancel the plan.
+- **Go-live list after the first Live days** (27 Oct 2026): the ETF test item counts only strategies that have money in that
+  mode (all active ones while none has); errors that already have their answer no longer block "No errors" (Webull's 50M THB
+  single-stock rule, a failed Test trade of an ETF that passed later); Health no longer marks the handled 50M THB rule as an
+  error every day; Test trades widen and chase their limit like lots (thin ETFs such as ROM).
