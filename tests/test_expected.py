@@ -214,3 +214,27 @@ def test_plan_api(client):
     assert client.get("/api/expected?mode=paper").json()["plan"]["total"] == 50000
     assert client.post("/api/expected/plan", json={"pct": {"usd_ibs": 80, "qld_regime": 40}}).status_code == 400
     assert client.post("/api/expected/plan", json={"pct": {}}).json()["plan"] is None
+
+
+def test_check_stores_return_per_fall_and_yearly_falls(checked):
+    chk, _ = checked
+    ok = {k: v for k, v in chk["strategies"].items() if v["ok"]}
+    for k, v in ok.items():
+        if v.get("maxdd10"):
+            assert v["ret_dd"] == round(v["cagr10" if v.get("cagr10") is not None else "cagr_max"] / abs(v["maxdd10"]), 2), k
+        assert v["year_fall"] is None or v["year_fall"] <= 0
+    assert any(v.get("worst_year") for v in ok.values())
+    row = next(r for r in E.view("paper")["strategies"] if r["check"] and r["check"].get("ok"))
+    assert {"ret_dd", "year_fall", "worst_year"} <= set(row["check"])
+
+
+def test_yearly_falls_by_calendar_year():
+    import pandas as pd
+    idx = pd.date_range("2020-01-01", "2022-12-31", freq="B")
+    v = pd.Series(100.0, index=idx)
+    v[(idx >= "2021-03-01")] = 80.0                      # 2021: −20% fall, ends −20%
+    v[(idx >= "2022-06-01")] = 96.0                      # 2022: ends +20%, no fall
+    out = E._years(v)
+    assert out["years_n"] == 2 and out["year_fall"] == -10.0 and out["year_fall_min"] == -20.0
+    assert out["worst_year"]["year"] == 2021 and out["worst_year"]["ret"] == -20.0
+    assert E._ret_dd(50.0, -38.5) == 1.3 and E._ret_dd(None, -10) is None and E._ret_dd(10, 0) is None

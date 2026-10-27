@@ -87,3 +87,11 @@ def test_expected_table_marks_stopped_empty_strategies(clean):
     S.update("c27_mom2x", control="stopped")
     rows = {r["id"]: r for r in expected.view("live")["strategies"]}
     assert rows["c27_mom2x"]["idle"] is True and rows["usd_ibs"]["idle"] is False
+
+
+def test_expected_rows_carry_the_card_worst_fall(clean):
+    from app import expected
+    db.set_state("ddsum:usd_ibs", {"worst": {"depth": -52.0}, "longest": {"days_under": 1033}, "from": "2007-11-14"})
+    rows = {r["id"]: r for r in expected.view("live")["strategies"]}
+    assert rows["usd_ibs"]["dd"] == {"worst": -52.0, "longest_days": 1033, "from": "2007-11-14"}
+    assert "dd" in rows["qld_regime"]

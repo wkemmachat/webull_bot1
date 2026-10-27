@@ -20,7 +20,7 @@
   let sort = { k: 'plan', dir: -1 };
   try { const x = JSON.parse(localStorage.getItem(SORT_KEY) || 'null'); if (x && x.k) sort = x; } catch (e) {}
   const COLS = [['name', 'Strategy', ''], ['money', 'Money', 'r'], ['plan', 'Plan a year', 'r'], ['y1', '1 year', 'r'], ['y3', '3 years', 'r'],
-    ['real', 'Real vs expected', ''], ['bt', 'Bot backtest now', 'r']];
+    ['dd', 'Worst fall', 'r'], ['rdd', 'Return ÷ fall', 'r'], ['yf', 'Fall in a year', 'r'], ['real', 'Real vs expected', ''], ['bt', 'Bot backtest now', 'r']];
 
   function ranges(mu, sig, z) {
     const out = {};
@@ -152,6 +152,9 @@
         case 'plan': return s.mu;
         case 'y1': return s.mu == null ? null : Math.pow(1 + s.mu, 1) - 1;
         case 'y3': return s.mu == null ? null : Math.pow(1 + s.mu, 3) - 1;
+        case 'dd': return s.dd && s.dd.worst != null ? s.dd.worst : (s.basis && s.basis.maxdd != null ? -Math.abs(s.basis.maxdd) : (c.maxdd != null ? c.maxdd : null));   // high → low = mildest first
+        case 'rdd': return c.ok && c.ret_dd != null ? c.ret_dd : null;                 // high → low = most return per 1% of fall
+        case 'yf': return c.ok && c.year_fall != null ? c.year_fall : null;            // high → low = calmest years first
         case 'real': return tr && tr.real_ret != null ? tr.real_ret - (tr.exp_ret || 0) : null;
         case 'bt': return c.ok && c.cagr != null ? c.cagr : null;
         default: return null;
@@ -193,6 +196,7 @@
     function rowsHtml() {
       const its = items(), tot = its.reduce((a, x) => a + x.amount, 0), plan = d.plan;
       const p = portfolio(its, d.corr, d.z);
+      const fall = p ? mixFall(its, d.weekly || {}) : null;
       const body = order(its).map((i) => {
         const s = d.strategies[i];
         const amt = its[i].amount, b = s.basis, rg = s.mu != null ? ranges(s.mu, s.vol, d.z) : null, c = s.check || {};
@@ -203,15 +207,25 @@
             <div class="tiny muted num">worst 12 m ${c.worst12 != null ? c.worst12.toFixed(0) + '%' : '—'}</div>`
           : c.error ? `<span class="tiny dn">${U.esc(String(c.error).slice(0, 60))}</span>` : '<span class="muted">—</span>';
         const share = tot ? (amt / tot * 100).toFixed(1) + '%' : '';
+        const wf = s.dd && s.dd.worst != null ? s.dd.worst : (b && b.maxdd != null ? -Math.abs(b.maxdd) : null);   // research worst fall until a backtest ran
+        const ddc = wf != null || c.maxdd != null ? `<td class="r num" title="Deepest fall below a previous high in the backtest${s.dd && s.dd.from ? ' since ' + U.esc(s.dd.from) : ''}, and the longest wait for a new high">
+            <div class="dn" style="font-weight:600">${wf != null ? wf.toFixed(0) + '%' : '—'}</div>
+            ${s.dd && s.dd.longest_days != null ? `<div class="tiny muted">under ${U.durShort(s.dd.longest_days)}</div>` : ''}${c.maxdd != null && (wf == null || Math.abs(c.maxdd - wf) >= 1) ? `<div class="tiny muted">10 yr ${c.maxdd.toFixed(0)}%</div>` : ''}</td>`
+          : '<td class="r muted">—</td>';
+        const rddc = c.ok && c.ret_dd != null ? `<td class="r num" title="Backtest return a year ÷ its worst fall${c.years ? ' (last ' + c.years + ' years)' : ''}: how much return each 1% of the deepest fall bought. Higher is better.">
+            <b>${c.ret_dd.toFixed(2)}</b><div class="tiny muted">${c.cagr != null ? c.cagr.toFixed(0) + '% ÷ ' : ''}${c.maxdd != null ? Math.abs(c.maxdd).toFixed(0) + '%' : ''}${c.years != null && c.years < 9.5 ? ' · ' + c.years + ' yr only' : ''}</div></td>` : '<td class="r muted">—</td>';
+        const wy = c.worst_year;
+        const yfc = c.ok && c.year_fall != null ? `<td class="r num" title="The fall inside a calendar year, from that year's high: average over ${c.years_n || ''} year(s) of the backtest. A dip this size during a year is normal.${wy ? ' Worst year ' + wy.year + ': ' + wy.ret.toFixed(0) + '% with a ' + wy.fall.toFixed(0) + '% fall inside it.' : ''}">
+            <div class="dn">${c.year_fall.toFixed(0)}%</div><div class="tiny muted">${wy ? 'worst yr ' + wy.year + ' ' + (wy.ret > 0 ? '+' : '') + wy.ret.toFixed(0) + '%' : ''}</div></td>` : '<td class="r muted">—</td>';
         const pp = plan ? (plan.pct[s.id] || 0) : null;
         return `<tr><td><a href="#/strategies/${U.esc(s.id)}" class="row" style="gap:8px;flex-wrap:nowrap;color:var(--text)">${U.dot(s.color, 10)}<span>${U.esc(s.name)}</span></a></td>
           <td class="r num">${U.usd(amt, 0)}<div class="tiny muted">${share}${pp != null ? ` · <span title="Your saved ratio">ratio ${pp.toFixed(1)}%</span>` : ''}</div></td>
           <td class="r num">${s.mu != null ? `<b>${U.pct(s.mu)}</b><div class="tiny muted">${U.esc(b.basis)} ${b.cagr.toFixed(1)}%</div>` : '<span class="muted">—</span>'}</td>
-          ${cell(1)}${cell(3)}<td>${trk}</td><td class="r">${chk}</td></tr>`;
+          ${cell(1)}${cell(3)}${ddc}${rddc}${yfc}<td>${trk}</td><td class="r">${chk}</td></tr>`;
       }).join('');
       const foot = p ? `<tfoot><tr><td>All</td><td class="r num">${U.usd(p.amount, 0)}</td><td class="r num">${U.pct(p.a_year)}</td>
         ${[1, 3].map((n) => `<td class="r num"><div class="${U.cls(p.periods[n].typical)}">${pct0(p.periods[n].typical)}</div>${p.periods[n].weak != null ? `<div class="tiny muted" style="font-weight:400">${pct0(p.periods[n].weak)} … ${pct0(p.periods[n].good)}</div>` : ''}</td>`).join('')}
-        <td></td><td></td></tr></tfoot>` : '';
+        <td class="r num">${fall ? `<div class="dn">${fall.maxdd.toFixed(0)}%</div><div class="tiny muted" style="font-weight:400">this split, 10 yr</div>` : ''}</td><td></td><td></td><td></td><td></td></tr></tfoot>` : '';
       return `<div class="tw"><table class="t t-sort"><thead><tr>${headHtml()}</tr></thead><tbody>${body}</tbody>${foot}</table></div>`;
     }
 

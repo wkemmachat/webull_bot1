@@ -41,6 +41,22 @@ Backtests nearly always beat real trading:
 The 30% haircut builds that gap into the plan, so a normal year does not feel like a failure. You can pick 0%, 15%, 30%
 or 50% in the panel. The choice changes every expected number, in the panel and in these pages.
 
+## Worst fall, Return ÷ fall and Fall in a year
+
+Three columns in the table help you weigh return against pain before choosing a strategy (press a column header to sort):
+
+- **Worst fall**: the deepest fall below a previous high in the strategy's backtest (the same number as on its card), and the
+  longest time it then stayed below that high ("under 2.8 yr"). If you had put money in at the worst possible day, this is how
+  far it would have fallen and how long you would have waited. A second line shows the last 10 years when that differs.
+- **Return ÷ fall**: the backtest's return a year divided by its worst fall, over the last 10 years (for example 57% ÷ 38% =
+  1.49). It says how much yearly return each 1% of the deepest fall bought: higher is better. Gold and silver have only about
+  2 years of backtest, marked "2 yr only": treat their numbers with care.
+- **Fall in a year**: in each full calendar year of the backtest, the deepest dip below that year's high; the column shows the
+  average. Every strategy here dips about 20–35% at some point in a normal year, even in years that end well: a dip that size is
+  not a sign that something is broken. The small line names the worst year (lowest return ÷ fall) and its return.
+
+They are worked out in the backtest check (after a fee or settings change, and once a year) and stay until the next check.
+
 ## The weak and good cases
 
 They come from each strategy's own **volatility** (how much it swings) in the bot's backtest of the last 10 years. The

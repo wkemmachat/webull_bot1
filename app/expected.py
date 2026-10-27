@@ -285,6 +285,7 @@ def _one(s, now=None) -> dict:
     except Exception as e:
         log.warning("drawdown summary %s: %s", s.id, e)
     ser = ser[ser.index >= ser.index[-1] - pd.DateOffset(years=10)]
+    yearly = _years(ser)
     wk = ser.resample("W-FRI").last().ffill().dropna()      # one value every Friday, no gaps (dates are rebuilt from w0)
     if len(wk) < 20:
         return {"ok": False, "error": "less than 20 weeks of backtest"}
@@ -298,8 +299,40 @@ def _one(s, now=None) -> dict:
             "vol": round(float(lr.std() * math.sqrt(52)) * 100, 2), "cagr10": ten.get("cagr"), "cagr_max": mx.get("cagr"),
             "maxdd10": (st[first]["strategy"] or {}).get("maxdd"),
             "worst12": round(float(y12.min()) * 100, 1) if len(y12) else None,
+            "ret_dd": _ret_dd(ten.get("cagr") if ten else mx.get("cagr"), (st[first]["strategy"] or {}).get("maxdd")),
+            **yearly,
             "best12": round(float(y12.max()) * 100, 1) if len(y12) else None,
             "w0": str(wk.index[0].date()), "wv": [round(float(x), 2) for x in wk.values]}
+
+
+def _ret_dd(cagr, maxdd):
+    """Return a year ÷ worst fall (both %): how much return each 1% of the deepest fall bought. Higher is better."""
+    if cagr is None or not maxdd:
+        return None
+    return round(cagr / abs(maxdd), 2)
+
+
+def _years(ser: pd.Series) -> dict:
+    """Calendar years in the window: the fall inside each year (from that year's high so far, starting at the previous
+    year's last value). year_fall = the average of those falls over the full years (what a normal year brings);
+    worst_year = the year with the lowest return ÷ fall."""
+    rows = []
+    for y in sorted(set(ser.index.year)):
+        prev = ser[ser.index.year < y]
+        cur = ser[ser.index.year == y]
+        if prev.empty or len(cur) < 20:
+            continue
+        x = pd.concat([prev.iloc[-1:], cur])
+        ret = float(x.iloc[-1] / x.iloc[0] - 1) * 100
+        fall = float((x / x.cummax() - 1).min()) * 100
+        full = (cur.index[-1] - pd.Timestamp(year=y, month=12, day=1)).days >= 0
+        rows.append({"year": y, "ret": round(ret, 1), "fall": round(fall, 1), "full": full})
+    full = [r for r in rows if r["full"]] or rows
+    if not full:
+        return {"year_fall": None, "worst_year": None, "years_n": 0}
+    worst = min(full, key=lambda r: r["ret"] / abs(r["fall"]) if r["fall"] < 0 else float("inf"))
+    return {"year_fall": round(float(np.mean([r["fall"] for r in full])), 1), "year_fall_min": round(min(r["fall"] for r in full), 1),
+            "worst_year": worst, "years_n": len(full)}
 
 
 def _corr(res: dict) -> dict:
@@ -320,10 +353,13 @@ def _corr(res: dict) -> dict:
     return {"ids": ids, "m": [[round(float(x), 3) for x in row] for row in C]}
 
 
+CHECK_VERSION = 2          # 2: return ÷ worst fall and the falls inside each year (27 Oct 2026); a new version re-runs the check
+
+
 def fingerprint() -> str:
     """Changes when the backtest fee or any strategy's settings change: the stored check is then out of date."""
     from . import backtest
-    raw = json.dumps([round(backtest.cost_setting(), 6), sorted([s.id, s.type, s.params] for s in S.all_instances())],
+    raw = json.dumps([CHECK_VERSION, round(backtest.cost_setting(), 6), sorted([s.id, s.type, s.params] for s in S.all_instances())],
                      sort_keys=True, default=str)
     return hashlib.sha1(raw.encode()).hexdigest()[:16]
 
@@ -427,6 +463,15 @@ def daily(now=None):
 
 
 # ---------------------------------------------------------------- what the pages show
+def _dd_summary(sid):
+    """Worst fall and longest time underwater, the same numbers as the strategy cards (last full-history backtest)."""
+    from . import perf
+    try:
+        return perf.card_summary(sid)
+    except Exception:
+        return None
+
+
 def view(mode: str) -> dict:
     chk = db.get_state(STATE) or {}
     h = haircut()
@@ -442,11 +487,14 @@ def view(mode: str) -> dict:
         if tr:
             tr["text"] = TRACK_TEXT[tr["status"]]
         rows.append({"id": s.id, "name": s.name, "color": s.color, "value": round(v["value"], 2), "net_in": round(v["net_in"] or 0, 2),
+                     "dd": _dd_summary(s.id),
                      "idle": (s.row or {}).get("control") == "stopped" and abs(v["value"] or 0) < 0.5 and not v["positions"],
                      "basis": b, "mu": mu, "vol": sig,
                      "ranges": ranges(mu, sig) if mu is not None else None,
                      "check": {"ok": c.get("ok"), "error": c.get("error"), "cagr": bt, "years": c.get("years"), "from": c.get("from"),
-                               "worst12": c.get("worst12"), "best12": c.get("best12"), "maxdd": c.get("maxdd10")} if c else None,
+                               "worst12": c.get("worst12"), "best12": c.get("best12"), "maxdd": c.get("maxdd10"),
+                               "ret_dd": c.get("ret_dd"), "year_fall": c.get("year_fall"), "year_fall_min": c.get("year_fall_min"),
+                               "worst_year": c.get("worst_year"), "years_n": c.get("years_n")} if c else None,
                      "track": tr})
         items.append({"id": s.id, "amount": max(0.0, v["value"]), "mu": mu, "sig": sig})
     corr = chk.get("corr")
