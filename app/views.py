@@ -6,7 +6,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from . import brokers, db, dip, execution, health, ledger, marketdata as md, markethours as mh, metals, notify, perf, testtrade
+from . import brokers, db, dip, execution, health, ledger, marketdata as md, markethours as mh, metals, notify, perf, testtrade, idle
 from . import strategies as S
 from .config import APP_NAME, DISPLAY_TZ, SCHEDULER_ENABLED
 
@@ -246,6 +246,7 @@ def strategy_detail(mode, sid):
     return {"mode": mode, "card": card, "row": {**s.row, "params": s.params}, "describe": s.describe(), "state": st,
             "signals": sig, "holdings": hold, "exec": cfg, "exec_text": execution.describe_cfg(cfg),
             "type": next((t for t in S.types_public() if t["type"] == s.type), None),
+            "idle": idle.view(mode, s, st), "dip": dip.get(sid),
             "plans": execution.plans_view(mode, sid=sid, limit=5), "money": [m for m in ledger.moves(mode, 200) if m["strategy"] == sid or m["other"] == sid][:10]}
 
 

@@ -185,10 +185,32 @@
       });
     }
 
+    function idleBox() {
+      const x = d.idle;
+      if (!x) return '';
+      const amt = (x.waiting || 0) + (x.band || 0);
+      const lines = [];
+      if (x.waiting > 0) lines.push(`<b>${U.usd(x.waiting)}</b> waits for the next buy signal${x.waiting_since ? ' (since ' + U.day(x.waiting_since) + ')' : ''}: money added with <i>Wait for the next buy signal</i>.`);
+      if (x.band >= 1) lines.push(`<b>${U.usd(x.band)}</b> is left over: the gap is ${x.gap_pct}% of the strategy, inside its ${x.band_pct}% rebalance band, so the bot leaves it as cash until the next signal or a bigger gap.`);
+      const buys = (x.buys || []).filter((b) => b.qty > 0);
+      const btn = x.action === 'invest' ? '<button class="btn p" data-idle="invest">Invest now</button>'
+        : x.action === 'topup' ? '<button class="btn p" data-idle="topup">Top up now</button>' : '';
+      return `<section class="card col idlebox" style="gap:10px">
+        <div class="row sb" style="gap:8px;align-items:flex-start"><div><div class="eyebrow">Idle cash · ${U.esc(U.modeLabel[mode])}</div>
+          <h2 class="h2" style="margin-top:2px">${U.usd(amt)} is not invested</h2></div>${d.dip && d.dip.zone ? U.dipPill(d.dip) : ''}</div>
+        ${lines.map((l) => `<div class="small">${l}</div>`).join('')}
+        <div class="small"><span class="muted">Next buy signal:</span> ${U.esc(x.next_buy)}</div>
+        ${(x.checks || []).length ? `<div class="row" style="gap:6px;flex-wrap:wrap">${x.checks.slice(0, 4).map((g) => `<span class="pill ${g.cls === 'up' ? 'ok' : g.cls === 'dn' ? 'err' : g.cls || ''}" title="${U.esc(g.h || '')}">${U.esc(g.k)}: ${U.esc(g.v)}</span>`).join('')}</div>` : ''}
+        ${x.note ? `<div class="note info small" style="margin:0">${U.esc(x.note)}</div>` : ''}
+        ${btn ? `<div class="row" style="gap:10px;flex-wrap:wrap">${btn}<span class="muted small">${buys.length ? (x.action === 'invest' ? 'Buys toward today\'s target' : 'Buys with this cash only, never sells') + ': ' + buys.map((b) => `≈${U.qty(b.qty)} ${U.esc(b.symbol)} (${U.usd(b.usd, 0)})`).join(' · ') + ' · limit orders from the next check.' : ''} Leave it and nothing changes.</span></div>` : ''}
+      </section>`;
+    }
+
     function overview() {
       const checks = (st.detail && st.detail.checks) || [];
       const sig = d.signals || [];
       return `${kpis()}
+      ${idleBox()}
       <div id="nextorders"></div>
       ${fam === 'regime' ? regimeTiles() : ''}
       ${st.detail && st.detail.basket ? basketTable(st.detail.basket) : ''}
@@ -291,6 +313,18 @@
       U.on(el, '[data-symc]', 'click', (e, b) => { e.preventDefault(); chartSym = b.dataset.symc; tab = 'charts'; render(); window.scrollTo(0, 0); });
       U.on(el, '[data-tab]', 'click', (e, b) => { tab = b.dataset.tab; render(); });
       U.on(el, '[data-money]', 'click', (e, b) => V.moneyDialog(b.dataset.money, sid, () => V.strategy(el, params)));
+      U.on(el, '[data-idle]', 'click', async (e, b) => {
+        const inv = b.dataset.idle === 'invest', x = d.idle;
+        const amt = (x.waiting || 0) + (x.band || 0);
+        if (!(await U.confirm(inv ? 'Invest now?' : 'Top up now?', inv
+          ? `The ${U.usd(x.waiting)} waiting for a buy signal joins ${U.esc(c.name)} now and buys toward today's target with a split plan, from the next check.`
+          : `${U.esc(c.name)} buys toward today's target with its ${U.usd(amt)} of idle cash (it does not sell anything), as a split plan from the next check.`,
+          { ok: inv ? 'Invest now' : 'Top up now' }))) return;
+        await U.busy(b, async () => {
+          const r = await U.api(inv ? '/api/money/invest-now' : '/api/money/topup', { body: { mode, strategy: sid } });
+          U.toast(inv ? `${U.usd(r.amount)} invested at today's signal` : 'Top-up plan created'); V.strategy(el, params);
+        });
+      });
       U.on(el, '[data-ctl]', 'click', async (e, b) => {
         const cc = b.dataset.ctl;
         if (!(await U.confirm(cc === 'stopping' ? 'Stop & sell?' : cc === 'paused' ? 'Pause buys?' : 'Resume buys?',

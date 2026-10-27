@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png?v=4">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/css/app.css?v=53">
+<link rel="stylesheet" href="/static/css/app.css?v=54">
 <script>try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : t; } catch (e) {}</script>
 </head>
 <body>
@@ -24,6 +24,7 @@
     <div class="grp">Trade</div>
     <a class="nav" data-r="strategies" href="#/strategies"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 8l10 5 10-5-10-5zM2 16l10 5 10-5M2 12l10 5 10-5"/></svg>Strategies</a>
     <a class="nav" data-r="money" href="#/money"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 14h2"/></svg>Money</a>
+    <a class="nav" data-r="portfolio" href="#/portfolio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Portfolio</a>
     <a class="nav" data-r="orders" href="#/orders"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h11M4 18h6"/></svg>Orders<span class="cnt hidden" id="cnt-plans"></span></a>
     <a class="nav" data-r="trades" href="#/trades"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"/></svg>Trades</a>
     <a class="nav" data-r="positions" href="#/positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v9h9A9 9 0 1 1 12 3z"/></svg>Positions</a>
@@ -67,23 +68,24 @@
 </nav>
 <div class="toast" id="toast" aria-live="polite"></div>
 <script src="/static/vendor/lightweight-charts.standalone.production.js"></script>
-<script src="/static/js/ui.js?v=53"></script>
-<script src="/static/js/charts.js?v=53"></script>
-<script src="/static/js/views/alloc.js?v=53"></script>
-<script src="/static/js/views/expected.js?v=53"></script>
-<script src="/static/js/views/dashboard.js?v=53"></script>
-<script src="/static/js/views/strategies.js?v=53"></script>
-<script src="/static/js/views/money.js?v=53"></script>
-<script src="/static/js/views/orders.js?v=53"></script>
-<script src="/static/js/views/monitor.js?v=53"></script>
-<script src="/static/js/views/config.js?v=53"></script>
-<script src="/static/js/views/docs.js?v=53"></script>
-<script src="/static/js/views/golive.js?v=53"></script>
-<script src="/static/js/views/backtest.js?v=53"></script>
-<script src="/static/js/views/symcharts.js?v=53"></script>
-<script src="/static/js/views/etf2x.js?v=53"></script>
-<script src="/static/js/views/perf.js?v=53"></script>
-<script src="/static/js/views/nextorders.js?v=53"></script>
-<script src="/static/js/app.js?v=53"></script>
+<script src="/static/js/ui.js?v=54"></script>
+<script src="/static/js/charts.js?v=54"></script>
+<script src="/static/js/views/alloc.js?v=54"></script>
+<script src="/static/js/views/expected.js?v=54"></script>
+<script src="/static/js/views/dashboard.js?v=54"></script>
+<script src="/static/js/views/strategies.js?v=54"></script>
+<script src="/static/js/views/money.js?v=54"></script>
+<script src="/static/js/views/orders.js?v=54"></script>
+<script src="/static/js/views/monitor.js?v=54"></script>
+<script src="/static/js/views/config.js?v=54"></script>
+<script src="/static/js/views/docs.js?v=54"></script>
+<script src="/static/js/views/golive.js?v=54"></script>
+<script src="/static/js/views/backtest.js?v=54"></script>
+<script src="/static/js/views/symcharts.js?v=54"></script>
+<script src="/static/js/views/etf2x.js?v=54"></script>
+<script src="/static/js/views/perf.js?v=54"></script>
+<script src="/static/js/views/nextorders.js?v=54"></script>
+<script src="/static/js/views/portfolio.js?v=54"></script>
+<script src="/static/js/app.js?v=54"></script>
 </body>
 </html>

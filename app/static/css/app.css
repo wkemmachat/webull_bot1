@@ -325,3 +325,4 @@ tr.dipz1, tr.dipz2 { box-shadow: none; }
 .note.dip { background: var(--dip2-tint); color: var(--text); border-left: 6px solid var(--dip2-line); }
 .note.dip b { color: var(--dip2-line); }
 .note.dip a { color: inherit; text-decoration: underline; }
+.idlebox { border-left: 3px solid var(--accent); }

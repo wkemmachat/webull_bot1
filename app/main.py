@@ -18,7 +18,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import auth, backtest, etf2x, perf, preview, expected, symcharts, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views
+from . import auth, backtest, etf2x, perf, preview, expected, symcharts, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views, idle, portfolio
 from . import strategies as S
 from .config import APP_NAME, BASE_DIR, COOKIE_SECURE, DISPLAY_TZ, PUBLIC_URL, SCHEDULER_ENABLED
 
@@ -370,6 +370,8 @@ async def money_action(action: str, request: Request, u=Depends(user)):
         if action == "move":
             return moneyops.move(mode, b.get("strategy"), b.get("other"), b.get("amount"), b.get("note", ""), b.get("invest"),
                                  everything=bool(b.get("all")))
+        if action == "topup":
+            return idle.topup_now(mode, str(b.get("strategy") or ""))
         if action == "protect":
             amt = round(float(b.get("amount") or 0), 2)
             if amt < 0:
@@ -433,6 +435,11 @@ def plan_action(pid: int, action: str, u=Depends(user)):
     if action == "cancel":
         return {"ok": execution.cancel_plan(pid, "cancelled by you")}
     raise HTTPException(404, "Unknown action")
+
+
+@app.get("/api/portfolio")
+def portfolio_get(mode: str = "paper", u=Depends(user)):
+    return portfolio.view(mode_of(mode))
 
 
 @app.get("/api/settings/execution")
@@ -958,7 +965,7 @@ def data_refresh(u=Depends(user)):
 
 
 # ---------------------------------------------------------------- docs
-DOC_ORDER = ["overview", "quick-start-mac", "first-day", "modes", "dashboard", "strategies", "backtest", "money", "orders", "line", "health", "golive",
+DOC_ORDER = ["overview", "quick-start-mac", "first-day", "modes", "dashboard", "strategies", "backtest", "money", "portfolio", "orders", "line", "health", "golive",
              "strategy-compare", "strategy-timeframes", "strategy-dips", "expected-returns", "strategy-gold1", "strategy-gold2", "strategy-silver1", "strategy-silver2", "strategy-qld", "strategy-semis",
              "strategy-qld-tbd", "strategy-qld-ibs", "strategy-usd-ibs", "strategy-rom-tbd", "strategy-c27",
              "deploy", "update", "backups", "plugins", "layout", "tests", "troubleshooting", "glossary", "decisions"]

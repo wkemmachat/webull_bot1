@@ -201,7 +201,8 @@
   };
 
   /* Add / Withdraw / Move dialog */
-  V.moneyDialog = async function (kind, sid, onDone) {
+  V.moneyDialog = async function (kind, sid, onDone, preset) {   // preset: {to, amount} (Portfolio → Move)
+    preset = preset || {};
     const mode = U.mode();
     const d = await U.api('/api/money?mode=' + mode);
     const off = (r) => r.control === 'stopped' || r.control === 'stopping';
@@ -218,7 +219,7 @@
           <div class="seg" style="width:100%;display:grid;grid-template-columns:repeat(3,1fr)">${['add', 'withdraw', 'move'].map((k) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${k[0].toUpperCase() + k.slice(1)}</button>`).join('')}</div>
           <div class="col" style="gap:16px;margin-top:16px">
           ${tab === 'move' ? `<div class="fs"><div class="f"><label for="ms">From</label><select class="in" id="ms">${opts(s)}</select></div>
-            <div class="f"><label for="mt">To</label><select class="in" id="mt">${toRows.map((x) => `<option value="${x.id}" ${x.id === (toRows.find((y) => y.id !== s) || {}).id ? 'selected' : ''}>${U.esc(x.name)} — ${U.usd(x.value, 0)}</option>`).join('')}</select></div></div>`
+            <div class="f"><label for="mt">To</label><select class="in" id="mt">${toRows.map((x) => `<option value="${x.id}" ${x.id === (preset.to && preset.to !== s ? preset.to : (toRows.find((y) => y.id !== s) || {}).id) ? 'selected' : ''}>${U.esc(x.name)} — ${U.usd(x.value, 0)}</option>`).join('')}</select></div></div>`
             : `<div class="f"><label for="ms">Strategy</label><select class="in" id="ms">${opts(s)}</select></div>`}
           <div class="f"><label for="ma">${tab === 'add' ? 'Amount to add' : tab === 'withdraw' ? 'Amount to withdraw' : 'Amount to move'} (USD)</label>
             <input class="in num" id="ma" inputmode="decimal" style="height:54px;font-size:22px" placeholder="0.00">
@@ -251,6 +252,7 @@
           });
         }
         draw();
+        if (preset.amount) box.querySelector('#ma').value = (+preset.amount).toFixed(2);
       },
     });
   };

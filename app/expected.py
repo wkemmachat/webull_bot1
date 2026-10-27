@@ -284,6 +284,7 @@ def _one(s, now=None) -> dict:
             db.set_state(f"ddsum:{s.id}", {"at": int(time.time()), "worst": dd["worst"], "longest": dd["longest"], "from": dd["from"]})
     except Exception as e:
         log.warning("drawdown summary %s: %s", s.id, e)
+    full = ser.resample("W-FRI").last().ffill().dropna()  # all of the history, weekly (Portfolio page: "all years")
     ser = ser[ser.index >= ser.index[-1] - pd.DateOffset(years=10)]
     yearly = _years(ser)
     wk = ser.resample("W-FRI").last().ffill().dropna()      # one value every Friday, no gaps (dates are rebuilt from w0)
@@ -302,7 +303,8 @@ def _one(s, now=None) -> dict:
             "ret_dd": _ret_dd(ten.get("cagr") if ten else mx.get("cagr"), (st[first]["strategy"] or {}).get("maxdd")),
             **yearly,
             "best12": round(float(y12.max()) * 100, 1) if len(y12) else None,
-            "w0": str(wk.index[0].date()), "wv": [round(float(x), 2) for x in wk.values]}
+            "w0": str(wk.index[0].date()), "wv": [round(float(x), 2) for x in wk.values],
+            "m0": str(full.index[0].date()), "mv": [round(float(x), 2) for x in full.values]}
 
 
 def _ret_dd(cagr, maxdd):
@@ -353,7 +355,7 @@ def _corr(res: dict) -> dict:
     return {"ids": ids, "m": [[round(float(x), 3) for x in row] for row in C]}
 
 
-CHECK_VERSION = 2          # 2: return ÷ worst fall and the falls inside each year (27 Oct 2026); a new version re-runs the check
+CHECK_VERSION = 3          # 2: return ÷ worst fall and the falls inside each year (27 Oct 2026); a new version re-runs the check
 
 
 def fingerprint() -> str:

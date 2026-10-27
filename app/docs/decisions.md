@@ -127,3 +127,10 @@
   rounded number, so the Stop & sell of QLD regime sold 1.66 and took 0.0019 QLD (≈ $0.17) of your own QLD, and 2x Semis
   showed 29.66 USD instead of 29.6561. Now buys use 2 decimals, a FILLED fractional order is booked at its exact quantity, and a
   one-time repair corrected the USD books (the QLD difference was already settled by the sale).
+- **Idle cash box and Portfolio page** (27 Oct 2026): strategy pages show cash that waits for a buy signal or sits inside
+  the rebalance band, with the next buy signal in plain words, the Buy zone pill, and Invest now / Top up now (top-up buys
+  only, never sells; small top-ups allowed down to $5 as your explicit choice). The Portfolio page puts the mix vs the
+  saved ratio plan (with suggested Moves that open the Money dialog), exposure by market, the mix's combined backtest
+  (sub-accounts never rebalanced, computed in the browser from the expected-returns check's weekly series; short metals
+  histories left out and named), try-a-mix, correlations and the real time-weighted result on one page. The expected check
+  (version 3) now also stores each strategy's full-history weekly values for "All years".
