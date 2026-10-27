@@ -19,6 +19,14 @@
     return ch;
   }
 
+  /* Home banner: strategies at their 80th underwater percentile or deeper (a buy-the-dip zone in the research) */
+  function dipBanner(list) {
+    const deep = list.filter((s) => s.dip && s.dip.zone === 'deep' && s.control !== 'stopped').sort((a, b) => b.dip.pct - a.dip.pct);
+    if (!deep.length) return '';
+    return `<div class="note dip" role="status" style="display:block;line-height:1.55"><b>Deep dip:</b> ${deep.map((s) => `<a href="#/strategies/${U.esc(s.id)}">${U.esc(s.name)}</a> ${U.ordinal(s.dip.pct)} percentile (${s.dip.depth.toFixed(0)}% below its high)`).join(' · ')}.
+      <span style="opacity:.85">In the backtests, money added in this zone was more often up a year later — a statistic, not a promise; dips can go deeper first. <a href="#/docs/strategy-dips">How it works</a></span></div>`;
+  }
+
   V.dashboard = async function (el) {
     const mode = U.mode();
     let chart = null, range = 90;
@@ -38,6 +46,7 @@
       el.innerHTML = `
       <div class="page-head"><div><div class="eyebrow">${U.esc(today)} · ${U.modeLabel[mode]} account</div><h1 class="h1">Dashboard</h1></div>
         <div class="row"><a class="btn" href="#/health">Run cross-check</a><button class="btn p" type="button" id="add">Add money</button></div></div>
+      ${dipBanner(shown)}
       <div id="nextorders"></div>
       ${d.account_error ? `<div class="note warn">Account not readable: ${U.esc(d.account_error)}</div>` : ''}
       <div class="grid" style="--min:340px">
@@ -79,8 +88,9 @@
       </div>
       <div class="row sb"><h2 class="h2" style="font-size:18px">Strategies</h2><span class="row small" style="gap:12px">${U.idleToggle(idleN, showIdle)}<a href="#/strategies">All strategies →</a></span></div>
       <div class="grid" style="--min:300px">${shown.map((s) => `
-        <a class="card scard" href="#/strategies/${s.id}">
+        <a class="card scard ${U.dipCls(s.dip)}" href="#/strategies/${s.id}">
           <div class="row" style="gap:10px">${U.dot(s.color, 10)}<b style="font-size:15px">${U.esc(s.name)}</b><span class="pill" style="margin-left:auto">${s.type === 'momentum_basket' ? 'Stock basket' : s.family === 'regime' ? 'Daily regime' : '4H signal'}</span></div>
+          ${U.dipPill(s.dip) ? `<div>${U.dipPill(s.dip)}</div>` : ''}
           <div class="row sb" style="align-items:flex-end">
             <div><div class="num big" style="font-size:22px">${U.usd(s.value, 0)}</div><div class="num small ${U.cls(s.pnl)}">${U.sgnUsd(s.pnl, 0)} · ${U.pct(s.ret)}</div>${U.todayLine(s) ? '<div>' + U.todayLine(s) + '</div>' : ''}</div>
             ${U.spark(s.spark, s.color)}</div>

@@ -26,9 +26,9 @@
       <section class="card flush" style="overflow-x:auto">
         <div class="srow head"><span>Strategy</span><span>Signal → trades</span><span>Now</span><span>Value · return</span><span>Control · LINE</span></div>
         ${rows.map((s) => `
-        <div class="srow">
+        <div class="srow ${U.dipCls(s.dip)}">
           <a href="#/strategies/${s.id}" class="row" style="gap:12px;align-items:flex-start;color:var(--text);flex-wrap:nowrap">${U.dot(s.color, 12)}
-            <span class="col" style="gap:3px;min-width:0"><b style="font-size:15px">${U.esc(s.name)}</b><span class="muted small">${U.esc(s.rule || '')}</span>${s.notice ? `<span class="small" style="color:var(--warn-fg,#B45309)">⚠ Works like 1x on Webull (single-stock 2x ETFs refused)</span>` : ''}</span></a>
+            <span class="col" style="gap:3px;min-width:0"><b style="font-size:15px">${U.esc(s.name)}</b><span class="muted small">${U.esc(s.rule || '')}</span>${U.dipPill(s.dip) ? `<span>${U.dipPill(s.dip)}</span>` : ''}${s.notice ? `<span class="small" style="color:var(--warn-fg,#B45309)">⚠ Works like 1x on Webull (single-stock 2x ETFs refused)</span>` : ''}</span></a>
           <div class="col" style="gap:3px"><span class="num small">${U.esc(s.flow || '')}</span><span class="muted small">${U.esc(s.exec)}</span></div>
           ${U.stateBlock(s, s.signal_time ? `<span class="muted small">since ${U.dt(s.signal_time)}</span>` : '')}
           <div class="col" style="gap:2px"><span class="num" style="font-weight:600;font-size:15px">${U.usd(s.value)}</span>

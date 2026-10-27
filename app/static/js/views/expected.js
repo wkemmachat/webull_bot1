@@ -218,7 +218,7 @@
         const yfc = c.ok && c.year_fall != null ? `<td class="r num" title="The fall inside a calendar year, from that year's high: average over ${c.years_n || ''} year(s) of the backtest. A dip this size during a year is normal.${wy ? ' Worst year ' + wy.year + ': ' + wy.ret.toFixed(0) + '% with a ' + wy.fall.toFixed(0) + '% fall inside it.' : ''}">
             <div class="dn">${c.year_fall.toFixed(0)}%</div><div class="tiny muted">${wy ? 'worst yr ' + wy.year + ' ' + (wy.ret > 0 ? '+' : '') + wy.ret.toFixed(0) + '%' : ''}</div></td>` : '<td class="r muted">—</td>';
         const pp = plan ? (plan.pct[s.id] || 0) : null;
-        return `<tr><td><a href="#/strategies/${U.esc(s.id)}" class="row" style="gap:8px;flex-wrap:nowrap;color:var(--text)">${U.dot(s.color, 10)}<span>${U.esc(s.name)}</span></a></td>
+        return `<tr class="${U.dipCls(s.dip)}"><td><a href="#/strategies/${U.esc(s.id)}" class="row" style="gap:8px;flex-wrap:nowrap;color:var(--text)">${U.dot(s.color, 10)}<span>${U.esc(s.name)}</span></a>${U.dipPill(s.dip) ? `<div style="margin-top:4px">${U.dipPill(s.dip)}</div>` : ''}</td>
           <td class="r num">${U.usd(amt, 0)}<div class="tiny muted">${share}${pp != null ? ` · <span title="Your saved ratio">ratio ${pp.toFixed(1)}%</span>` : ''}</div></td>
           <td class="r num">${s.mu != null ? `<b>${U.pct(s.mu)}</b><div class="tiny muted">${U.esc(b.basis)} ${b.cagr.toFixed(1)}%</div>` : '<span class="muted">—</span>'}</td>
           ${cell(1)}${cell(3)}${ddc}${rddc}${yfc}<td>${trk}</td><td class="r">${chk}</td></tr>`;

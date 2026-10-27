@@ -6,7 +6,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from . import brokers, db, execution, health, ledger, marketdata as md, markethours as mh, metals, notify, perf
+from . import brokers, db, dip, execution, health, ledger, marketdata as md, markethours as mh, metals, notify, perf
 from . import strategies as S
 from .config import APP_NAME, DISPLAY_TZ, SCHEDULER_ENABLED
 
@@ -110,6 +110,7 @@ def strategy_card(mode, s, prices=None):
     cfg = execution.exec_cfg(s)
     return {"id": s.id, "name": s.name, "color": s.color, "type": s.type, "family": s.family, "timeframe": s.timeframe,
             "control": s.row.get("control"), "line_on": bool(s.row.get("line_on")), "flow": d.get("flow"), "rule": d.get("rule"),
+            "dip": dip.get(s.id),
             # stopped and empty in this mode: the pages hide it unless "Show stopped" is on
             "idle": s.row.get("control") == "stopped" and not ap and abs(v["value"] or 0) < 0.5 and not v["positions"],
             "state": st.get("state"), "label": label, "state_label": state_label, "activity": activity,

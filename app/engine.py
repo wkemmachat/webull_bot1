@@ -183,6 +183,14 @@ def daily_jobs(now):
         except Exception as e:
             log.exception("health")
             db.add_event("error", "health", "Health check crashed", str(e))
+    # dip zones: each strategy's underwater percentile, after the close (and once on start when none is stored yet)
+    if md.source() != "csv":
+        from . import dip
+        if (mh.is_trading_day(ny.date()) and hh >= "16:50" and _once("dip", day)) or (dip.missing() and _once("dip_first", day)):
+            try:
+                dip.refresh_all(now)
+            except Exception as e:
+                log.warning("dip zones: %s", e)
     local = now.astimezone(TZ)
     if local.strftime("%H:%M") >= "03:30" and _once("backup", local.strftime("%Y-%m-%d")):
         try:

@@ -463,6 +463,14 @@ def daily(now=None):
 
 
 # ---------------------------------------------------------------- what the pages show
+def _dip(sid):
+    from . import dip
+    try:
+        return dip.get(sid)
+    except Exception:
+        return None
+
+
 def _dd_summary(sid):
     """Worst fall and longest time underwater, the same numbers as the strategy cards (last full-history backtest)."""
     from . import perf
@@ -487,7 +495,7 @@ def view(mode: str) -> dict:
         if tr:
             tr["text"] = TRACK_TEXT[tr["status"]]
         rows.append({"id": s.id, "name": s.name, "color": s.color, "value": round(v["value"], 2), "net_in": round(v["net_in"] or 0, 2),
-                     "dd": _dd_summary(s.id),
+                     "dd": _dd_summary(s.id), "dip": _dip(s.id),
                      "idle": (s.row or {}).get("control") == "stopped" and abs(v["value"] or 0) < 0.5 and not v["positions"],
                      "basis": b, "mu": mu, "vol": sig,
                      "ranges": ranges(mu, sig) if mu is not None else None,
