@@ -38,3 +38,20 @@ All the money in the mode you are looking at, together:
   worst fall so far.
 
 A backtest is a history, not a promise.
+
+## Weekly report and trading costs
+
+Every **Saturday from 09:00 Bangkok** (after Friday's US close) LINE gets a weekly report for each mode that is on (Live
+and Webull test; Paper only when no real mode is on). LINE alerts → *Weekly report* turns it off.
+
+- **Real vs backtest this week**, per strategy: the real week, time-weighted (money added or taken out is not a gain or
+  loss), next to the same strategy's backtest over the same days. A strategy whose money started during the week is
+  compared from that day. The **gap** shows whether Live follows the backtest; small gaps are normal (fill prices, cash
+  waiting for a signal, the weekly ranking of the baskets).
+- **Trading this week** and **since the first Live order**: fees Webull charged, and every fill against that day's
+  **opening price**, where the daily backtests buy and sell. That difference is the real cost of trading on top of the
+  backtest (spread, limit offset, timing, retries); + = cost. The costliest fill of the week is named. For the 4H metals
+  strategies, which trade at other times, it is a rough guide.
+
+The Portfolio page shows the latest report, the earlier weeks, trading costs per strategy and the latest fills.
+**Make this week's report** shows this week so far without LINE; **Send it to LINE** sends it now.

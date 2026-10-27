@@ -134,3 +134,6 @@
   (sub-accounts never rebalanced, computed in the browser from the expected-returns check's weekly series; short metals
   histories left out and named), try-a-mix, correlations and the real time-weighted result on one page. The expected check
   (version 3) now also stores each strategy's full-history weekly values for "All years".
+- **Weekly report on LINE** (28 Oct 2026): Saturday 09:00 Bangkok, per mode that is on. Real week (time-weighted) vs the
+  strategy's backtest over the same days, fees, and fills vs the day's open (the daily backtests' fill price) as the real
+  cost of trading, this week and since the first Live order. Reports kept 26 weeks; shown on the Portfolio page.

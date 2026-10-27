@@ -204,6 +204,10 @@ def daily_jobs(now):
             backup()
         except Exception as e:
             db.add_event("error", "server", "Backup failed", str(e))
+    # weekly Live report: Saturday from 09:00 Bangkok, after Friday's US close (real prices only)
+    if md.source() != "csv" and local.weekday() == 5 and local.strftime("%H:%M") >= "09:00" and _once("weekly", local.strftime("%G-%V")):
+        from . import weekly
+        weekly.job(now)
     if _once("prune", local.strftime("%Y-%W")):
         db.prune()
     # expected returns: first / yearly backtest check and the review reminder (real prices only)

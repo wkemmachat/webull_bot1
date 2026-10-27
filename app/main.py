@@ -18,7 +18,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import auth, backtest, etf2x, perf, preview, expected, symcharts, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views, idle, portfolio
+from . import auth, backtest, etf2x, perf, preview, expected, symcharts, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views, idle, portfolio, weekly
 from . import strategies as S
 from .config import APP_NAME, BASE_DIR, COOKIE_SECURE, DISPLAY_TZ, PUBLIC_URL, SCHEDULER_ENABLED
 
@@ -435,6 +435,27 @@ def plan_action(pid: int, action: str, u=Depends(user)):
     if action == "cancel":
         return {"ok": execution.cancel_plan(pid, "cancelled by you")}
     raise HTTPException(404, "Unknown action")
+
+
+@app.get("/api/weekly")
+def weekly_get(mode: str = "live", u=Depends(user)):
+    m = mode_of(mode)
+    first = db.one("SELECT MIN(submitted_at) t FROM orders WHERE mode=? AND applied_qty>0", (m,))
+    fl = weekly.fills(m, int(first["t"])) if first and first["t"] else []
+    by = {}
+    for f in fl:
+        by.setdefault(f["strategy"], []).append(f)
+    return {"mode": m, "reports": weekly.stored(m), "costs": weekly.cost_summary(fl),
+            "by_strategy": sorted(({"id": k, "name": (S.get(k).name if S.get(k) else k), **weekly.cost_summary(v)} for k, v in by.items()),
+                                  key=lambda r: -r["traded"]),
+            "fills": fl[-40:][::-1], "since": fl[0]["day"] if fl else None}
+
+
+@app.post("/api/weekly/send")
+async def weekly_send(request: Request, u=Depends(user)):
+    b = await body(request)
+    r = await asyncio.to_thread(weekly.send, mode_of(b.get("mode")), None, bool(b.get("line", True)))
+    return {"ok": True, "text": r["text"]}
 
 
 @app.get("/api/portfolio")

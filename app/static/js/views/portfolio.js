@@ -229,6 +229,50 @@
       charts.push(ch);
     }
 
+    const sg = (x) => x == null ? '—' : (x >= 0 ? '+' : '−') + U.usd(Math.abs(x));
+    const pp = (x, dp) => x == null ? '—' : (x >= 0 ? '+' : '−') + Math.abs(x * 100).toFixed(dp == null ? 2 : dp) + '%';
+
+    function weeklyHtml(w) {
+      const r = (w.reports || [])[0], c = w.costs || {};
+      const rep = r ? `<div class="col" style="gap:8px"><div class="row sb" style="flex-wrap:wrap;gap:8px"><b>Week ${U.esc(r.from)} – ${U.esc(r.to)}</b>
+          <span class="muted small">made ${U.dt(r.at)} · strategies ${U.usd(r.value, 0)} · week ${pp(r.ret, 1)}${r.usd != null ? ' (' + sg(r.usd) + ')' : ''}</span></div>
+        <div class="tw"><table class="t"><thead><tr><th>Strategy</th><th class="r">Real</th><th class="r">Backtest</th><th class="r">Gap</th><th class="r">$</th></tr></thead><tbody>
+        ${(r.strategies || []).map((x) => `<tr><td><span class="row" style="gap:8px">${U.dot(x.color)}${U.esc(x.name)}</span></td><td class="r num ${U.cls(x.real)}">${pp(x.real, 1)}</td>
+          <td class="r num">${pp(x.backtest, 1)}</td><td class="r num ${x.gap == null ? '' : Math.abs(x.gap) < 0.01 ? 'muted' : x.gap > 0 ? 'up' : 'dn'}">${x.gap == null ? '—' : (x.gap * 100 >= 0 ? '+' : '−') + Math.abs(x.gap * 100).toFixed(1) + ' pts'}</td>
+          <td class="r num ${U.cls(x.usd)}">${sg(x.usd)}</td></tr>`).join('')}</tbody></table></div>
+        ${(w.reports || []).length > 1 ? `<details><summary class="small" style="cursor:pointer">Earlier weeks (${w.reports.length - 1})</summary>${w.reports.slice(1).map((x) => `<pre class="small" style="white-space:pre-wrap;margin:8px 0 0">${U.esc(x.text || '')}</pre>`).join('')}</details>` : ''}</div>`
+        : '<div class="muted small">The first report arrives on LINE on Saturday morning (after Friday\'s US close). Press <b>Make this week\'s report</b> to see it now.</div>';
+      return `<div class="row sb" style="flex-wrap:wrap;gap:8px"><div><h2 class="h2">Weekly report and trading costs</h2>
+          <div class="muted small">Every Saturday on LINE: each strategy's real week next to its backtest over the same days, fees, and what trading really cost.</div></div>
+          <div class="row" style="gap:8px"><button class="btn s" data-wk="0">Make this week's report</button><button class="btn s" data-wk="1">Send it to LINE</button></div></div>
+        ${rep}
+        <div class="grid" style="--min:170px;gap:10px">
+          <div class="card" style="padding:12px 14px;background:var(--panel2)"><div class="muted small">Traded since ${U.esc(w.since || '—')}</div><div class="num" style="font-size:20px;font-weight:600">${U.usd(c.traded || 0, 0)}</div><div class="muted small">${c.fills || 0} fills</div></div>
+          <div class="card" style="padding:12px 14px;background:var(--panel2)"><div class="muted small">Fees</div><div class="num" style="font-size:20px;font-weight:600">${U.usd(c.fees || 0)}</div><div class="muted small">${c.fee_pct != null ? (c.fee_pct * 100).toFixed(3) + '% of traded' : '—'}</div></div>
+          <div class="card" style="padding:12px 14px;background:var(--panel2)"><div class="muted small">Fills vs the day's open</div><div class="num ${c.cost > 0 ? 'dn' : c.cost < 0 ? 'up' : ''}" style="font-size:20px;font-weight:600">${sg(c.cost)}</div><div class="muted small">${pp(c.cost_pct)} · + = cost</div></div></div>
+        ${(w.by_strategy || []).length ? `<div class="tw"><table class="t"><thead><tr><th>Strategy</th><th class="r">Fills</th><th class="r">Traded</th><th class="r">Fees</th><th class="r">vs open</th></tr></thead><tbody>
+          ${w.by_strategy.map((x) => `<tr><td>${U.esc(x.name)}</td><td class="r num">${x.fills}</td><td class="r num">${U.usd(x.traded, 0)}</td><td class="r num">${U.usd(x.fees)}</td><td class="r num ${x.cost > 0 ? 'dn' : x.cost < 0 ? 'up' : ''}">${sg(x.cost)} · ${pp(x.cost_pct)}</td></tr>`).join('')}</tbody></table></div>` : ''}
+        ${(w.fills || []).length ? `<details><summary class="small" style="cursor:pointer">Latest fills vs the open (${w.fills.length})</summary><div class="tw" style="margin-top:8px"><table class="t"><thead><tr><th>Day</th><th>Strategy</th><th>Fill</th><th class="r">Price</th><th class="r">Open</th><th class="r">Cost</th></tr></thead><tbody>
+          ${w.fills.map((f) => `<tr><td class="num small">${U.esc(f.day)}</td><td class="small">${U.esc((rows.find((x) => x.id === f.strategy) || {}).name || f.strategy)}</td><td class="small">${f.side === 'BUY' ? 'Buy' : 'Sell'} ${U.qty(f.qty)} ${U.esc(f.symbol)}</td>
+            <td class="r num">${U.usd(f.avg)}</td><td class="r num">${f.open ? U.usd(f.open) : '—'}</td><td class="r num ${f.cost > 0 ? 'dn' : f.cost < 0 ? 'up' : ''}">${f.cost == null ? '—' : sg(f.cost) + ' · ' + pp(f.cost_pct)}</td></tr>`).join('')}</tbody></table></div></details>` : ''}
+        <div class="muted small">The daily backtests buy and sell at the day's open, so "vs the open" is what Live pays on top of the backtest (spread, limit offset, timing, retries). The 4H metals strategies trade at other times: their numbers are a rough guide.</div>`;
+    }
+
+    async function loadWeekly() {
+      const box = el.querySelector('#weekly');
+      if (!box) return;
+      try {
+        const w = await U.api('/api/weekly?mode=' + mode);
+        box.innerHTML = weeklyHtml(w);
+        U.on(box, '[data-wk]', 'click', (e, b) => U.busy(b, async () => {
+          const line = b.dataset.wk === '1';
+          if (line && !(await U.confirm('Send to LINE?', 'This week so far (Monday to today) goes to LINE now. The Saturday report still comes as usual.', { ok: 'Send' }))) return;
+          await U.api('/api/weekly/send', { body: { mode, line } });
+          U.toast(line ? 'Sent to LINE' : 'Report made'); loadWeekly();
+        }));
+      } catch (e) { box.innerHTML = `<div class="note err small">${U.esc(e.message || e)}</div>`; }
+    }
+
     function render() {
       kill();
       const a = combine(series, now, 'w');
@@ -246,9 +290,11 @@
         ${btHtml()}
         ${tryHtml()}
         ${corrHtml()}
-        ${realHtml()}`;
+        ${realHtml()}
+        <section class="card col" style="gap:12px" id="weekly"><div class="empty small"><span class="spin"></span></div></section>`;
       drawBt();
       drawReal();
+      loadWeekly();
       U.on(el, '#win button', 'click', (e, b) => { if (b.disabled) return; win = b.dataset.w; el.querySelectorAll('#win button').forEach((x) => x.classList.toggle('on', x === b)); drawBt(); });
       U.on(el, '[data-mv]', 'click', (e, b) => {
         const m = d.moves[+b.dataset.mv];
