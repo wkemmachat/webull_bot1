@@ -248,7 +248,16 @@ def send_digest(label: str = "") -> bool:
         reports = [i for i in its if i["event"] == "report"]
         other = [i for i in its if i["event"] != "report"]
         parts = [f"{_header('Digest ' + label)}{' · ' + title if per else ''}"]
-        parts += [i["text"] for i in reports] + [("• " + i["text"].replace("\n", "\n  ")) for i in other]
+        lines, seen = [], {}
+        for i in other:                                  # the same message several times (e.g. "Bot started.") once, with a count
+            t = i["text"]
+            if t in seen:
+                seen[t] += 1
+            else:
+                seen[t] = 1
+                lines.append(t)
+        parts += [i["text"] for i in reports] + [("• " + t.replace("\n", "\n  ") + (f" (×{seen[t]})" if seen[t] > 1 else ""))
+                                                   for t in lines]
         ok, err = _deliver("\n".join(parts)[:MAX_LEN], "report" if reports and not other else "alert")
         with db.tx() as c:
             for i in its:

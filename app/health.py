@@ -253,7 +253,9 @@ def run(now=None, send=True):
         blk = {k: v for k, v in allb.items() if k not in rule}
         note = (f" Single-stock 2x ETFs ({len(rule)}) are refused by Webull's 50M THB rule; the bot holds the stocks instead."
                 if rule else "")
-        _item(items, f"refused_{mode}", label, f"{label}: Webull accepts every traded symbol", "error" if blk else "ok",
+        # Webull test (the shared test accounts refuse leveraged ETFs for everyone): a warning, not a daily "problem" alert
+        _item(items, f"refused_{mode}", label, f"{label}: Webull accepts every traded symbol",
+              ("warn" if mode == "test" else "error") if blk else "ok",
               ("; ".join(f"{k}: {v['msg']}" for k, v in blk.items()) if blk else "No other symbol is refused by Webull." if rule
                else "No symbol is refused by Webull.") + note,
               "; ".join(v.get("hint", "") for v in blk.values()) if blk else "", "#/orders")

@@ -200,6 +200,7 @@ def strategy_risk(sid, mode) -> dict:
         if bt:
             bt["underwater"] = _weekly_underwater(days, vals)
             bt["source"] = "Backtest on real prices"
+            bt["built"] = (r.get("data") or {}).get("built") or {}       # {symbol: first real day}: earlier prices built from the index
             ten = [i for i, d in enumerate(days) if d >= date(days[-1].year - 10, days[-1].month, min(days[-1].day, 28))]
             if ten and ten[0] > 0:
                 b10 = drawdowns(days[ten[0]:], vals[ten[0]:], top=1)

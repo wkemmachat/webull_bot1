@@ -24,10 +24,12 @@
     const span = y1 - y0, stepY = span > 12 ? 4 : span > 6 ? 2 : 1;
     const years = []; for (let yy = y0 + 1; yy <= y1; yy += stepY) years.push(yy);
     const worst = pts.reduce((a, p) => (p[1] < a[1] ? p : a), pts[0]);
+    const bx = opts.built && Date.parse(opts.built) > t0 ? Math.min(W - R, x(opts.built)) : null;   // prices built from the index before this day
     return `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="none" style="display:block;height:${H}px" role="img" aria-label="Underwater chart: worst ${worst[1].toFixed(1)}% on ${worst[0]}">
       ${ticks.map((v) => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line2)" stroke-width="1" vector-effect="non-scaling-stroke"/>
         <text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--dim)">${v}%</text>`).join('')}
       ${span >= 1 ? years.map((yy) => { const xx = x(yy + '-01-01'); return `<text x="${xx}" y="${H - 6}" text-anchor="middle" font-size="11" fill="var(--dim)">${yy}</text>`; }).join('') : ''}
+      ${bx ? `<rect x="${L}" y="${T}" width="${(bx - L).toFixed(1)}" height="${H - T - B}" fill="var(--dim)" fill-opacity=".10"/><text x="${L + 6}" y="${T + 14}" font-size="11" fill="var(--dim)">built from the index</text>` : ''}
       <path d="${area}" fill="var(--dn)" fill-opacity=".22"/><path d="${line}" fill="none" stroke="var(--dn)" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
       <circle cx="${x(worst[0])}" cy="${y(worst[1])}" r="4" fill="var(--dn)"/>
     </svg>`;
@@ -60,7 +62,8 @@
         ${tile('Falls of 20% or more', String(b.count_20), every20 ? `about once every ${every20.toFixed(1)} years · ${b.count_30} of 30%+` : 'none in this history')}
       </div>
       ${ten && ten.worst && b.years > 10.5 ? `<div class="muted small">Last 10 years only: worst fall ${pc(ten.worst.depth)}, longest underwater ${U.dur(ten.longest.days_under)}, below a high ${ten.pct_under.toFixed(0)}% of days.</div>` : ''}
-      <div>${underwaterSvg(b.underwater)}</div>
+      ${Object.keys(b.built || {}).length ? `<div class="muted small">${Object.entries(b.built).map(([s, dd]) => `${U.esc(s)} before ${day(dd)}`).join(', ')}: ${Object.keys(b.built).length > 1 ? 'these did' : 'it did'} not exist yet, so ${Object.keys(b.built).length > 1 ? 'their' : 'its'} prices are built from the index (2× its daily move minus the fund's costs; BIL = the T-bill rate). Shaded on the chart.</div>` : ''}
+      <div>${underwaterSvg(b.underwater, { built: Object.values(b.built || {}).sort().pop() })}</div>
       <div class="tw"><table class="t"><thead><tr><th class="r">Fall</th><th>From the high on</th><th>Bottom</th><th>Back at the high</th><th class="r">Falling</th><th class="r">Underwater</th></tr></thead><tbody>
         ${b.top.map((e) => `<tr><td class="r num dn">${pc(e.depth)}</td><td class="num">${day(e.peak)}</td><td class="num">${day(e.trough)}</td>
           <td class="num">${e.recovered ? day(e.recovered) : '<span class="pill warn">not yet</span>'}</td><td class="r num">${U.dur(e.days_down)}</td><td class="r num">${U.dur(e.days_under)}</td></tr>`).join('')}</tbody></table></div>`;

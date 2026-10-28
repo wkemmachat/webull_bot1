@@ -137,3 +137,15 @@
 - **Weekly report on LINE** (28 Oct 2026): Saturday 09:00 Bangkok, per mode that is on. Real week (time-weighted) vs the
   strategy's backtest over the same days, fees, and fills vs the day's open (the daily backtests' fill price) as the real
   cost of trading, this week and since the first Live order. Reports kept 26 weeks; shown on the Portfolio page.
+- **LINE tidy-up** (28 Oct 2026): daily reports show fractional shares (29.6561 USD, not "30"); a digest lists a repeated
+  message once with a count ("Bot started. (×9)"); Webull test's refused leveraged ETFs (the shared test accounts refuse
+  them for everyone) are a Health warning, no longer a daily "problem" alert.
+- **20-year backtests** (28 Oct 2026): before QLD (Jun 2006), USD/ROM (early 2007) and BIL (May 2007) existed, their daily
+  prices are built from the index (2 × QQQ / SMH / IYW minus 0.95% fee and the T-bill cost of the extra 1×; BIL = T-bill
+  rate), from Jan 2006, chained back from the first real close. Every daily strategy now starts in 2006; the Falls card
+  marks the built part. Signals that read the 2x ETF's own bars (Trend + IBS-dip) see the built bars only inside the
+  backtest (per thread), never in live trading. Checked: the fill does not change any later signal (USD Trend + IBS-dip
+  has the same falls with and without it).
+- **Buy zones over 20 years** (28 Oct 2026, your choice): the percentile now compares today's depth with the last 20 years
+  of the strategy's backtest (was 10), so 2008 and 2011–2016 count. Stricter: e.g. ROM 90th → 76th, 2x Semis 78th → 64th,
+  QLD regime 70th → 57th (23 Oct). Stored zones are recomputed on the first start with the new window.

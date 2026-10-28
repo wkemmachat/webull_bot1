@@ -9,7 +9,11 @@ What is simulated (money starts at $10,000):
     market is open), spread over the strategy's lots, priced from hourly ETF bars.
   * Prices are total return (dividends included), so T-bill ETFs earn their interest. Every trade pays the fee set in
     Settings → Backtest (default 0.11% per side: Webull Thailand charges 0.10% + 7% VAT = 0.107%, no minimum).
-  * Not simulated: partial fills, the money guard, add/withdraw. Leveraged ETFs exist only since 2006-2008.
+  * Not simulated: partial fills, the money guard, add/withdraw.
+  * 20 years: the 2x ETFs started in 2006–2007 (QLD Jun 2006, ROM Jan 2007, USD Feb 2007) and BIL in May 2007. Before
+    that, from Jan 2006, their daily prices are built from the index (2 × QQQ / IYW / SMH daily move minus the fund's
+    0.95% fee and the cost of borrowing the second 1×; BIL = the T-bill rate), chained back from the first real close.
+    So every daily strategy has a full 20 years; the result marks where real prices begin.
 Results are cached in memory until the data or the settings change.
 """
 from __future__ import annotations
@@ -20,7 +24,7 @@ import logging
 import math
 import threading
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -83,7 +87,88 @@ def _norm(h, daily):
     return h[(h.c > 0)].dropna(subset=["o", "c"])
 
 
+# ---------------------------------------------------------------- 20 years: prices before an ETF existed
+SYNTH = {"QLD": "QQQ", "USD": "SMH", "ROM": "IYW"}          # ProShares 2x ETF ← its index
+SYNTH_FROM = date(2006, 1, 3)               # with a year of indicator warm-up the backtests start about Oct 2006
+SYNTH_FEE_Y = 0.0095
+TBILL_Y = {2004: 0.014, 2005: 0.031, 2006: 0.047, 2007: 0.044}
+
+
+def _tbill(y):
+    return TBILL_Y.get(y, 0.04)
+
+
+def lever_back(real: pd.DataFrame, idx: pd.DataFrame, lev=2.0, start=SYNTH_FROM) -> pd.DataFrame:
+    """Daily bars of a 2x ETF before its first real bar, built from its index and chained back from the ETF's first
+    close: each day 2 × the index move minus the fee and the borrowing cost of the extra 1×."""
+    if real is None or real.empty or idx is None or idx.empty:
+        return real
+    first = real.index[0]
+    u = idx[(idx.index >= pd.Timestamp(start).tz_localize("UTC")) & (idx.index <= first)]
+    if len(u) < 2 or u.index[-1] != first:
+        return real
+    c = np.empty(len(u))
+    c[-1] = float(real["c"].iloc[0])
+    uc = u["c"].values.astype(float)
+    for i in range(len(u) - 1, 0, -1):
+        r = uc[i] / uc[i - 1] - 1
+        drag = (SYNTH_FEE_Y + (lev - 1) * _tbill(u.index[i].year)) / 252
+        c[i - 1] = c[i] / (1 + lev * r - drag)
+    rows = []
+    for i in range(len(u) - 1):
+        if i == 0:
+            o = h = lo = c[0]
+        else:
+            pc, upc = c[i - 1], uc[i - 1]
+            o = pc * (1 + lev * (float(u["o"].iloc[i]) / upc - 1))
+            h = pc * (1 + lev * (float(u["h"].iloc[i]) / upc - 1))
+            lo = pc * (1 + lev * (float(u["l"].iloc[i]) / upc - 1))
+        rows.append((u.index[i], o, max(h, o, c[i]), min(lo, o, c[i]), c[i], 0.0))
+    syn = pd.DataFrame(rows, columns=["t", "o", "h", "l", "c", "v"]).set_index("t")
+    return pd.concat([syn, real])
+
+
+def tbill_back(real: pd.DataFrame, cal: pd.DataFrame, start=SYNTH_FROM) -> pd.DataFrame:
+    """BIL before May 2007: it grows at the T-bill rate (on the trading days of `cal`)."""
+    if real is None or real.empty or cal is None or cal.empty:
+        return real
+    first = real.index[0]
+    days = [t for t in cal.index if pd.Timestamp(start).tz_localize("UTC") <= t < first]
+    if not days:
+        return real
+    v, out = float(real["c"].iloc[0]), []
+    for t in reversed(days):
+        v = v / (1 + _tbill(t.year) / 252)
+        out.append((t, v, v, v, v, 0.0))
+    syn = pd.DataFrame(out[::-1], columns=["t", "o", "h", "l", "c", "v"]).set_index("t")
+    return pd.concat([syn, real])
+
+
+def extended(sym, df, raw=False) -> pd.DataFrame:
+    """sym's daily bars with the years before it existed filled in (see SYNTH). raw: unadjusted bars (signals)."""
+    if sym in SYNTH:
+        base = md.load(SYNTH[sym], "1d") if raw else daily_tr(SYNTH[sym])
+        return lever_back(df, base)
+    if sym == RF_SYMBOL and not raw:
+        return tbill_back(df, daily_tr("QQQ"))
+    return df
+
+
+def real_from(sym, df) -> str | None:
+    """First day of real prices when earlier ones were built (else None)."""
+    if sym in SYNTH or sym == RF_SYMBOL:
+        r = _raw_tr(sym)
+        if r is not None and not r.empty and not df.empty and r.index[0] > df.index[0]:
+            return str(r.index[0].date())
+    return None
+
+
 def daily_tr(sym) -> pd.DataFrame:
+    """Daily total-return bars, with the years before a 2x ETF (or BIL) existed built from its index (see SYNTH)."""
+    return extended(sym, _raw_tr(sym))
+
+
+def _raw_tr(sym) -> pd.DataFrame:
     """Daily bars adjusted for splits AND dividends (total return). Downloaded in full (dividends rescale the past)."""
     if md.source() == "csv":
         try:
@@ -217,7 +302,19 @@ def _run_daily(strat, now, cost):
     sig = p.get("signal") or p["trade"]                 # Trend + IBS-dip reads its signal from the traded ETF itself
     for s in (strat.history_symbols() if hasattr(strat, "history_symbols") else [sig]):
         ensure_signal_history(s)
-    fr = strat.frame(now)
+    early = {}
+    for s in {sig} | set(strat.history_symbols() if hasattr(strat, "history_symbols") else []):
+        if s in SYNTH:
+            ensure_signal_history(SYNTH[s])
+            raw = md.load(s, "1d")
+            ext = extended(s, raw, raw=True)
+            if ext is not None and len(ext) > len(raw):
+                early[s] = ext
+    md.set_early(early or None)
+    try:
+        fr = strat.frame(now)
+    finally:
+        md.set_early(None)
     fr = fr[fr["state"] != ""]
     sized = "size" in fr.columns                        # position size decided by the strategy (volatility cap)
     sizes = {pd.Timestamp(t).date(): float(v) for t, v in zip(fr.index, fr["size"].values)} if sized else {}
@@ -267,11 +364,16 @@ def _run_daily(strat, now, cost):
             continue
         if w and max(abs(w.get(k, 0.0) - target.get(k, 0.0)) for k in set(w) | set(target)) > band:
             pending = (target, f"rebalance: a holding drifted more than {band * 100:g}% from its target", "REBALANCE")
+    built = {s: real_from(s, daily[s]) for s in set(syms) | {sig}}
+    built = {s: d for s, d in built.items() if d and d > str(days[0])}
     return {"days": days, "eq": eq, "expo": expo, "trades": B.trades, "fees": B.fees, "state": held_state,
+            "built": built,
             "bench": {trade: daily[trade], sig: daily[sig], **{s: daily[s] for s in extra if daily.get(s) is not None and not daily[s].empty}},
             "rf": daily.get(RF_SYMBOL), "main": trade, "index": extra[0] if extra else sig,
             "data_from": str(days[0]), "data_note": f"{sig} daily bars (signal) · {', '.join(syms)} daily total-return prices"
-                                                     + (f" · size from {p['vol_symbol']} volatility" if sized and p.get("vol_symbol") else "")}
+                                                     + (f" · size from {p['vol_symbol']} volatility" if sized and p.get("vol_symbol") else "")
+                                                     + ("".join(f" · {s} before {d}: built from {SYNTH.get(s, 'the T-bill rate')}"
+                                                                + (" × 2" if s in SYNTH else "") for s, d in sorted(built.items())))}
 
 
 # ---------------------------------------------------------------- 4H metals strategies
@@ -675,7 +777,7 @@ def _build(strat, now, cost):
             "stats": stats, "ranges": [k for k, _ in RANGES if k in stats], "years": years,
             "trades": [x for x in r["trades"]][-1500:], "round_trips": _round_trips(r["trades"], r["main"], r.get("parking"))[-200:],
             "vs": r.get("vs") or r["main"], "parking": r.get("parking"), "holding": r.get("holding"),
-            "fees": round(r["fees"], 2), "cost_pct": cost * 100, "cost_2x_pct": (cost + COST_2X_SPREAD) * 100, "data": {"from": r["data_from"], "to": str(days[-1]), "note": r["data_note"],
+            "fees": round(r["fees"], 2), "cost_pct": cost * 100, "cost_2x_pct": (cost + COST_2X_SPREAD) * 100, "data": {"from": r["data_from"], "to": str(days[-1]), "note": r["data_note"], "built": r.get("built") or {},
                                                                           "source": md.source()},
             "exec": {k: cfg.get(k) for k in ("lots", "interval_min", "start_mode", "start_time", "exit_mode")},
             "generated_at": int(time.time())}

@@ -255,7 +255,7 @@ def queue_reports(now):
             since = int((now - timedelta(hours=24)).timestamp())
             fills = db.rows("SELECT side, symbol, SUM(filled_qty) q, SUM(filled_qty*avg_price) v FROM orders WHERE mode=? AND strategy=? "
                             "AND filled_qty>0 AND updated_at>=? GROUP BY side, symbol", (mode, s.id, since))
-            hold = ", ".join(f"{p['qty']:.0f} {k}" for k, p in v["positions"].items()) or "cash only"
+            hold = ", ".join(f"{brokers.qty_text(round(p['qty'], 4))} {k}" for k, p in v["positions"].items()) or "cash only"
             ret = f"{v['ret'] * 100:+.1f}%" if v["ret"] is not None else "—"
             lines = [f"{s.name} · {brokers.MODE_LABEL[mode]}", f"${v['value']:,.0f} ({ret} on ${v['net_in']:,.0f}) · {st.get('label', '—')}",
                      f"Holds {hold}"]
@@ -268,7 +268,7 @@ def queue_reports(now):
             except Exception as e:
                 log.warning("today pnl %s: %s", s.id, e)
             if fills:
-                lines.append("Trades: " + "; ".join(f"{f['side'].lower()} {f['q']:.0f} {f['symbol']}" for f in fills))
+                lines.append("Trades: " + "; ".join(f"{f['side'].lower()} {brokers.qty_text(round(f['q'], 4))} {f['symbol']}" for f in fills))
             notify.send("report", "\n".join(lines), strategy=s.id)
 
 

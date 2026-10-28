@@ -125,9 +125,21 @@ def set_clock(dt: datetime | None):
     _clock["now"] = dt
 
 
+_early = threading.local()       # backtests only: earlier bars to put in front of a symbol's history (this thread)
+
+
+def set_early(m: dict | None):
+    """Backtests: {symbol: daily bars} used before the symbol's first stored bar (e.g. a 2x ETF built from its index
+    before it existed). Per thread, so the bot's own evaluations never see it."""
+    _early.m = m
+
+
 def daily_closed(sym: str, now: datetime | None = None) -> pd.DataFrame:
     """Daily bars whose session has finished: today's row is dropped until 16:05 New York."""
     df = load(sym, "1d")
+    ext = (getattr(_early, "m", None) or {}).get(sym)
+    if ext is not None and not ext.empty:
+        df = pd.concat([ext[ext.index < df.index[0]], df]) if not df.empty else ext
     if df.empty:
         return df
     now = now or now_utc()

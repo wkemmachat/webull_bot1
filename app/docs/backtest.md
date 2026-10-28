@@ -56,5 +56,14 @@ exact live code and timing.
 - Use **Try other settings** to check robustness: if small changes (SMA 180 instead of 200, ATR 25 instead of 30) give very different
   results, the default may just be lucky.
 
+**20 years for every daily strategy.** The 2x ETFs started trading in 2006–2007 (QLD 21 Jun 2006, ROM and USD early
+2007) and BIL in May 2007. For the months before that, back to January 2006, the backtest builds their daily prices from
+the index: 2 × the daily move of QQQ (QLD), SMH (USD) or IYW (ROM), minus the fund's 0.95% yearly fee and the cost of
+borrowing the second 1× (the T-bill rate of that year); BIL grows at the T-bill rate. The built prices are chained back
+from the ETF's first real close, so the real history is unchanged. With the indicators' warm-up every daily strategy
+starts in 2006 (about 20 years). The Falls card names the symbols and shades that part of the chart. Checked on years
+where the ETFs exist: QLD and ROM built this way follow the real ETF closely (daily correlation 0.997); USD less so (0.975),
+because it tracks a different semiconductor index than SMH.
+
 The price history is downloaded from Yahoo by the server the first time (up to half a minute) and refreshed twice a day. Results are
 kept in memory until the data or the settings change.

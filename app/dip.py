@@ -4,7 +4,8 @@ Research (27 Oct 2026, the bot's own code, 2016–2026 and from 2008): buying wh
 70–80% of its past days led to better 6–12 month results for most strategies (smaller further falls, more often up a year
 later). It is a statistic, not a promise: in 2008 deep dips kept falling.
 
-  pct      share of the window's days (last 10 years of the backtest) that were LESS deep than today (0 = at a new high)
+  pct      share of the window's days (last 20 years of the backtest, or all it has) that were LESS deep than today
+           (0 = at a new high). 10 years until 28 Oct 2026; 20 years since, at your choice (stricter: 2008 counts too).
   zone     "dip"  for 70 ≤ pct < 80     ("Buy zone", green)
            "deep" for pct ≥ 80          ("Strong buy zone", solid dark green; LINE alert + Home banner on entry)
 Refreshed once a day after the US close (and on start when missing). LINE fires when a strategy enters ≥ 80 and is armed
@@ -23,7 +24,7 @@ from . import strategies as S
 
 log = logging.getLogger("dip")
 DIP, DEEP = 70.0, 80.0
-WINDOW_YEARS = 10
+WINDOW_YEARS = 20
 MAX_AGE_S = 5 * 86400          # older than this (bot off for days): not shown
 
 
@@ -93,10 +94,12 @@ def refresh_all(now=None, send=True) -> dict:
                 notify.send("dip", f"Strong buy zone · {s.name}\n{txt}", strategy=s.id)
         elif new_deep:
             alerted = True                                # stopped: no message, but do not fire later for the same dip
-        db.set_state(f"dip:{s.id}", {**d, "at": int(time.time()), "alerted": alerted})
+        db.set_state(f"dip:{s.id}", {**d, "at": int(time.time()), "alerted": alerted, "win": WINDOW_YEARS})
         out[s.id] = d
     return out
 
 
 def missing() -> bool:
-    return not any(db.get_state(f"dip:{s.id}") for s in S.all_instances())
+    """Nothing stored yet, or stored with another window (the window changed: recompute on start, not at the next close)."""
+    st = [db.get_state(f"dip:{s.id}") for s in S.all_instances()]
+    return not any(st) or any(x and x.get("win", 10) != WINDOW_YEARS for x in st)

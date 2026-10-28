@@ -2,8 +2,10 @@
 # Buy zones: when to add money
 
 Every strategy spends time **below its last high** ("under water"). The bot measures, once a day after the US close, how deep
-each strategy is below its own backtest high and compares it with all its days in the last 10 years (gold and silver: the
-2 years of backtest they have).
+each strategy is below its own backtest high and compares it with all its days in the last **20 years** (the C2-7 baskets:
+since 2016; gold and silver: the 2 years of backtest they have). Until 28 Oct 2026 the window was 10 years; 20 years is
+stricter because the 2008 crash and the 2011–2016 falls count too, so the same depth gets a lower percentile. The research
+table below was measured on 10 years.
 
 | Colour | Zone | Meaning |
 |---|---|---|

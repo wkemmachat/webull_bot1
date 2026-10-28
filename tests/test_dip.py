@@ -60,3 +60,10 @@ def test_line_once_per_dip_and_rearm(clean, monkeypatch):
 
 def test_dip_event_is_a_line_choice():
     assert "dip" in notify.EVENTS
+
+
+def test_window_is_20_years_and_a_new_window_recomputes(clean):
+    from app import dip, db
+    assert dip.WINDOW_YEARS == 20
+    db.set_state("dip:qld_regime", {"pct": 50, "zone": None, "at": 1, "alerted": False})       # stored by the 10-year version
+    assert dip.missing()
