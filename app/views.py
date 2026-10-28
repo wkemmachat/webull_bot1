@@ -6,7 +6,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from . import brokers, db, dip, execution, health, ledger, marketdata as md, markethours as mh, metals, notify, perf, testtrade, idle
+from . import brokers, db, dip, execution, health, ledger, marketdata as md, markethours as mh, metals, notify, perf, testtrade, idle, moneyops
 from . import strategies as S
 from .config import APP_NAME, DISPLAY_TZ, SCHEDULER_ENABLED
 
@@ -284,8 +284,9 @@ def money(mode):
     fund = {"protect_floor": floor, "guard_block": gb if gb and time.time() - gb.get("at", 0) < 86400 else None,
             "account_total": total, "account_cash": cash, "allocated": tot + un, "strategies": tot, "pool": un,
             "outside_cash": outside, "not_bot": not_bot, "own_shares": (not_bot - outside) if (not_bot is not None and outside is not None) else None}
+    mv = [m for m in mv if (m.get("ccy") or "USD") == "USD"]            # HKD moves are listed in the HKD block
     return {"mode": mode, "account": acct, "account_error": err, "rows": rows, "total": tot, "unassigned": un, "fund": fund, "moves": mv,
-            "new_money_start": db.get_setting("new_money_start") or "now"}
+            "new_money_start": db.get_setting("new_money_start") or "now", "hkd": moneyops.hkd_view(mode, acct)}
 
 
 def positions(mode):

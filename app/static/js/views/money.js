@@ -26,7 +26,7 @@
         <div class="flow">
           <div class="fl"><div class="eyebrow">In ${mode === 'paper' ? 'the paper account' : 'Webull'}${mode === 'paper' ? '' : ' · USD'}</div><div class="num big" style="font-size:26px;margin-top:4px">${U.usd(f.account_total)}</div>
             <div class="muted small">cash ${U.usd(f.account_cash, 0)}${d.account && d.account._at ? ' · updated ' + U.time(d.account._at) : ''}</div>
-            ${d.account && (d.account.other_cash || []).length ? `<div class="muted small" style="margin-top:4px">Also in Webull: ${d.account.other_cash.map((o) => `${U.esc(o.currency)} ${U.n(o.cash, 0)}`).join(' · ')} — not counted, the bot uses USD only</div>` : ''}</div>
+            ${d.account && (d.account.other_cash || []).length ? `<div class="muted small" style="margin-top:4px">Also in Webull: ${d.account.other_cash.map((o) => `${U.esc(o.currency)} ${U.n(o.cash, 0)}`).join(' · ')} — not counted here (HKD has its own block below)</div>` : ''}</div>
           <div class="arrow" aria-hidden="true">=</div>
           <div class="fl" style="border-color:color-mix(in srgb,var(--accent) 45%,var(--line))"><div class="eyebrow">Allocated to the bot</div><div class="num big" style="font-size:26px;margin-top:4px">${U.usd(f.allocated)}</div>
             <div class="muted small">strategies ${U.usd(f.strategies, 0)} + bot unassigned ${U.usd(f.pool, 0)}</div></div>
@@ -43,6 +43,7 @@
             <button class="btn p" data-split="1" ${f.pool > 0 ? '' : 'disabled'}>Give to strategies →</button></div>
         </div>
       </section>
+      ${hkdCard(d.hkd)}
       <section class="card flush"><div class="row sb" style="padding:16px 20px 4px"><h2 class="h2">Capital per strategy</h2><span class="muted small">Return is measured on net money in, so adding money never looks like profit.</span></div>
         <div class="tw"><table class="t"><thead><tr><th>Strategy</th><th class="r">Money in</th><th class="r">Taken out</th><th class="r">Net capital</th><th class="r">Value now</th><th class="r">P&amp;L</th><th class="r">Share</th><th class="r">Actions</th></tr></thead><tbody>
         ${d.rows.map((r) => `<tr><td><a href="#/strategies/${r.id}" class="row" style="gap:10px;color:var(--text)">${U.dot(r.color, 10)}<b style="font-weight:500">${U.esc(r.name)}</b>${r.waiting ? ' ' + U.pill('warn', U.usd(r.waiting, 0) + ' waits for a buy signal') : ''}${r.control === 'stopped' || r.control === 'stopping' ? ' ' + U.pill(r.net_in > 0.5 ? 'err' : '', r.control === 'stopped' ? 'stopped · does not buy' : 'stopping · does not buy') : ''}</a></td>
@@ -65,6 +66,7 @@
           <div><b>Withdraw takes cash first.</b> <span class="muted">If that is not enough, it sells the strategy's holdings evenly with a split plan; the cash goes back to bot unassigned.</span></div>
           <div><b>Every change is a record.</b> <span class="muted">Each line here is kept, shown on the strategy page and sent to LINE.</span></div></section>
       </div>`;
+      U.on(el, '[data-hkd]', 'click', (e, b) => V.hkdDialog(b.dataset.hkd, d.hkd, load));
       U.on(el, '[data-k]', 'click', (e, b) => V.moneyDialog(b.dataset.k, b.dataset.s || null, load));
       U.on(el, '[data-f]', 'click', (e, b) => V.fundDialog(b.dataset.f, load));
       U.on(el, '[data-split]', 'click', () => V.splitDialog(load));
@@ -86,8 +88,65 @@
         });
       });
     }
+    function hkdCard(h) {
+      if (!h) return '';
+      const hk = (x, dp = 2) => x == null ? '—' : (x < 0 ? '−' : '') + 'HK$' + Math.abs(+x).toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp });
+      const W = mode === 'paper' ? 'the paper account' : 'Webull';
+      const held = Object.entries(h.test_held || {});
+      return `<section class="card col" style="gap:14px">
+        <div class="row sb" style="flex-wrap:wrap;gap:8px"><div><h2 class="h2">Hong Kong dollars (HKD)</h2>
+          <div class="muted small" style="max-width:760px;margin-top:4px">For the Hong Kong 2x ETFs (7234 ChiNext, 7226 Hang Seng TECH, 7233 CSI 300). They are paid in HKD, so the bot keeps a separate HKD pot. ${mode === 'paper' ? 'Convert pretend USD to HKD below.' : 'Convert USD to HKD in the Webull app first (Assets → Currency exchange).'} Then allocate HKD to the bot. Right now bot HKD pays for the Go-live Hong Kong tests; Hong Kong strategies come after those tests pass.</div></div>
+          <div class="row" style="gap:8px;flex-wrap:wrap">${mode === 'paper' ? '<button class="btn" data-hkd="convert">Convert USD → HKD</button>' : ''}<button class="btn" data-hkd="out" ${h.bot_hkd > 0 ? '' : 'disabled'}>Return HKD to ${mode === 'paper' ? 'account' : 'Webull'}</button><button class="btn p" data-hkd="in">Allocate HKD to bot</button></div></div>
+        <div class="flow">
+          <div class="fl"><div class="eyebrow">HKD in ${W}</div><div class="num big" style="font-size:24px;margin-top:4px">${hk(h.account_hkd)}</div>
+            <div class="muted small">${h.account_hkd == null ? 'no HKD balance reported' : '≈ ' + U.usd(h.account_hkd / h.rate, 0) + ' at ' + h.rate.toFixed(4) + ' HKD per USD'}</div></div>
+          <div class="arrow" aria-hidden="true">=</div>
+          <div class="fl" style="border-color:color-mix(in srgb,var(--accent) 45%,var(--line))"><div class="eyebrow">Bot HKD</div><div class="num big" style="font-size:24px;margin-top:4px">${hk(h.bot_hkd)}</div>
+            <div class="muted small">≈ ${U.usd(h.bot_usd, 0)}${held.length ? ' · test shares held: ' + held.map(([k, q]) => `${U.esc(k)} ${q}`).join(', ') : ''}</div></div>
+          <div class="arrow" aria-hidden="true">+</div>
+          <div class="fl"><div class="eyebrow">Not for the bot</div><div class="num big" style="font-size:24px;margin-top:4px;color:var(--muted)">${hk(h.outside_hkd)}</div>
+            <div class="muted small">HKD the bot never touches</div></div>
+        </div>
+        <div class="row small" style="gap:14px;flex-wrap:wrap">${h.products.map((p) => `<span><b class="mono">${U.esc(p.symbol)}</b> ${U.esc(p.short)} · lot ${p.lot}</span>`).join('')}<span class="muted">${U.esc(h.market.text)}</span><a href="#/golive">Go-live → Hong Kong test →</a></div>
+        ${(h.moves || []).length ? `<div class="tw"><table class="t"><thead><tr><th>When (BKK)</th><th>Type</th><th class="r">Amount</th><th>Note</th></tr></thead><tbody>${h.moves.map((m) => `<tr><td class="num">${U.dt(m.t)}</td><td>${U.pill(m.kind === 'to_bot' ? 'info' : '', m.kind === 'to_bot' ? (mode === 'paper' ? 'Account' : 'Webull') + ' → Bot HKD' : 'Bot HKD → ' + (mode === 'paper' ? 'Account' : 'Webull'))}</td><td class="r num">${hk(m.done_amount || m.amount)}</td><td class="muted small">${U.esc(m.note || '')}</td></tr>`).join('')}</tbody></table></div>` : ''}
+      </section>`;
+    }
     await load();
     return { cleanup: () => {}, refresh: () => load().catch(() => {}), every: 60000 };
+  };
+
+  /* Hong Kong dollars: allocate to / return from the bot's HKD pot; paper: convert pretend USD */
+  V.hkdDialog = function (dir, h, onDone) {
+    const mode = U.mode();
+    const W = mode === 'paper' ? 'the paper account' : 'Webull';
+    const cfg = {
+      in: { title: 'Allocate HKD to the bot', max: Math.max(0, h.outside_hkd || 0), cur: 'HKD', ok: 'Allocate',
+        text: `Gives the bot part of the Hong Kong dollars in ${W}. It lands in <b>bot HKD</b>. HKD you do not allocate is never used.`,
+        presets: [1500, 5000], url: '/api/money/hkd-to-bot' },
+      out: { title: `Return HKD to ${mode === 'paper' ? 'the account' : 'Webull'}`, max: Math.max(0, h.bot_hkd || 0), cur: 'HKD', ok: 'Return',
+        text: 'The bot stops using this HKD. It stays in your account as HKD (convert it back to USD in the Webull app if you want).',
+        presets: [], url: '/api/money/hkd-to-webull' },
+      convert: { title: 'Paper: convert USD to HKD', max: null, cur: 'USD', ok: 'Convert',
+        text: `Like Webull's currency exchange: takes pretend USD from the paper account's free cash and adds HKD at ${h.rate.toFixed(4)} HKD per USD.`,
+        presets: [200, 1000], url: '/api/money/paper-convert' },
+    }[dir];
+    const fmt = (x) => (cfg.cur === 'HKD' ? 'HK$' : '$') + (+x).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    U.modal(cfg.title, `<div class="col" style="gap:14px">
+      <div class="muted">${cfg.text}</div>
+      <div class="f"><label for="hka">Amount (${cfg.cur})</label><input class="in num" id="hka" inputmode="decimal" style="height:50px;font-size:20px" placeholder="0.00">
+        <div class="row" style="gap:6px;flex-wrap:wrap">${cfg.presets.map((v) => `<button class="btn s" data-v="${v}">${fmt(v)}</button>`).join('')}${cfg.max != null ? `<button class="btn s" data-v="${cfg.max}">All · ${fmt(cfg.max)}</button>` : ''}</div></div>
+      <div class="row" style="justify-content:flex-end"><button class="btn" id="hkc">Cancel</button><button class="btn p" id="hkgo">${cfg.ok}</button></div></div>`, {
+      width: 500,
+      onOpen: (box, close) => {
+        U.on(box, '[data-v]', 'click', (e, b) => { box.querySelector('#hka').value = (+b.dataset.v).toFixed(2); });
+        box.querySelector('#hkc').onclick = close;
+        box.querySelector('#hkgo').onclick = (e) => U.busy(e.target, async () => {
+          const amount = parseFloat((box.querySelector('#hka').value || '0').replace(/[$,HK]/g, '')) || 0;
+          await U.api(cfg.url, { body: { mode, amount } });
+          U.toast(`${cfg.title.split(':').pop().trim()}: ${fmt(amount)}`); close(); if (onDone) onDone();
+        });
+      },
+    });
   };
 
   /* Protected cash floor: the bot never lets the account's cash fall below this */

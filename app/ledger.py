@@ -251,9 +251,75 @@ def set_applied_target(mode, sid, target: dict | None):
     db.run("UPDATE ledger SET applied_target=? WHERE mode=? AND strategy=?", (json.dumps(target) if target is not None else None, mode, sid))
 
 
+# ---------------------------------------------------------------- Hong Kong dollars
+# The bot's HKD pot per mode ("bot HKD"): Hong Kong dollars you gave the bot for the Hong Kong ETFs. It is separate from
+# the USD books above; every amount here is in HKD. Account HKD cash not given to the bot is never used.
+def hk_pool(mode: str) -> dict:
+    r = db.one("SELECT * FROM pool_fx WHERE mode=? AND ccy='HKD'", (mode,))
+    if not r:
+        db.run("INSERT OR IGNORE INTO pool_fx(mode,ccy,cash,cap_in,cap_out,updated_at) VALUES(?,'HKD',0,0,0,?)", (mode, int(time.time())))
+        r = db.one("SELECT * FROM pool_fx WHERE mode=? AND ccy='HKD'", (mode,))
+    return r
+
+
+def hk_cash(mode: str) -> float:
+    return round(hk_pool(mode)["cash"] or 0.0, 2)
+
+
+def _hk_add(c, mode, amount):
+    hk_pool(mode)
+    c.execute("UPDATE pool_fx SET cash=cash+?, updated_at=? WHERE mode=? AND ccy='HKD'", (amount, int(time.time()), mode))
+
+
+def hk_outside(mode: str, account_hkd: float | None) -> float | None:
+    """HKD in the broker account that is NOT given to the bot."""
+    if account_hkd is None:
+        return None
+    return account_hkd - hk_cash(mode)
+
+
+def hk_fund_in(mode: str, amount: float, account_hkd: float | None, note: str = "") -> int:
+    """Webull HKD → bot HKD."""
+    amount = round(float(amount), 2)
+    if amount <= 0:
+        raise ValueError("Enter an amount above 0")
+    free = hk_outside(mode, account_hkd)
+    if free is None:
+        raise ValueError("Cannot read the account's Hong Kong dollars right now. Convert USD to HKD in the Webull app first "
+                         "(Assets → Currency exchange), then try again")
+    if amount > free + 0.005:
+        raise ValueError(f"Only HK${max(free, 0):,.2f} of HKD in the account is not given to the bot yet. "
+                         "Convert more USD to HKD in the Webull app first")
+    now = int(time.time())
+    with db.tx() as c:
+        _hk_add(c, mode, amount)
+        c.execute("UPDATE pool_fx SET cap_in=cap_in+? WHERE mode=? AND ccy='HKD'", (amount, mode))
+        cur = c.execute("INSERT INTO money(mode,t,kind,strategy,amount,status,note,done_at,done_amount,ccy) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                        (mode, now, "to_bot", None, amount, "done", note, now, amount, "HKD"))
+    return cur.lastrowid
+
+
+def hk_fund_out(mode: str, amount: float, note: str = "") -> int:
+    """Bot HKD → Webull (the bot stops using it)."""
+    amount = round(float(amount), 2)
+    if amount <= 0:
+        raise ValueError("Enter an amount above 0")
+    have = hk_cash(mode)
+    if amount > have + 0.005:
+        raise ValueError(f"Bot HKD has HK${have:,.2f}")
+    amount = min(amount, have)
+    now = int(time.time())
+    with db.tx() as c:
+        _hk_add(c, mode, -amount)
+        c.execute("UPDATE pool_fx SET cap_out=cap_out+? WHERE mode=? AND ccy='HKD'", (amount, mode))
+        cur = c.execute("INSERT INTO money(mode,t,kind,strategy,amount,status,note,done_at,done_amount,ccy) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                        (mode, now, "to_webull", None, amount, "done", note, now, amount, "HKD"))
+    return cur.lastrowid
+
+
 def reset_mode(mode: str):
     with db.tx() as c:
-        for t in ("ledger", "holdings", "money", "equity", "pool"):
+        for t in ("ledger", "holdings", "money", "equity", "pool", "pool_fx"):
             c.execute(f"DELETE FROM {t} WHERE mode=?", (mode,))
         c.execute("UPDATE orders SET status='cancelled', error='account reset' WHERE mode=? AND status IN "
                   "('scheduled','sending','submitted','unknown')", (mode,))

@@ -149,3 +149,9 @@
 - **Buy zones over 20 years** (28 Oct 2026, your choice): the percentile now compares today's depth with the last 20 years
   of the strategy's backtest (was 10), so 2008 and 2011–2016 count. Stricter: e.g. ROM 90th → 76th, 2x Semis 78th → 64th,
   QLD regime 70th → 57th (23 Oct). Stored zones are recomputed on the first start with the new window.
+- **Hong Kong and HKD** (added 28 Oct 2026, from the research *HK 2x ETFs vs QQQ*): the bot holds Hong Kong dollars in its own
+  pot per mode (**bot HKD**, table `pool_fx`), separate from the USD books; HKD you do not allocate is never used. Converting USD to
+  HKD stays in the Webull app (paper has a pretend *Convert* button and starts with HK$100,000). The Go-live page tests 7234, 7226
+  and 7233 by buying one board lot (100 shares) and selling it back: Webull HK order format (five-digit symbol, market HK,
+  ENHANCED_LIMIT on HKEX's tick table, optional BCAN), Hong Kong hours only, paid from bot HKD. Webull Thailand documents US
+  trading only, so the result decides whether Hong Kong strategies are built; the section is not counted in readiness.

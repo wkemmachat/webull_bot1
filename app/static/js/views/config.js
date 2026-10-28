@@ -94,7 +94,8 @@
         <div class="f"><label for="${env}-k">App Key</label><input class="in num" id="${env}-k" placeholder="${st.key_hint ? 'saved · ' + U.esc(st.key_hint) + ' (leave empty to keep)' : 'App Key'}"></div>
         <div class="f"><label for="${env}-s">App Secret</label><input class="in num" id="${env}-s" type="password" placeholder="${st.has_keys ? 'saved (leave empty to keep)' : 'App Secret'}"></div>
         <div class="fs"><div class="f"><label for="${env}-a">Account ID (optional)</label><input class="in num" id="${env}-a" value="${U.esc(st.account_id || '')}" placeholder="found automatically"></div>
-          ${env === 'test' ? `<div class="f"><label for="test-e">Test server</label><input class="in num" id="test-e" value="${U.esc(st.endpoint || '')}"></div>` : ''}</div>
+          ${env === 'test' ? `<div class="f"><label for="test-e">Test server</label><input class="in num" id="test-e" value="${U.esc(st.endpoint || '')}"></div>` : ''}
+          ${env === 'live' ? `<div class="f"><label for="live-hk">Hong Kong investor ID (BCAN, optional)</label><input class="in num" id="live-hk" value="${U.esc(d.hk_party_id || '')}" placeholder="only if Webull asks for it"></div>` : ''}</div>
         ${env === 'test' ? `<div class="row" style="gap:6px"><span class="muted small">Webull's shared test accounts (public, no application needed):</span>${[1, 2, 3].map((n) => `<button class="btn s" data-shared="${n}">Use #${n}</button>`).join('')}</div>` : ''}
         <div class="muted small">${env === 'live' ? 'webull.co.th → your photo → Developer Tool → API Management → API Keys Management. Tick <b>Market data</b> and <b>Trading</b>; IP whitelist: your server\'s IP. Stored encrypted on your server.'
           : 'Test server th-api.uat.webullbroker.com. Shared accounts are used by everyone: orders and positions there can change at any time.'}</div>
@@ -125,6 +126,7 @@
           const body = { app_key: el.querySelector(`#${env}-k`).value.trim() || undefined, app_secret: el.querySelector(`#${env}-s`).value.trim() || undefined,
             account_id: el.querySelector(`#${env}-a`).value.trim() };
           if (env === 'test') body.endpoint = el.querySelector('#test-e').value.trim();
+          if (env === 'live') body.hk_party_id = el.querySelector('#live-hk').value.trim();
           d = await U.api(`/api/webull/${env}/keys`, { body }); U.toast('Keys saved'); render();
         } else if (a === 'test') {
           const r = await U.api(`/api/webull/${env}/test`, { body: {} });
@@ -132,7 +134,8 @@
           el.querySelector('#acct').innerHTML = `<section class="card"><h2 class="h2" style="margin-bottom:6px">Account (from Webull ${env}) · ${r.ms} ms</h2>
             <div class="kv"><span class="muted">Account</span><span class="num">${U.esc(acc.account_id)}</span></div><div class="kv"><span class="muted">Total value</span><span class="num">${U.usd(acc.total)}</span></div>
             <div class="kv"><span class="muted">Cash</span><span class="num">${U.usd(acc.cash)}</span></div><div class="kv"><span class="muted">Buying power</span><span class="num">${U.usd(acc.buying_power)}</span></div>
-            <div class="kv"><span class="muted">Positions</span><span class="num">${Object.entries(acc.positions || {}).map(([k, p]) => `${k} ${U.qty(p.qty)}`).join(', ') || 'none'}</span></div></section>`;
+            <div class="kv"><span class="muted">Hong Kong dollars</span><span class="num">${acc.cash_hkd == null ? 'none reported' : 'HK$' + (+acc.cash_hkd).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+            <div class="kv"><span class="muted">Positions</span><span class="num">${Object.entries(acc.positions || {}).map(([k, p]) => `${k} ${U.qty(p.qty)}${p.currency === 'HKD' ? ' (HK)' : ''}`).join(', ') || 'none'}</span></div></section>`;
         } else {
           if (a === 'disconnect' && !(await U.confirm('Disconnect?', 'The saved login is put aside. Orders cannot be sent in this mode until you connect again.', { danger: true, ok: 'Disconnect' }))) return;
           d = await U.api(`/api/webull/${env}/${a}`, { body: {} });

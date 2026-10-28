@@ -246,6 +246,14 @@ def run(now=None, send=True):
               f"not for the bot ${cash - cash_need:,.2f}",
               "The bot's books have more cash than the account (money left Webull?). Return money to Webull or withdraw from a strategy."
               if st == "error" else "", "#/money")
+        hk_bot = ledger.hk_cash(mode)
+        if hk_bot > 0.5:                          # Hong Kong dollars given to the bot must still be in the account
+            hk_have = acct.get("cash_hkd")
+            st_h = "error" if (hk_have is None or hk_bot > hk_have + 5) else "ok"
+            _item(items, f"cash_hkd_{mode}", label, f"{label}: Hong Kong dollars add up", st_h,
+                  f"Account HKD {'not reported' if hk_have is None else f'HK${hk_have:,.2f}'} · bot HKD HK${hk_bot:,.2f}",
+                  "Bot HKD is more than the account's HKD (converted back or withdrawn in the app?). Money → Hong Kong dollars → "
+                  "Return HKD to Webull." if st_h == "error" else "", "#/money")
         from . import execution
         allb = execution.blocked_symbols(mode)
         # Webull's 50M THB single-stock 2x rule is an account rule the bot already works around (C2-7 2x holds the stocks)

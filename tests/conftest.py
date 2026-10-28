@@ -67,7 +67,7 @@ def clock(monkeypatch):
     md.set_clock(NOW)
 
 
-TABLES = ("ledger", "holdings", "money", "pool", "plans", "orders", "equity", "line_queue", "events", "signals", "strategy_state", "test_trades")
+TABLES = ("ledger", "holdings", "money", "pool", "pool_fx", "plans", "orders", "equity", "line_queue", "events", "signals", "strategy_state", "test_trades")
 
 
 @pytest.fixture

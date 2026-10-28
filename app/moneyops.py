@@ -283,3 +283,66 @@ def seed_new_paper(sid):
         ledger.add_money("paper", sid, amt, note="Paper start", invest=default_invest())
     except Exception as e:
         db.add_event("warn", "money", "Could not give paper money to the new strategy", str(e), strategy=sid)
+
+
+# ---------------------------------------------------------------- Hong Kong dollars
+#   Webull HKD cash ── Allocate HKD to bot ──▶ Bot HKD ── (Hong Kong test trades; HK strategies later)
+#                   ◀── Return HKD to Webull ──
+# Converting USD to HKD happens in the Webull app (Assets → Currency exchange); the bot only uses HKD you give it.
+def account_hkd(mode: str):
+    b = brokers.get(mode)
+    try:
+        return b.account().get("cash_hkd")
+    except Exception as e:
+        raise ValueError(f"Cannot read the {brokers.MODE_LABEL[mode]} account: {e}")
+
+
+def hkd_to_bot(mode, amount, note=""):
+    from . import hk
+    amount = round(float(amount), 2)
+    mid = ledger.hk_fund_in(mode, amount, account_hkd(mode), note)
+    left = ledger.hk_cash(mode)
+    db.add_event("info", "money", f"Allocated HK${amount:,.2f} to the bot", f"{brokers.MODE_LABEL[mode]} · bot HKD now HK${left:,.2f}"
+                 f" (≈ ${hk.to_usd(left):,.0f})", mode=mode)
+    notify.send("money", f"{brokers.MODE_LABEL[mode]} · Allocated HK${amount:,.2f} from Webull to the bot. Bot HKD: HK${left:,.2f}.")
+    return {"id": mid, "hkd": left}
+
+
+def hkd_to_webull(mode, amount, note=""):
+    amount = round(float(amount), 2)
+    mid = ledger.hk_fund_out(mode, amount, note)
+    db.add_event("info", "money", f"Returned HK${amount:,.2f} to Webull", f"{brokers.MODE_LABEL[mode]} · the bot no longer uses it",
+                 mode=mode)
+    notify.send("money", f"{brokers.MODE_LABEL[mode]} · Returned HK${amount:,.2f} from the bot to Webull.")
+    return {"id": mid, "hkd": ledger.hk_cash(mode)}
+
+
+def paper_convert(usd, rate=None):
+    """Paper only: like Webull's currency exchange, turn some of the paper account's free USD into HKD."""
+    from . import hk
+    usd = round(float(usd), 2)
+    if usd <= 0:
+        raise ValueError("Enter an amount above 0")
+    free = ledger.outside_cash("paper", account_cash("paper"))
+    if free is None or usd > free + 0.005:
+        raise ValueError(f"The paper account has ${max(free or 0, 0):,.2f} of USD that is not given to the bot")
+    rate = rate or hk.hkd_per_usd()
+    b = brokers.get("paper")
+    a = b._acct()
+    a["cash"] -= usd
+    a["cash_hkd"] = round(a.get("cash_hkd", 0.0) + usd * rate, 2)
+    b._save(a)
+    db.add_event("info", "money", f"Paper: converted ${usd:,.2f} to HK${usd * rate:,.2f}", f"rate {rate:.4f} HKD per USD", mode="paper")
+    return {"cash_hkd": a["cash_hkd"], "rate": rate}
+
+
+def hkd_view(mode: str, acct: dict | None) -> dict:
+    """The HKD block of the Money page."""
+    from . import hk, testtrade
+    have = (acct or {}).get("cash_hkd")
+    bot = ledger.hk_cash(mode)
+    held = {s: q for s, q in testtrade.held(mode).items() if hk.is_hk(s)}
+    moves = [dict(m) for m in db.rows("SELECT * FROM money WHERE mode=? AND ccy='HKD' ORDER BY id DESC LIMIT 20", (mode,))]
+    return {"account_hkd": have, "bot_hkd": bot, "outside_hkd": ledger.hk_outside(mode, have), "rate": hk.hkd_per_usd(),
+            "bot_usd": round(hk.to_usd(bot), 2), "test_held": held, "moves": moves,
+            "products": [{"symbol": s, **p} for s, p in hk.PRODUCTS.items()], "market": hk.status(md.now_utc())}

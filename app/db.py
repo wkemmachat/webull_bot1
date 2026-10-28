@@ -50,6 +50,9 @@ CREATE TABLE IF NOT EXISTS ledger (
   start_t INTEGER, hold_cash INTEGER DEFAULT 0, hold_amt REAL DEFAULT 0, applied_target TEXT, updated_at INTEGER, PRIMARY KEY (mode, strategy));
 -- the bot's own unassigned cash per mode: money you gave the bot that no strategy has yet
 CREATE TABLE IF NOT EXISTS pool (mode TEXT PRIMARY KEY, cash REAL DEFAULT 0, cap_in REAL DEFAULT 0, cap_out REAL DEFAULT 0, updated_at INTEGER);
+-- the bot's cash in other currencies (Hong Kong dollars for the HK ETFs), per mode and currency
+CREATE TABLE IF NOT EXISTS pool_fx (mode TEXT, ccy TEXT, cash REAL DEFAULT 0, cap_in REAL DEFAULT 0, cap_out REAL DEFAULT 0,
+  updated_at INTEGER, PRIMARY KEY (mode, ccy));
 CREATE TABLE IF NOT EXISTS holdings (
   mode TEXT, strategy TEXT, symbol TEXT, qty REAL DEFAULT 0, cost REAL DEFAULT 0, PRIMARY KEY (mode, strategy, symbol));
 CREATE TABLE IF NOT EXISTS money (
@@ -139,7 +142,8 @@ def con():
 
 
 # columns added after the first release: (table, column, definition)
-MIGRATIONS = [("ledger", "hold_amt", "REAL DEFAULT 0"), ("orders", "fee", "REAL DEFAULT 0"), ("plans", "goal", "TEXT"), ("test_trades", "order_type", "TEXT")]
+MIGRATIONS = [("ledger", "hold_amt", "REAL DEFAULT 0"), ("orders", "fee", "REAL DEFAULT 0"), ("plans", "goal", "TEXT"), ("test_trades", "order_type", "TEXT"),
+              ("money", "ccy", "TEXT")]
 
 
 def init():

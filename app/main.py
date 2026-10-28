@@ -385,6 +385,16 @@ async def money_action(action: str, request: Request, u=Depends(user)):
             return moneyops.to_webull(mode, b.get("amount"), b.get("note", ""))
         if action == "invest-now":
             return moneyops.invest_now(mode, b.get("strategy"))
+        if action == "hkd-to-bot":
+            return moneyops.hkd_to_bot(mode, b.get("amount"), b.get("note", ""))
+        if action == "hkd-to-webull":
+            return moneyops.hkd_to_webull(mode, b.get("amount"), b.get("note", ""))
+        if action == "paper-convert":
+            if mode != "paper":
+                raise ValueError("Convert USD to HKD in the Webull app (Assets → Currency exchange)")
+            out = moneyops.paper_convert(b.get("amount"))
+            db.set_state("acct_cache:paper", None)
+            return out
         if action == "split":
             alloc = b.get("allocations")
             if b.get("equal"):
@@ -777,7 +787,7 @@ def line_quota(u=Depends(user)):
 # ---------------------------------------------------------------- Webull
 def _webull_public():
     s = db.get_settings()
-    out = {"region": s.get("webull_region"), "modes": brokers.enabled_modes(s)}
+    out = {"region": s.get("webull_region"), "modes": brokers.enabled_modes(s), "hk_party_id": s.get("webull_hk_party_id") or ""}
     for env in ("test", "live"):
         b = brokers.WebullBroker(s, env=env)
         st = b.status()
@@ -818,6 +828,8 @@ async def webull_action(env: str, action: str, request: Request, u=Depends(user)
             upd[p + "account_id"] = str(b.get("account_id") or "").strip()
         if env == "test" and "endpoint" in b:
             upd["webull_test_endpoint"] = str(b.get("endpoint") or "").strip()
+        if "hk_party_id" in b:                      # Hong Kong investor ID (BCAN): only if Webull asks for it on HK orders
+            upd["webull_hk_party_id"] = str(b.get("hk_party_id") or "").strip()[:40]
         db.set_settings(upd)
         return _webull_public()
     if action == "connect":
@@ -986,7 +998,7 @@ def data_refresh(u=Depends(user)):
 
 
 # ---------------------------------------------------------------- docs
-DOC_ORDER = ["overview", "quick-start-mac", "first-day", "modes", "dashboard", "strategies", "backtest", "money", "portfolio", "orders", "line", "health", "golive",
+DOC_ORDER = ["overview", "quick-start-mac", "first-day", "modes", "dashboard", "strategies", "backtest", "money", "portfolio", "orders", "line", "health", "golive", "hongkong",
              "strategy-compare", "strategy-timeframes", "strategy-dips", "expected-returns", "strategy-gold1", "strategy-gold2", "strategy-silver1", "strategy-silver2", "strategy-qld", "strategy-semis",
              "strategy-qld-tbd", "strategy-qld-ibs", "strategy-usd-ibs", "strategy-rom-tbd", "strategy-c27",
              "deploy", "update", "backups", "plugins", "layout", "tests", "troubleshooting", "glossary", "decisions"]

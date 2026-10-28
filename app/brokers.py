@@ -17,7 +17,7 @@ import threading
 import time
 from pathlib import Path
 
-from . import db, marketdata as md
+from . import db, hk, marketdata as md
 from .config import DATA_DIR
 
 log = logging.getLogger("broker")
@@ -94,6 +94,9 @@ class PaperBroker:
             cash = float(self.settings.get("paper_start_cash") or 150000)
             a = {"cash": cash, "start_cash": cash, "positions": {}, "orders": {}, "created": int(time.time())}
             db.set_state(self.KEY, a)
+        if "cash_hkd" not in a:                   # pretend Hong Kong dollars for the HK test (as if converted in Webull)
+            a["cash_hkd"] = float(self.settings.get("paper_start_cash_hkd") or 100000)
+            db.set_state(self.KEY, a)
         return a
 
     def _save(self, a):
@@ -113,7 +116,7 @@ class PaperBroker:
 
     def account(self):
         a = self._acct()
-        pos, mv = {}, 0.0
+        pos, mv, mv_hk = {}, 0.0, 0.0
         for sym, p in a["positions"].items():
             if p["qty"] <= 1e-9:
                 continue
@@ -121,10 +124,15 @@ class PaperBroker:
                 px = self.quote(sym)["price"]
             except Exception:
                 px = p.get("last") or (p["cost"] / p["qty"] if p["qty"] else 0)
-            pos[sym] = {"qty": p["qty"], "cost": p["cost"] / p["qty"] if p["qty"] else None, "last": px, "value": p["qty"] * px}
-            mv += p["qty"] * px
+            pos[sym] = {"qty": p["qty"], "cost": p["cost"] / p["qty"] if p["qty"] else None, "last": px, "value": p["qty"] * px,
+                        "currency": hk.currency(sym)}
+            if hk.is_hk(sym):
+                mv_hk += p["qty"] * px
+            else:
+                mv += p["qty"] * px
         return {"total": a["cash"] + mv, "cash": a["cash"], "market_value": mv, "buying_power": a["cash"],
-                "positions": pos, "currency": "USD", "account_id": "PAPER"}
+                "positions": pos, "currency": "USD", "account_id": "PAPER",
+                "cash_hkd": a.get("cash_hkd", 0.0), "market_value_hkd": mv_hk}
 
     def _try_fill(self, a, o):
         if o["status"] != "SUBMITTED":
@@ -136,13 +144,14 @@ class PaperBroker:
         p = a["positions"].setdefault(o["symbol"], {"qty": 0.0, "cost": 0.0})
         qty = o["qty"]
         fee = qty * px * self.fee
+        ck = "cash_hkd" if hk.is_hk(o["symbol"]) else "cash"      # HK shares are paid in Hong Kong dollars
         if o["side"] == "BUY":
-            if qty * px + fee > a["cash"] + 1e-6:
-                o.update(status="FAILED", error="insufficient cash")
+            if qty * px + fee > a[ck] + 1e-6:
+                o.update(status="FAILED", error="insufficient cash" + (" (HKD)" if ck == "cash_hkd" else ""))
                 return
             p["qty"] += qty
             p["cost"] += qty * px
-            a["cash"] -= qty * px + fee
+            a[ck] -= qty * px + fee
         else:
             if qty > p["qty"] + 1e-9:
                 o.update(status="FAILED", error="not enough shares")
@@ -150,7 +159,7 @@ class PaperBroker:
             avg = p["cost"] / p["qty"] if p["qty"] else 0
             p["qty"] -= qty
             p["cost"] = max(0.0, p["cost"] - avg * qty)
-            a["cash"] += qty * px - fee
+            a[ck] += qty * px - fee
         p["last"] = q["price"]
         o.update(status="FILLED", filled_qty=qty, avg_price=round(px, 4), filled_at=int(time.time()), fee=round(fee, 4))
 
@@ -158,6 +167,13 @@ class PaperBroker:
         a = self._acct()
         if cid in a["orders"]:
             return {"order_id": cid}
+        if hk.is_hk(symbol):                     # like HKEX: whole board lots, and a limit price
+            symbol = hk.norm(symbol)
+            n = hk.lot(symbol)
+            if abs(float(qty) / n - round(float(qty) / n)) > 1e-9 or float(qty) <= 0:
+                raise BrokerRejected(f"HK orders must be whole board lots of {n} shares", code="PAPER_HK_LOT", permanent=False)
+            if limit is None:
+                raise BrokerRejected("HK orders need a limit price (enhanced limit order)", code="PAPER_HK_LIMIT")
         o = {"cid": cid, "symbol": symbol, "side": side, "qty": float(qty), "limit": limit, "status": "SUBMITTED",
              "filled_qty": 0.0, "avg_price": None, "t": int(time.time())}
         a["orders"][cid] = o
@@ -192,6 +208,13 @@ class PaperBroker:
     def reset(cls, start_cash):
         db.set_state(cls.KEY, {"cash": float(start_cash), "start_cash": float(start_cash), "positions": {}, "orders": {},
                                "created": int(time.time())})
+
+    def add_hkd(self, amount):
+        """Paper only: pretend you converted USD to HKD in the Webull app (adds to the account's HKD cash)."""
+        a = self._acct()
+        a["cash_hkd"] = round(a.get("cash_hkd", 0.0) + float(amount), 2)
+        self._save(a)
+        return a["cash_hkd"]
 
 
 # ---------------------------------------------------------------- Webull
@@ -370,6 +393,8 @@ class WebullBroker:
         return aid
 
     def quote(self, symbol):
+        if hk.is_hk(symbol):
+            return self._quote_hk(symbol)
         try:
             _, data = self._clients()
             res = self._call(lambda: data.market_data.get_snapshot(symbol, "US_ETF", extend_hour_required=True,
@@ -387,6 +412,26 @@ class WebullBroker:
             log.warning("Webull quote failed for %s, using Yahoo: %s", symbol, e)
         return md.quote(symbol)
 
+    def _quote_hk(self, symbol):
+        """Hong Kong quote: Webull's HK snapshot when this account may read it, else Yahoo (7234.HK, ~15 min delayed)."""
+        try:
+            _, data = self._clients()
+            res = self._call(lambda: data.market_data.get_snapshot(hk.api_symbol(symbol), "HK_STOCK"), "HK quote")
+            js = self._json(res, "HK quote")
+            row = js[0] if isinstance(js, list) and js else (js.get("data", [{}])[0] if isinstance(js, dict) else {})
+            px = _num(row.get("price")) or _num(row.get("close"))
+            if px:
+                self._touch()
+                return {"price": px, "bid": _num(row.get("bid")), "ask": _num(row.get("ask")),
+                        "time": int((row.get("last_trade_time") or 0) / 1000), "source": "webull"}
+        except BrokerError as e:
+            log.info("Webull HK quote failed for %s, using Yahoo: %s", symbol, e)
+        except Exception as e:                       # odd answer shapes: fall back quietly
+            log.info("Webull HK quote %s: %s", symbol, e)
+        q = dict(md.quote(hk.norm(symbol)))
+        q["source"] = (q.get("source") or "yahoo") + " (delayed)"
+        return q
+
     def raw_account(self):
         """The untouched balance and position JSON from Webull (for `python -m app.webull_check`)."""
         trade, _ = self._clients()
@@ -402,11 +447,12 @@ class WebullBroker:
         # reads the USD figures when Webull sends them per currency; other currencies are reported, never used.
         cur = [x for x in (b.get("account_currency_assets") or []) if isinstance(x, dict)]
         usd = next((x for x in cur if str(x.get("currency") or "").upper() == "USD"), {})
+        hkd = next((x for x in cur if str(x.get("currency") or "").upper() == "HKD"), {})
         other = [{"currency": str(x.get("currency") or "?").upper(), "cash": _first(x, "cash_balance", "cash", "total_cash")}
                  for x in cur if str(x.get("currency") or "").upper() not in ("USD", "")]
         other = [o for o in other if o["cash"]]
         rws = p if isinstance(p, list) else p.get("data", p.get("positions", p.get("holdings", [])))
-        pos, pos_v = {}, 0.0
+        pos, pos_v, pos_hk = {}, 0.0, 0.0
         for r in rws or []:
             if (r.get("instrument_type") or "EQUITY") != "EQUITY":
                 continue
@@ -414,9 +460,16 @@ class WebullBroker:
             last = _first(r, "last_price", "price", "close_price")
             mv = _first(r, "market_value")
             v = mv if mv is not None else q * (last or 0.0)
-            pos[r.get("symbol") or r.get("ticker")] = {"qty": q, "cost": _first(r, "cost_price", "average_cost", "avg_cost"),
-                                                       "last": last if last is not None else (v / q if q else None), "value": v}
-            pos_v += v
+            sym = r.get("symbol") or r.get("ticker")
+            is_hk = str(r.get("market") or "").upper() == "HK" or hk.is_hk(sym)
+            sym = hk.norm(sym) if is_hk else sym              # Webull writes 07234; the bot writes 7234
+            pos[sym] = {"qty": q, "cost": _first(r, "cost_price", "average_cost", "avg_cost"),
+                        "last": last if last is not None else (v / q if q else None), "value": v,
+                        "currency": "HKD" if is_hk else "USD"}
+            if is_hk:
+                pos_hk += v                                   # in HKD: never added to the USD figures
+            else:
+                pos_v += v
         if usd and (_first(usd, "cash_balance", "cash", "total_cash") is not None or other):
             cash = _first(usd, "cash_balance", "cash", "total_cash")       # None (→ no buys) rather than count THB
             mval = _first(usd, "market_value", "total_market_value")
@@ -435,7 +488,22 @@ class WebullBroker:
         self._touch()
         return {"total": total, "cash": cash, "market_value": mval,
                 "buying_power": _first(usd, "buying_power") or _first(b, "buying_power", "total_buying_power"),
-                "positions": pos, "currency": "USD", "account_id": aid, "other_cash": other}
+                "positions": pos, "currency": "USD", "account_id": aid, "other_cash": other,
+                "cash_hkd": _first(hkd, "cash_balance", "cash", "total_cash") if hkd else None,
+                "buying_power_hkd": _first(hkd, "buying_power") if hkd else None, "market_value_hkd": pos_hk}
+
+    @staticmethod
+    def hk_order(symbol, side, qty, limit, cid, party_id=""):
+        """Webull's HK order (developer.webull.hk → Stock Trading): five-digit symbol, market HK, ENHANCED_LIMIT with a
+        limit on the HKEX tick table, whole board lots, DAY. no_party_ids (BCAN) only when Webull asks for it."""
+        if limit is None:
+            raise BrokerRejected("Hong Kong orders need a limit price", code="BOT_HK_NEEDS_LIMIT", permanent=False)
+        order = {"combo_type": "NORMAL", "client_order_id": cid, "symbol": hk.api_symbol(symbol), "instrument_type": "EQUITY",
+                 "market": "HK", "order_type": "ENHANCED_LIMIT", "limit_price": hk.price_text(hk.round_price(float(limit), side)),
+                 "quantity": str(int(round(float(qty)))), "side": side, "time_in_force": "DAY", "entrust_type": "QTY"}
+        if party_id:
+            order["no_party_ids"] = [{"party_id": party_id, "party_id_source": "D", "party_role": "3"}]
+        return order
 
     def place(self, symbol, side, qty, limit, session, cid):
         trade, _ = self._clients()
@@ -445,6 +513,8 @@ class WebullBroker:
                  "time_in_force": "DAY", "entrust_type": "QTY"}
         if limit:
             order["limit_price"] = f"{limit:.2f}"
+        if hk.is_hk(symbol):
+            order = self.hk_order(symbol, side, qty, limit, cid, (self.settings.get("webull_hk_party_id") or "").strip())
         aid = self._acct_id()
         try:
             js = self._json(self._call(lambda: trade.order_v3.place_order(aid, [order]), "place order"), "place order")

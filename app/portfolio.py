@@ -22,7 +22,8 @@ MARKETS = {"QLD": "Nasdaq-100 2x", "QQQ": "Nasdaq-100", "USD": "Semiconductors 2
            "BIL": "T-bills", "SGOV": "T-bills"}
 MARKET_COLOR = {"Nasdaq-100 2x": "#5B8DEF", "Semiconductors 2x": "#B084F5", "Technology 2x": "#20C997", "Gold": "#E0B04B",
                 "Gold 2x": "#C99A2E", "Silver 2x": "#9AA7B8", "T-bills": "#7C8798", "Big tech stocks": "#E8875A",
-                "Cash in strategies": "#4B5563", "Bot unassigned": "#374151"}
+                "Cash in strategies": "#4B5563", "Bot unassigned": "#374151",
+                "Bot HKD (Hong Kong)": "#C2410C"}
 
 
 def market_of(sym: str) -> str:
@@ -91,6 +92,10 @@ def view(mode: str) -> dict:
         r["gap"] = round(r["target"] - r["value"], 2) if plan else None
     if unassigned > 0.5:
         markets["Bot unassigned"] = unassigned
+    from . import hk
+    hkd = ledger.hk_cash(mode)
+    if hkd > 0.5:                                   # Hong Kong dollars for the HK ETFs, shown in USD
+        markets["Bot HKD (Hong Kong)"] = round(hk.to_usd(hkd), 2)
     tot_m = sum(markets.values()) or 1.0
     exposure = sorted(({"market": k, "usd": round(x, 2), "pct": x / tot_m * 100, "color": MARKET_COLOR.get(k, "#6B7280")}
                        for k, x in markets.items()), key=lambda m: -m["usd"])

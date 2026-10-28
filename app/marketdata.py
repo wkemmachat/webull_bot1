@@ -38,6 +38,9 @@ def source() -> str:
 
 
 def yahoo_ticker(sym: str) -> str:
+    s = str(sym)
+    if s.isdigit() and len(s) <= 5:             # Hong Kong code (7234 → 7234.HK)
+        return f"{int(s):04d}.HK"
     return FUTURES.get(sym, sym)
 
 
