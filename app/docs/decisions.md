@@ -155,3 +155,7 @@
   and 7233 by buying one board lot (100 shares) and selling it back: Webull HK order format (five-digit symbol, market HK,
   ENHANCED_LIMIT on HKEX's tick table, optional BCAN), Hong Kong hours only, paid from bot HKD. Webull Thailand documents US
   trading only, so the result decides whether Hong Kong strategies are built; the section is not counted in readiness.
+- **Growth of $10,000** (added 28 Oct 2026): on each strategy's Overview, above Falls to expect, from the same backtest run
+  (so the dates always match). Comparison lines: the traded ETF and the signal index held (the first two benchmark series of
+  the backtest); log scale by default; the real line is the time-weighted real index started at the backtest's value that day.
+  Both charts are drawn at the page's real width with the same margins, so their years line up.

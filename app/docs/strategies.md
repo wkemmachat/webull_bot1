@@ -18,6 +18,13 @@ At the top, **Money in strategies** shows the same donut as the dashboard: each 
   signal check (the numbers behind today's decision), holdings vs target, and every signal.
 - **Next US open** (top of Overview): this strategy's orders waiting for the next open (same table as the Dashboard), or
   "no order waiting" when it already holds its target.
+- **Growth of $10,000** (on Overview, above Falls to expect): the same backtest and the same dates as Falls to expect, after
+  fees. Tiles: what $10,000 became (and the yearly return), what simply holding the traded ETF would have made, how many
+  calendar years were up (best and worst), and the worst fall. The chart shows the strategy in its colour, the traded ETF held
+  (grey) and its signal index (dashed grey), the worst fall in red, and the years before an ETF existed shaded "built from the
+  index". **Log** (default) or **Linear** scale; hover for the values on a day. Once the strategy has real money in the current
+  mode, a black **Real** line starts at the backtest's value on its first day, so you can see whether real follows the
+  backtest. Under the chart: one bar per calendar year (lighter = part of a year).
 - **Falls to expect** (on Overview): how deep and how long the strategy has been below its previous high. Read it before
   giving the strategy money.
   - **From the backtest:** the worst fall (from the high to the bottom, how long it fell and how long it took to recover), the

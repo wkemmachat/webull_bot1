@@ -182,13 +182,67 @@ def live_index(mode, sid):
     return days, idx
 
 
+def _sample(n, keep=(), max_points=700) -> list:
+    """Indexes to draw: about max_points evenly spaced, always the first, the last and the `keep` ones."""
+    step = max(1, -(-n // max_points))
+    idx = set(range(0, n, step)) | {n - 1} | {k for k in keep if 0 <= k < n}
+    return sorted(idx)
+
+
+def growth(sid, mode, days, vals, bench: dict, start=10000.0) -> dict:
+    """Growth of $10,000 over the backtest (same days as Falls to expect), the ETFs held next to it, calendar-year
+    returns, and the real result drawn from its first day at the backtest's value that day."""
+    v = np.asarray(vals, dtype=float)
+    k = v / v[0] * start
+    n = len(k)
+    dd = k / np.maximum.accumulate(k) - 1
+    trough = int(np.argmin(dd))
+    peak = int(np.argmax(k[:trough + 1])) if trough else 0
+    idx = _sample(n, (peak, trough))
+    years = (days[-1] - days[0]).days / 365.25
+    out = {"start": start, "days": [str(days[i]) for i in idx], "strategy": [round(float(k[i]), 2) for i in idx],
+           "end": round(float(k[-1]), 2), "cagr": (k[-1] / start) ** (1 / years) - 1 if years > 0.2 else None,
+           "years_n": round(years, 1), "worst": {"peak": str(days[peak]), "trough": str(days[trough]), "depth": round(float(dd[trough]) * 100, 2)},
+           "bench": []}
+    for sym, series in list((bench or {}).items())[:2]:
+        b = [None if x is None else float(x) for x in series]
+        first = next((i for i, x in enumerate(b) if x and x > 0), None)
+        if first is None or first > n - 20:
+            continue
+        scale = k[first] / b[first]                         # starts where the strategy is that day ($10,000 at the start)
+        vals_b = [None if (i < first or b[i] is None) else round(b[i] * scale, 2) for i in idx]
+        last = next(x for x in reversed(b) if x is not None)
+        yb = (days[-1] - days[first]).days / 365.25
+        out["bench"].append({"symbol": sym, "values": vals_b, "end": round(last * scale, 2),
+                             "cagr": (last / b[first]) ** (1 / yb) - 1 if yb > 0.2 else None, "from": str(days[first])})
+    yr, last_i = [], {}
+    for i, d in enumerate(days):
+        last_i[d.year] = i
+    ys = sorted(last_i)
+    for j, y in enumerate(ys):
+        a = k[last_i[ys[j - 1]]] if j else k[0]
+        yr.append({"year": y, "ret": round(float(k[last_i[y]] / a - 1), 4),
+                   "part": (j == 0 and days[0] > date(y, 1, 7)) or (j == len(ys) - 1 and days[-1] < date(y, 12, 24))})
+    out["years"] = yr
+    out["real"] = None
+    rd, ri = live_index(mode, sid)
+    if len(rd) >= 2 and rd[0] >= days[0]:
+        import bisect
+        pos = bisect.bisect_right(days, rd[0]) - 1
+        base = float(k[max(pos, 0)])
+        ii = _sample(len(rd), max_points=400)
+        out["real"] = {"from": str(rd[0]), "days": [str(rd[i]) for i in ii], "values": [round(base * ri[i], 2) for i in ii],
+                       "ret": ri[-1] / ri[0] - 1, "base": round(base, 2)}
+    return out
+
+
 def strategy_risk(sid, mode) -> dict:
     """Falls of one strategy: its backtest history, its real values, and the research's worst fall."""
     from . import backtest, expected
     s = S.get(sid)
     if not s:
         raise KeyError(sid)
-    out = {"strategy": sid, "name": s.name, "family": s.family}
+    out = {"strategy": sid, "name": s.name, "family": s.family, "color": s.color}
     try:
         r = backtest.run(sid)
     except Exception as e:                                       # a failed backtest never breaks the page
@@ -201,6 +255,11 @@ def strategy_risk(sid, mode) -> dict:
             bt["underwater"] = _weekly_underwater(days, vals)
             bt["source"] = "Backtest on real prices"
             bt["built"] = (r.get("data") or {}).get("built") or {}       # {symbol: first real day}: earlier prices built from the index
+            try:
+                out["growth"] = growth(sid, mode, days, vals, r["series"].get("bench") or {})
+            except Exception as e:                                # the growth card never breaks the falls card
+                out["growth"] = None
+                out["growth_error"] = str(e)[:200]
             ten = [i for i, d in enumerate(days) if d >= date(days[-1].year - 10, days[-1].month, min(days[-1].day, 28))]
             if ten and ten[0] > 0:
                 b10 = drawdowns(days[ten[0]:], vals[ten[0]:], top=1)
