@@ -219,10 +219,25 @@ def growth(sid, mode, days, vals, bench: dict, start=10000.0) -> dict:
     for i, d in enumerate(days):
         last_i[d.year] = i
     ys = sorted(last_i)
+    bser = {}
+    for sym, series in list((bench or {}).items())[:2]:
+        bser[sym] = [None if x is None else float(x) for x in series]
+
+    def bench_ret(b, i0, i1):
+        """Return of a held ETF from day index i0 to i1 (None when it has no price yet)."""
+        b0 = b[i0] if i0 < len(b) else None
+        b1 = b[i1] if i1 < len(b) else None
+        if b0 is None or b1 is None or b0 <= 0:
+            return None
+        return round(b1 / b0 - 1, 4)
+
     for j, y in enumerate(ys):
-        a = k[last_i[ys[j - 1]]] if j else k[0]
-        yr.append({"year": y, "ret": round(float(k[last_i[y]] / a - 1), 4),
-                   "part": (j == 0 and days[0] > date(y, 1, 7)) or (j == len(ys) - 1 and days[-1] < date(y, 12, 24))})
+        i0 = last_i[ys[j - 1]] if j else 0
+        a = k[i0]
+        row = {"year": y, "ret": round(float(k[last_i[y]] / a - 1), 4),
+               "part": (j == 0 and days[0] > date(y, 1, 7)) or (j == len(ys) - 1 and days[-1] < date(y, 12, 24))}
+        row["bench"] = {sym: bench_ret(b, i0, last_i[y]) for sym, b in bser.items()}
+        yr.append(row)
     out["years"] = yr
     out["real"] = None
     rd, ri = live_index(mode, sid)

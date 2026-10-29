@@ -24,7 +24,8 @@ At the top, **Money in strategies** shows the same donut as the dashboard: each 
   (grey) and its signal index (dashed grey), the worst fall in red, and the years before an ETF existed shaded "built from the
   index". **Log** (default) or **Linear** scale; hover for the values on a day. Once the strategy has real money in the current
   mode, a black **Real** line starts at the backtest's value on its first day, so you can see whether real follows the
-  backtest. Under the chart: one bar per calendar year (lighter = part of a year).
+  backtest. Under the chart: one bar per calendar year (lighter = part of a year). Point at a bar (or tap it on a phone) to see
+  that year's return next to holding the ETF and the index; a click keeps it shown until you click the year again.
 - **Falls to expect** (on Overview): how deep and how long the strategy has been below its previous high. Read it before
   giving the strategy money.
   - **From the backtest:** the worst fall (from the high to the bottom, how long it fell and how long it took to recover), the

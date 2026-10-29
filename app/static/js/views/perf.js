@@ -106,8 +106,10 @@
     return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;height:${H}px" role="img" aria-label="Calendar-year returns">
       <line x1="${L}" x2="${W - R}" y1="${mid}" y2="${mid}" stroke="var(--line)"/>
       <text x="${L - 6}" y="12" text-anchor="end" font-size="10" fill="var(--dim)">+${Math.round(m * 100)}%</text><text x="${L - 6}" y="${H - 2}" text-anchor="end" font-size="10" fill="var(--dim)">−${Math.round(m * 100)}%</text>
-      ${yrs.map((q) => { const xa = x(q.year + '-01-01'), xb = x((q.year + 1) + '-01-01'), h = Math.max(1, Math.abs(q.ret) / m * (mid - 4));
-        return `<rect x="${(xa + 1.5).toFixed(1)}" y="${(q.ret >= 0 ? mid - h : mid).toFixed(1)}" width="${Math.max(1, xb - xa - 3).toFixed(1)}" height="${h.toFixed(1)}" fill="${q.ret >= 0 ? 'var(--up)' : 'var(--dn)'}" opacity="${q.part ? 0.4 : 0.85}"><title>${q.year}${q.part ? ' (part year)' : ''}: ${pcf(q.ret)}</title></rect>`; }).join('')}
+      ${yrs.map((q, i) => { const xa = x(q.year + '-01-01'), xb = x((q.year + 1) + '-01-01'), h = Math.max(1, Math.abs(q.ret) / m * (mid - 4));
+        return `<rect class="ybar" data-i="${i}" x="${(xa + 1.5).toFixed(1)}" y="${(q.ret >= 0 ? mid - h : mid).toFixed(1)}" width="${Math.max(1, xb - xa - 3).toFixed(1)}" height="${h.toFixed(1)}" fill="${q.ret >= 0 ? 'var(--up)' : 'var(--dn)'}" opacity="${q.part ? 0.4 : 0.85}"/>`; }).join('')}
+      ${yrs.map((q, i) => { const xa = x(q.year + '-01-01'), xb = x((q.year + 1) + '-01-01');
+        return `<rect class="yhit" data-i="${i}" x="${xa.toFixed(1)}" y="0" width="${Math.max(2, xb - xa).toFixed(1)}" height="${H}" fill="transparent" style="cursor:pointer"/>`; }).join('')}
     </svg>`;
   }
 
@@ -146,7 +148,9 @@
       ${legend}
       <div class="gchart" style="position:relative">${growthSvg(g, { w: W, h: narrow ? 220 : 270, log, built, color })}
         <div class="gtip" style="display:none;position:absolute;top:8px;pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px;box-shadow:0 4px 14px rgba(0,0,0,.14);font-size:12px;min-width:170px;z-index:2"></div></div>
-      <div class="col" style="gap:2px"><span class="tiny muted">Calendar-year returns (lighter = part of a year)</span>${yearsSvg(g, W)}</div>
+      <div class="col" style="gap:2px"><span class="tiny muted">Calendar-year returns (lighter = part of a year) · point at or tap a year for its numbers</span>
+        <div class="ychart" style="position:relative">${yearsSvg(g, W)}
+          <div class="ytip" style="display:none;position:absolute;bottom:calc(100% + 4px);pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px;box-shadow:0 4px 14px rgba(0,0,0,.14);font-size:12px;min-width:170px;z-index:3"></div></div></div>
       <div class="tiny muted">${built ? `Before ${day(built)} prices are built from the index (shaded), as in the falls chart below. ` : ''}${g.real ? `The real line starts at the backtest's value on its first day, so you can see whether real follows the backtest. ` : ''}Past growth is no promise; the day-by-day real result is on the Daily P&amp;L tab.</div>
     </section>`;
   }
@@ -178,6 +182,36 @@
     hit.addEventListener('touchstart', move, { passive: true }); hit.addEventListener('touchmove', move, { passive: true }); hit.addEventListener('touchend', out);
   }
 
+  /* point at / tap a year bar: that year's return, next to holding the ETF(s) */
+  function yearsHover(box, g, W) {
+    const wrap = box.querySelector('.ychart'), tip = box.querySelector('.ytip');
+    if (!wrap || !tip) return;
+    const yrs = g.years || [];
+    const bars = [...wrap.querySelectorAll('.ybar')];
+    let pinned = null;
+    const show = (i) => {
+      const q = yrs[i];
+      if (!q) return;
+      bars.forEach((b) => { b.style.opacity = +b.dataset.i === i ? 1 : (yrs[+b.dataset.i].part ? 0.25 : 0.5); });
+      const bench = Object.entries(q.bench || {});
+      tip.innerHTML = `<div class="muted">${q.year}${q.part ? ' · part of the year' : ''}</div>
+        <div class="row sb" style="gap:12px"><span>Strategy</span><b class="num ${U.cls(q.ret)}">${pcf(q.ret)}</b></div>
+        ${bench.map(([sym, r]) => `<div class="row sb muted" style="gap:12px"><span>${U.esc(sym)} held</span><span class="num">${r == null ? '—' : pcf(r)}</span></div>`).join('')}`;
+      tip.style.display = '';
+      const svg = wrap.querySelector('svg'), r = svg.getBoundingClientRect();
+      const hit = wrap.querySelector(`.yhit[data-i="${i}"]`);
+      const cx = (parseFloat(hit.getAttribute('x')) + parseFloat(hit.getAttribute('width')) / 2) / W * r.width;
+      tip.style.left = Math.max(0, Math.min(r.width - tip.offsetWidth, cx - tip.offsetWidth / 2)) + 'px';
+    };
+    const hide = () => { if (pinned != null) { show(pinned); return; } tip.style.display = 'none'; bars.forEach((b) => { b.style.opacity = ''; }); };
+    wrap.querySelectorAll('.yhit').forEach((h) => {
+      const i = +h.dataset.i;
+      h.addEventListener('mouseenter', () => show(i));
+      h.addEventListener('mouseleave', hide);
+      h.addEventListener('click', () => { pinned = pinned === i ? null : i; if (pinned == null) hide(); else show(i); });
+    });
+  }
+
   function tile(label, big, sub, cls) {
     return `<div style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0">
       <div class="eyebrow">${label}</div><div class="num big ${cls || ''}" style="font-size:22px;margin-top:4px">${big}</div><div class="muted small" style="margin-top:2px">${sub}</div></div>`;
@@ -198,6 +232,7 @@
       const gb = el.querySelector('#growth');
       if (gb) {
         growthHover(gb, d.growth, W, log);
+        yearsHover(gb, d.growth, W);
         U.on(gb, '#gscale button', 'click', (e, btn) => {
           log = btn.dataset.s === 'log';
           try { localStorage.setItem('growthScale', log ? 'log' : 'lin'); } catch (er) { /* ignore */ }
