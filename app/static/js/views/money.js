@@ -217,7 +217,7 @@
           <div class="row" style="gap:8px;align-items:flex-end"><div class="f" style="margin:0"><label for="st">Total to split</label><input class="in num" id="st" inputmode="decimal" style="width:130px" value="${pool.toFixed(2)}"></div>
             <button class="btn" id="eq">Split equally</button><button class="btn s" id="clr">Clear</button></div></div>
         ${opts.note ? `<div class="note info small" style="margin:0;display:block">${opts.note}</div>` : ''}
-        <div class="tw"><table class="t"><thead><tr><th style="width:34px"></th><th>Strategy</th><th class="r">Now</th><th class="r" style="width:150px">Give (USD)</th></tr></thead><tbody>
+        <div class="tw"><table class="t"><thead><tr><th style="width:34px"><input type="checkbox" id="ckall" checked title="Tick or untick all" aria-label="Tick or untick all strategies" style="width:18px;height:18px;accent-color:var(--accent)"></th><th>Strategy</th><th class="r">Now</th><th class="r" style="width:150px">Give (USD)</th></tr></thead><tbody>
           ${rows.map((r) => `<tr><td><input type="checkbox" class="ck" data-s="${r.id}" checked style="width:18px;height:18px;accent-color:var(--accent)"></td>
             <td><span class="row" style="gap:8px">${U.dot(r.color)}${U.esc(r.name)}</span></td><td class="r num muted">${U.usd(r.value, 0)}</td>
             <td class="r"><input class="in num amt" data-s="${r.id}" inputmode="decimal" placeholder="0.00" style="width:130px;text-align:right"></td></tr>`).join('')}</tbody></table></div>
@@ -240,10 +240,15 @@
           amts().forEach((i) => { const k = on.indexOf(i.dataset.s); i.value = k < 0 ? '' : ((base + (k < rem ? 1 : 0)) / 100).toFixed(2); });
           sum();
         };
-        box.querySelector('#clr').onclick = () => { amts().forEach((i) => { i.value = ''; }); sum(); };
+        const cks = () => [...box.querySelectorAll('.ck')];
+        const syncAll = () => { const all = box.querySelector('#ckall'), on = cks().filter((c) => c.checked).length;
+          all.checked = on === cks().length; all.indeterminate = on > 0 && on < cks().length; };
+        box.querySelector('#clr').onclick = () => { amts().forEach((i) => { i.value = ''; }); cks().forEach((c) => { c.checked = false; }); syncAll(); sum(); };
+        box.querySelector('#ckall').onchange = (e) => { cks().forEach((c) => { c.checked = e.target.checked; });
+          if (!e.target.checked) amts().forEach((i) => { i.value = ''; }); syncAll(); sum(); };
         if (opts.prefill) { amts().forEach((i) => { const v = opts.prefill[i.dataset.s]; i.value = v > 0 ? v.toFixed(2) : ''; }); sum(); }
-        U.on(box, '.amt', 'input', sum);
-        U.on(box, '.ck', 'change', (e, c) => { if (!c.checked) { box.querySelector(`.amt[data-s="${c.dataset.s}"]`).value = ''; sum(); } });
+        U.on(box, '.amt', 'input', (e, i) => { if (val(i) > 0) { box.querySelector(`.ck[data-s="${i.dataset.s}"]`).checked = true; syncAll(); } sum(); });
+        U.on(box, '.ck', 'change', (e, c) => { if (!c.checked) { box.querySelector(`.amt[data-s="${c.dataset.s}"]`).value = ''; sum(); } syncAll(); });
         U.on(box, 'input[name=inv]', 'change', (e, b) => { invest = b.value; box.querySelectorAll('.opt').forEach((o) => o.classList.toggle('on', o.querySelector('input').checked)); });
         box.querySelector('#sc').onclick = close;
         box.querySelector('#sgo').onclick = (e) => U.busy(e.target, async () => {

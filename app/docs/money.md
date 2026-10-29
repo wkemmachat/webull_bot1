@@ -24,6 +24,8 @@ Webull account               $100
 2. **Allocate to bot** → $70. It lands in **bot unassigned**. Nothing is bought yet.
 3. **Give to strategies** → tick the six strategies, type $60 in *Total to split* and press **Split equally** ($10 each), or type your
    own amount per strategy. Press **Give to strategies**. $10 stays in bot unassigned.
+   **Clear** empties every amount and unticks every strategy; the box at the top of the tick column ticks or unticks them all.
+   Typing an amount on a row ticks that row.
 4. Later, **Allocate to bot** another $20 → bot unassigned is now $30. Give it to strategies 1, 2, 3 … yourself, or split it equally.
 
 ## Every action
