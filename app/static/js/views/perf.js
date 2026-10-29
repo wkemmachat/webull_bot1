@@ -147,10 +147,10 @@
       </div>
       ${legend}
       <div class="gchart" style="position:relative">${growthSvg(g, { w: W, h: narrow ? 220 : 270, log, built, color })}
-        <div class="gtip" style="display:none;position:absolute;top:8px;pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px;box-shadow:0 4px 14px rgba(0,0,0,.14);font-size:12px;min-width:170px;z-index:2"></div></div>
+        <div class="gtip" style="display:none;position:absolute;top:8px;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;box-shadow:0 4px 14px rgba(0,0,0,.14);font-size:12px;min-width:170px;z-index:2"></div></div>
       <div class="col" style="gap:2px"><span class="tiny muted">Calendar-year returns (lighter = part of a year) · point at or tap a year for its numbers</span>
         <div class="ychart" style="position:relative">${yearsSvg(g, W)}
-          <div class="ytip" style="display:none;position:absolute;bottom:calc(100% + 4px);pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px;box-shadow:0 4px 14px rgba(0,0,0,.14);font-size:12px;min-width:170px;z-index:3"></div></div></div>
+          <div class="ytip" style="display:none;position:absolute;top:0;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;box-shadow:0 4px 14px rgba(0,0,0,.14);font-size:12px;min-width:170px;z-index:3"></div></div></div>
       <div class="tiny muted">${built ? `Before ${day(built)} prices are built from the index (shaded), as in the falls chart below. ` : ''}${g.real ? `The real line starts at the backtest's value on its first day, so you can see whether real follows the backtest. ` : ''}Past growth is no promise; the day-by-day real result is on the Daily P&amp;L tab.</div>
     </section>`;
   }
@@ -200,8 +200,10 @@
       tip.style.display = '';
       const svg = wrap.querySelector('svg'), r = svg.getBoundingClientRect();
       const hit = wrap.querySelector(`.yhit[data-i="${i}"]`);
-      const cx = (parseFloat(hit.getAttribute('x')) + parseFloat(hit.getAttribute('width')) / 2) / W * r.width;
-      tip.style.left = Math.max(0, Math.min(r.width - tip.offsetWidth, cx - tip.offsetWidth / 2)) + 'px';
+      const x0 = parseFloat(hit.getAttribute('x')) / W * r.width, x1 = (parseFloat(hit.getAttribute('x')) + parseFloat(hit.getAttribute('width'))) / W * r.width;
+      // beside the year's bar (right of it, or left near the right edge) so it covers neither the bar nor the chart above
+      tip.style.left = (x1 + 8 + tip.offsetWidth <= r.width ? x1 + 8 : Math.max(0, x0 - 8 - tip.offsetWidth)) + 'px';
+      tip.style.top = Math.max(0, (r.height - tip.offsetHeight) / 2) + 'px';
     };
     const hide = () => { if (pinned != null) { show(pinned); return; } tip.style.display = 'none'; bars.forEach((b) => { b.style.opacity = ''; }); };
     wrap.querySelectorAll('.yhit').forEach((h) => {
