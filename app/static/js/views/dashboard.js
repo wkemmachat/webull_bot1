@@ -46,7 +46,8 @@
       const b = d.bot, acct = d.account || {};
       const showIdle = U.showIdle(), idleN = d.strategies.filter((s) => s.idle).length;
       const shown = d.strategies.filter((s) => showIdle || !s.idle);
-      const split = shown.map((s) => ({ name: s.name, color: s.color, v: s.value }));
+      const split = shown.map((s, i) => ({ name: s.name, color: s.color, v: s.value || 0, i }))
+        .sort((a, b) => b.v - a.v || a.i - b.i);          // most money first; bot unassigned and not-for-the-bot stay last
       if (d.unassigned) split.push({ name: 'Bot unassigned', color: 'var(--accent)', v: Math.max(0, d.unassigned) });
       if (d.not_bot != null) split.push({ name: 'Not for the bot', color: 'var(--line)', v: Math.max(0, d.not_bot) });
       const tot = acct.total || split.reduce((x, y) => x + y.v, 0);

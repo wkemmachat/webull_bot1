@@ -11,7 +11,7 @@
     is what goes out at the open.
 - **Bot equity**: the value of all strategies in the mode you are looking at, with today's change (money added today is left out), the return on net money in,
   and the difference to **buy & hold** (each strategy's money held in its main ETF since it was added).
-- **Account split**: how the broker account is divided between the strategies, bot unassigned and *not for the bot*.
+- **Account split**: how the broker account is divided between the strategies (most money first), bot unassigned and *not for the bot* (always last).
 - **Money in strategies**: a donut of how the money in the strategies is split — the total is all strategies combined; bot unassigned money is not counted. Switch between **Value now** and **Money put in**. Hover or tap a slice for its share; tap a name to open the strategy.
 - **Expected return**: what the money could be worth in 1, 2 and 3 years if it stays split like the donut. Each period shows the
   typical case (research return lowered for Webull's real fee, minus the planning haircut, 30% by default; change it with the
