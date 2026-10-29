@@ -214,6 +214,23 @@
     });
   }
 
+  /* today's fall and how deep it is compared with the strategy's own past days (the dip-zone percentile) */
+  const ord = (v) => U.ordinal(Math.round(v));
+  function nowTiles(b) {
+    const n = b.now, c = b.current || {};
+    if (!n) return '';
+    const atHigh = !(n.depth < 0);
+    const zone = n.zone === 'deep' ? '<span class="pill dip2" style="margin-left:8px;vertical-align:middle;font-family:var(--font)">▲▲ Strong buy zone</span>'
+      : n.zone === 'dip' ? '<span class="pill dip1" style="margin-left:8px;vertical-align:middle;font-family:var(--font)">▲ Buy zone</span>' : '';
+    const pctTxt = atHigh ? 'at a new high' : `deeper than on ${n.pct}% of days`;
+    return `<div class="grid" style="--min:260px;gap:10px">
+      ${tile('Fall now', atHigh ? '0%' : pc(n.depth),
+        atHigh ? `at its high on ${day(n.day)}` : `below its high of ${day(c.since)} · ${U.dur(c.days || 0)} underwater · prices of ${day(n.day)}`, atHigh ? 'up' : 'dn')}
+      ${tile('Fall now · percentile', ord(atHigh ? 0 : n.pct) + zone,
+        `${pctTxt} since ${day(n.from)} (${n.years} years) · 70th = ${pc(n.p70)}, 80th = ${pc(n.p80)}, 90th = ${pc(n.p90)}`)}
+    </div>`;
+  }
+
   function tile(label, big, sub, cls) {
     return `<div style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0">
       <div class="eyebrow">${label}</div><div class="num big ${cls || ''}" style="font-size:22px;margin-top:4px">${big}</div><div class="muted small" style="margin-top:2px">${sub}</div></div>`;
@@ -261,6 +278,7 @@
       const every20 = b.count_20 ? (b.years / b.count_20) : null;
       html += `<div class="row sb" style="gap:8px;flex-wrap:wrap"><span class="eyebrow">Backtest · ${day(b.from)} – ${day(b.to)} (${b.years} years)</span>
         ${b.years < 4 ? `<span class="tiny muted">Short history${d.family === 'signal' ? ' (Yahoo keeps only 2 years of hourly futures prices)' : ''}. ${rs && rs.maxdd != null ? `The research's longer test: worst fall ${pc(rs.maxdd)}.` : ''}</span>` : ''}</div>
+      ${nowTiles(b)}
       <div class="grid" style="--min:200px;gap:10px">
         ${tile('Worst fall', pc(w.depth), `${day(w.peak)} → ${day(w.trough)} · ${U.dur(w.days_down)} down${w.recovered ? ', ' + U.dur(w.days_to_recover) + ' to recover' : ', not recovered yet'}`, 'dn')}
         ${tile('Longest underwater', U.dur(lg.days_under), `${day(lg.peak)} → ${lg.recovered ? day(lg.recovered) : 'still below'} · fall of ${pc(lg.depth)}`)}

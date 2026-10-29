@@ -28,6 +28,10 @@ At the top, **Money in strategies** shows the same donut as the dashboard: each 
   that year's return next to holding the ETF and the index; a click keeps it shown until you click the year again.
 - **Falls to expect** (on Overview): how deep and how long the strategy has been below its previous high. Read it before
   giving the strategy money.
+  - **Fall now** and **Fall now · percentile** (top row): how far the backtest is below its high today, and how deep that is
+    compared with its own past days (the share of days in the last 20 years, or all it has, that were less deep; the 70th,
+    80th and 90th percentile depths are listed). 70th–79th shows ▲ Buy zone and 80th or more ▲▲ Strong buy zone, the same
+    zones as the Dashboard banner.
   - **From the backtest:** the worst fall (from the high to the bottom, how long it fell and how long it took to recover), the
     longest time underwater (from a high until a new high), the share of days below a previous high, and how often it fell 20%
     or more.

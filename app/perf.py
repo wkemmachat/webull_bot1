@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import csv
 import io
+import logging
 import time
 from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
@@ -20,6 +21,8 @@ import numpy as np
 
 from . import db, ledger, marketdata as md, markethours as mh
 from . import strategies as S
+
+log = logging.getLogger("perf")
 
 NY = ZoneInfo("America/New_York")
 
@@ -270,6 +273,12 @@ def strategy_risk(sid, mode) -> dict:
             bt["underwater"] = _weekly_underwater(days, vals)
             bt["source"] = "Backtest on real prices"
             bt["built"] = (r.get("data") or {}).get("built") or {}       # {symbol: first real day}: earlier prices built from the index
+            try:                                                  # today's fall as a percentile of past days (same as the dip zones)
+                from . import dip
+                bt["now"] = dip.from_series(days, vals)
+            except Exception as e:
+                log.warning("risk now %s: %s", sid, e)
+                bt["now"] = None
             try:
                 out["growth"] = growth(sid, mode, days, vals, r["series"].get("bench") or {})
             except Exception as e:                                # the growth card never breaks the falls card
