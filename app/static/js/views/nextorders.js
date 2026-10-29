@@ -55,7 +55,8 @@
       ${(d.warnings || []).map((w) => `<div class="note warn small" style="margin:0;display:block">${U.esc(w)}</div>`).join('')}
       ${narrow ? cards : `<div class="tw"><table class="t"><thead><tr><th>Strategy</th><th>Action</th><th>Symbol</th><th class="r">Shares</th><th class="r">Last price</th><th class="r">Value</th><th>Why</th></tr></thead>
         <tbody>${body}</tbody></table></div>`}
-      ${(d.shared || []).length && !opts.sid ? `<div class="tiny muted">${d.shared.map((s) => U.esc(s)).join(', ')}: traded by more than one strategy; each sends its own orders (net ${d.shared.map((s) => `${U.esc(s)} ${d.by_symbol[s] >= 0 ? 'buy' : 'sell'} ≈${U.usd(Math.abs(d.by_symbol[s] || 0), 0)}`).join(', ')}).</div>` : ''}
+      ${Object.keys(d.inside || {}).length && !opts.sid ? `<div class="tiny muted">Settled inside the bot (one strategy sells what another buys, no Webull order, no fee): ${Object.entries(d.inside).map(([s, v]) => `${U.esc(s)} ≈${U.usd(v, 0)}`).join(', ')}. Webull gets only the net: ${Object.keys(d.inside).map((s) => `${U.esc(s)} ${d.by_symbol[s] >= 0 ? 'buy' : 'sell'} ≈${U.usd(Math.abs(d.by_symbol[s] || 0), 0)}`).join(', ')}.</div>` : ''}
+      ${(d.shared || []).filter((s) => !(d.inside || {})[s]).length && !opts.sid ? `<div class="tiny muted">${d.shared.filter((s) => !(d.inside || {})[s]).map((s) => U.esc(s)).join(', ')}: traded by more than one strategy in the same direction; each sends its own orders.</div>` : ''}
       <div class="row sb tiny muted" style="gap:8px;flex-wrap:wrap"><span>Times are Bangkok time. Lots go out from the US open, spaced as set in Execution.</span>
         <a href="#/orders">Start now or cancel on the Orders page →</a></div>
     </section>`;

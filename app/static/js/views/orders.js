@@ -38,6 +38,7 @@
       const when = os[0] && os[0].scheduled_at ? U.time(os[0].scheduled_at) : '';
       const what = os.map((o) => {
         const q = o.qty || o.plan_qty;
+        if (o.cross_with) return `${o.side === 'SELL' ? 'sold' : 'bought'} ${U.qty(o.filled_qty)} ${o.symbol} inside the bot`;
         if (q) return `${o.side === 'SELL' ? 'sell' : 'buy'} ${U.qty(q)} ${o.symbol}`;
         const e = estBuy[o.symbol];
         if (!e || e.qty == null) return `buy ${o.symbol}`;
@@ -67,10 +68,11 @@
       </div>
       <div class="lots" style="--n:${Math.min(Object.keys(rounds).length, 20)}">${lotsHtml}</div>
       ${!compact && fills.length ? `<details><summary class="small muted" style="cursor:pointer">Lots sent (${fills.length})</summary><div class="tw"><table class="t" style="margin-top:8px"><thead><tr><th>Round</th><th>Sent (BKK)</th><th>Side</th><th>Symbol</th><th class="r">Qty</th><th class="r">Limit</th><th class="r">Filled</th><th class="r">Avg</th><th>Status</th><th>Order id</th></tr></thead><tbody>
-        ${fills.map((o) => `<tr><td class="num">${o.lot}${o.retry ? ' (retry ' + o.retry + ')' : ''}</td><td class="num">${U.dt(o.submitted_at)}</td><td class="${o.side === 'BUY' ? 'up' : 'dn'}">${o.side}</td><td class="num">${U.esc(o.symbol)}</td>
+        ${fills.map((o) => `<tr><td class="num">${o.lot}${o.retry ? ' (retry ' + o.retry + ')' : ''}</td><td class="num">${U.dt(o.submitted_at || (o.cross_with ? o.updated_at : null))}</td><td class="${o.side === 'BUY' ? 'up' : 'dn'}">${o.side}</td><td class="num">${U.esc(o.symbol)}</td>
           <td class="r num">${U.qty(o.qty)}</td><td class="r num">${o.limit_price ? U.n(o.limit_price, 2) : '—'}</td><td class="r num">${U.qty(o.filled_qty)}</td><td class="r num">${o.avg_price ? U.n(o.avg_price, 2) : '—'}</td>
-          <td>${U.pill(o.status === 'filled' ? 'ok' : ['failed', 'cancelled'].includes(o.status) ? 'err' : o.status === 'skipped' ? '' : 'warn', o.status)}${o.error ? `<div class="muted tiny" style="white-space:normal;max-width:260px">${U.esc(o.error)}</div>` : ''}</td>
-          <td class="num muted small">${U.esc(o.client_order_id || '')}</td></tr>`).join('')}</tbody></table></div></details>` : ''}
+          <td>${o.cross_with ? U.pill('info', 'inside the bot') + `<div class="muted tiny" style="white-space:normal;max-width:260px">${o.side === 'SELL' ? 'sold to' : 'bought from'} ${U.esc(o.cross_name || o.cross_with)} · no Webull order, no fee</div>`
+            : U.pill(o.status === 'filled' ? 'ok' : ['failed', 'cancelled'].includes(o.status) ? 'err' : o.status === 'skipped' ? '' : 'warn', o.status)}${o.error ? `<div class="muted tiny" style="white-space:normal;max-width:260px">${U.esc(o.error)}</div>` : ''}</td>
+          <td class="num muted small">${o.cross_with ? '—' : U.esc(o.client_order_id || '')}</td></tr>`).join('')}</tbody></table></div></details>` : ''}
     </section>`;
   };
 
@@ -161,6 +163,7 @@
         ${row('Retries per lot', 'After this many re-sends a lot is marked failed and LINE tells you.', `<input class="in num" id="ret" value="${x.exec_retries}" style="width:110px">`)}
         ${row('Smallest lot (USD)', 'Small plans use fewer lots so each lot is at least this big.', `<input class="in num" id="minlot" value="${x.exec_min_lot_usd}" style="width:110px">`)}
         ${row('Largest single order (USD)', 'A safety cap per order.', `<input class="in num" id="maxo" value="${x.exec_max_order_usd}" style="width:110px">`)}
+        ${row('Opposite orders between strategies', 'When one strategy sells what another buys on the same day (e.g. 2x Semis regime buys USD while USD Trend + IBS-dip sells USD), move the shares between them inside the bot at one price, with no fee. Only the rest goes to Webull. Both strategies\' books stay exact.', `<div class="seg" id="xc"><button data-v="1" class="${x.exec_cross !== '0' ? 'on' : ''}">Settle inside the bot</button><button data-v="0" class="${x.exec_cross === '0' ? 'on' : ''}">Send both to Webull</button></div>`)}
         ${row('When new money arrives', 'The default for Add money, Move and the paper start money. You can still choose each time you add money.', `<div class="seg" id="nm"><button data-v="now" class="${x.new_money_start !== 'buy' ? 'on' : ''}">Invest at today's signal</button><button data-v="buy" class="${x.new_money_start === 'buy' ? 'on' : ''}">Wait for the next buy signal</button></div>`)}
       </section>
       <div class="col" style="gap:20px">
@@ -190,12 +193,13 @@
       await U.api('/api/settings/execution', { body: { reset_fractions: [b.dataset.frreset] } });
       U.toast('Fractions allowed again'); V.execution(el);
     }));
-    U.on(el, '#sm button, #em button, #nm button, [data-fr] button', 'click', (e, b) => b.parentElement.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)));
+    U.on(el, '#sm button, #em button, #nm button, #xc button, [data-fr] button', 'click', (e, b) => b.parentElement.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)));
     el.querySelector('#save').onclick = (e) => U.busy(e.target, async () => {
       const v = (id) => el.querySelector(id).value.trim();
       await U.api('/api/settings/execution', { body: { defaults: { exec_lots: v('#lots'), exec_interval_min: v('#int'), exec_start_mode: el.querySelector('#sm .on').dataset.v,
         exec_start_time: v('#stime'), exec_exit_mode: el.querySelector('#em .on').dataset.v, exec_limit_offset_pct: v('#off'), exec_retries: v('#ret'),
         exec_min_lot_usd: v('#minlot'), exec_max_order_usd: v('#maxo'), new_money_start: el.querySelector('#nm .on').dataset.v,
+        exec_cross: el.querySelector('#xc .on').dataset.v,
         ...Object.fromEntries([...el.querySelectorAll('[data-fr]')].map((g) => ['exec_fractional_' + g.dataset.fr, g.querySelector('.on').dataset.v])) } } });
       U.toast('Execution settings saved'); V.execution(el);
     });
@@ -224,7 +228,7 @@
         <section class="card flush"><div class="tw"><table class="t"><thead><tr><th>Time (BKK)</th><th>Strategy</th><th>Side</th><th>Symbol</th><th class="r">Qty</th><th class="r">Avg price</th><th class="r">Value</th><th>Lot</th><th>Plan · reason</th></tr></thead><tbody>
           ${d.rows.map((r) => `<tr><td class="num">${U.dt(r.updated_at)}</td><td><span class="row" style="gap:8px">${U.dot(r.color)}${U.esc(r.name)}</span></td>
             <td>${U.pill(r.side === 'BUY' ? 'ok' : 'err', r.side)}</td><td class="num">${U.esc(r.symbol)}</td><td class="r num">${U.qty(r.filled_qty)}</td><td class="r num">${U.usd(r.avg_price)}</td>
-            <td class="r num">${U.usd(r.value)}</td><td class="num muted">${r.lot}/${r.lots}${r.retry ? ' ↻' + r.retry : ''}</td><td class="muted small">#${r.plan_id} · ${U.esc(r.reason)}</td></tr>`).join('') || '<tr><td colspan="9" class="empty">No fills yet</td></tr>'}
+            <td class="r num">${U.usd(r.value)}</td><td class="${r.cross_with ? 'muted small' : 'num muted'}">${r.cross_with ? `<span title="Settled inside the bot with ${U.esc(r.cross_name || r.cross_with)}: no Webull order, no fee">${U.pill('info', 'inside')} ${r.side === 'SELL' ? '→' : '←'} ${U.esc(r.cross_name || r.cross_with)}</span>` : `${r.lot}/${r.lots}${r.retry ? ' ↻' + r.retry : ''}`}</td><td class="muted small">#${r.plan_id} · ${U.esc(r.reason)}</td></tr>`).join('') || '<tr><td colspan="9" class="empty">No fills yet</td></tr>'}
           </tbody></table></div>
           <div class="row sb" style="padding:12px 16px"><span class="muted small">Showing ${d.rows.length ? f.offset + 1 : 0}–${f.offset + d.rows.length} of ${d.total}</span>
             <div class="row" style="gap:6px"><button class="btn s" id="prev" ${f.offset ? '' : 'disabled'}>Previous</button><button class="btn s" id="nxt" ${f.offset + 50 < d.total ? '' : 'disabled'}>Next</button></div></div></section>`;

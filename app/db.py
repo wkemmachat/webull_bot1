@@ -108,6 +108,7 @@ DEFAULTS = {
     "exec_lots": "10", "exec_interval_min": "10", "exec_start_mode": "time", "exec_start_time": "22:00",
     "exec_exit_mode": "asap", "exec_session": "CORE", "exec_limit_offset_pct": "0.10", "exec_retries": "3",
     "exec_min_lot_usd": "200", "exec_min_trade_usd": "100", "exec_max_order_usd": "25000", "exec_cash_buffer_pct": "1.0",
+    "exec_cross": "1",                       # settle opposite orders of two strategies inside the bot (only the rest goes to Webull)
     # LINE
     "line_token": "", "line_recipients": "[]", "line_digest_times": '["08:00","21:00"]', "line_quiet": "1",
     "line_quiet_from": "00:30", "line_quiet_to": "07:00", "line_lang": "en", "line_detail": "full", "line_per_strategy": "1",
@@ -143,7 +144,7 @@ def con():
 
 # columns added after the first release: (table, column, definition)
 MIGRATIONS = [("ledger", "hold_amt", "REAL DEFAULT 0"), ("orders", "fee", "REAL DEFAULT 0"), ("plans", "goal", "TEXT"), ("test_trades", "order_type", "TEXT"),
-              ("money", "ccy", "TEXT")]
+              ("money", "ccy", "TEXT"), ("orders", "cross_with", "TEXT")]
 
 
 def init():

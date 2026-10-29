@@ -74,9 +74,16 @@ def next_orders(mode, sid=None) -> dict:
                     "after": {k: round(v, 4) for k, v in (p["target"] or {}).items() if v > 0.0005}, "items": items,
                     "cash": round(L["cash"], 2), "value": round(E, 2), "family": s.family if s else None, "rounds_left": len({o["lot"] for o in left})})
     nxt = min((r["start_at"] for r in out if r["state"] == "queued" and r["start_at"]), default=None)
+    inside = {}                               # one strategy sells what another buys: settled inside the bot (execution.cross)
+    if execution.cross_on(db.get_settings()):
+        for sym in by_sym:
+            sv = sum((i["left"] or 0) * (i["price"] or 0) for r in out for i in r["items"] if i["symbol"] == sym and i["side"] == "SELL")
+            bv = sum(i["value"] or 0 for r in out for i in r["items"] if i["symbol"] == sym and i["side"] == "BUY")
+            if sv >= 1 and bv >= 1:
+                inside[sym] = round(min(sv, bv), 2)
     return {"mode": mode, "rows": out, "next_start": nxt, "buys": round(tot_buy, 2), "sells": round(tot_sell, 2),
             "by_symbol": {k: round(v, 2) for k, v in sorted(by_sym.items()) if abs(v) >= 1}, "warnings": warn,
-            "shared": [k for k in by_sym if sum(1 for r in out if any(i["symbol"] == k for i in r["items"])) > 1],
+            "shared": [k for k in by_sym if sum(1 for r in out if any(i["symbol"] == k for i in r["items"])) > 1], "inside": inside,
             "generated_at": int(time.time())}
 
 
@@ -95,6 +102,9 @@ def line_text(mode) -> str | None:
             else:
                 parts.append(f"buy ≈{i['qty']} {i['symbol']}" + (f" ≈${i['value']:,.0f}" if i["value"] else ""))
         lines.append(f"• {r['name']}: " + ", ".join(parts) + (f" — {r['why']}" if r.get("why") else ""))
+    if d.get("inside"):
+        lines.append("Settled inside the bot (one strategy sells what another buys, no Webull order): "
+                     + ", ".join(f"{k} ≈${v:,.0f}" for k, v in d["inside"].items()))
     lines.append(f"Buys ≈${d['buys']:,.0f} · sells ≈${d['sells']:,.0f}. Buy shares are estimated from the last price. "
                  "Cancel or start a plan on the Orders page.")
     return "\n".join(lines)

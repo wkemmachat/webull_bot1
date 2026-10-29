@@ -1,4 +1,5 @@
-"""Hong Kong: symbols, board lots, HKEX price steps and hours; bot HKD; the Go-live Hong Kong test trade; Webull's HK order."""
+"""Hong Kong: symbols, board lots, HKEX price steps and hours; bot HKD; Webull's HK order. (The Go-live Hong Kong test was removed:
+Webull Thailand does not allow Hong Kong trading for this account.)"""
 from datetime import datetime, timezone
 
 import pytest
@@ -67,75 +68,19 @@ def test_paper_broker_board_lots(clean):
     assert a["cash_hkd"] < 100000 - 500 and a["market_value"] == 0             # HKD never added to the USD figures
 
 
-def test_hk_round_trip_paid_from_bot_hkd(clean, clock):
+def test_hk_test_trades_are_off_and_not_on_go_live(clean, clock):
+    """Webull Thailand does not allow Hong Kong trading for this account (29 Oct 2026): no HK test, no Go-live section."""
     clock.set(HK_OPEN)
     prices()
     moneyops.hkd_to_bot("paper", 1500)
-    usd_pool = ledger.pool_cash("paper")
-    T.start("paper", ["7234"])
-    for _ in range(4):
-        clock.advance(seconds=30)
-        T.tick("paper")
-    t = db.one("SELECT * FROM test_trades WHERE symbol='7234'")
-    assert t["status"] == "ok" and t["bought"] == 100 and t["sold"] == 100
-    cost = t["buy_value"] - t["sell_value"] + t["buy_fee"] + t["sell_fee"]
-    assert 0 < cost < 5
-    assert ledger.hk_cash("paper") == pytest.approx(1500 - cost, abs=0.01)
-    assert ledger.pool_cash("paper") == usd_pool
-    assert "HK$" in t["result"]
-    st = T.hk_status("paper")
-    assert st["7234"]["state"] == "ok" and st["7226"]["state"] is None
+    for syms in (["7234"], ["7226", "7233"], ["7234", "QLD"]):
+        with pytest.raises(T.TestTradeError, match="Hong Kong"):
+            T.start("paper", syms)
+    assert not db.rows("SELECT * FROM test_trades")
+    assert ledger.hk_cash("paper") == 1500
     rep = golive.report("paper")
-    sec = next(s for s in rep["sections"] if s["id"] == "hk")
-    assert sec["counted"] is False and next(i for i in sec["items"] if i["key"] == "hk_7234")["status"] == "ok"
-    assert rep["total"] == sum(len(s["items"]) for s in rep["sections"] if s.get("counted", True))
-
-
-def test_hk_waits_for_hong_kong_hours_and_needs_hkd(clean, clock):
-    clock.set(HK_NIGHT)
-    prices()
-    T.start("paper", ["7226"])
-    t = db.one("SELECT * FROM test_trades WHERE symbol='7226'")
-    assert t["status"] == "queued" and "Hong Kong market closed" in (t["error"] or "")
-    clock.set(HK_OPEN)
-    T.tick("paper")
-    t = db.one("SELECT * FROM test_trades WHERE symbol='7226'")
-    assert t["status"] == "failed" and "bot HKD" in t["result"]
-    assert T.hk_status("paper")["7226"]["state"] is None                         # no Webull answer: not a verdict
-
-
-def test_hk_rules(clean):
-    with pytest.raises(T.TestTradeError):
-        T.start("paper", ["7234", "QLD"])
-    with pytest.raises(T.TestTradeError):
-        T.start("paper", ["7234"], qty=3)
-    with pytest.raises(T.TestTradeError):
-        T.start("paper", ["7234"], fractional=True)
-
-
-def test_refused_hk_order_is_recorded_with_a_hint(clean, clock):
-    class NoHK(brokers.PaperBroker):
-        def place(self, symbol, side, qty, limit, session, cid):
-            if hk.is_hk(symbol):
-                raise brokers.parse_rejection("HTTP Status: 417, Code: OPENAPI_MARKET_NOT_SUPPORT, Msg: market not supported")
-            return super().place(symbol, side, qty, limit, session, cid)
-    brokers.set_override("paper", NoHK())
-    try:
-        clock.set(HK_OPEN)
-        prices()
-        moneyops.hkd_to_bot("paper", 1500)
-        T.start("paper", ["7233"])
-        r = T.hk_status("paper")["7233"]
-        assert r["state"] == "refused" and "OPENAPI_MARKET_NOT_SUPPORT" in r["code"] and "Webull Thailand" in r["hint"]
-        assert ledger.hk_cash("paper") == 1500
-        assert "7233" not in X_blocked()
-    finally:
-        brokers.set_override("paper", None)
-
-
-def X_blocked():
-    from app import execution
-    return execution.blocked_symbols("paper")
+    assert [s["id"] for s in rep["sections"]] == ["ops", "tests", "mine"]
+    assert "hk" not in T.view("paper")
 
 
 def test_webull_hk_order_shape():
@@ -172,4 +117,4 @@ def test_money_api_hkd(client, clean):
     assert all((m.get("ccy") or "USD") == "USD" for m in d["moves"])
     assert client.post("/api/money/paper-convert", json={"mode": "test", "amount": 10}).status_code == 400
     tt = client.get("/api/testtrade?mode=paper").json()
-    assert [s["symbol"] for s in tt["hk"]["symbols"]] == ["7234", "7226", "7233"]
+    assert "hk" not in tt

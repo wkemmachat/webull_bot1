@@ -119,10 +119,13 @@ def start(mode, syms, qty=1, fractional=False, order_type="LIMIT"):
     from . import execution
     if mode not in brokers.MODES:
         raise TestTradeError("Unknown mode")
-    allowed = set(symbols()) | set(hk.TEST_SYMBOLS)
+    allowed = set(symbols())
     syms = [hk.norm(s) for s in (syms if isinstance(syms, (list, tuple)) else [syms]) if str(s).strip()]
     if not syms:
         raise TestTradeError("Choose an ETF")
+    if any(hk.is_hk(s) for s in syms):
+        # Webull Thailand does not allow Hong Kong trading for this account (checked in the Webull app, 29 Oct 2026)
+        raise TestTradeError("Hong Kong test trades are off: Webull Thailand does not allow Hong Kong trading for this account")
     bad = [s for s in syms if s not in allowed]
     if bad:
         raise TestTradeError(f"{', '.join(bad)} is not used by any strategy")
@@ -563,7 +566,7 @@ def view(mode) -> dict:
         r = latest.get(s)
         out.append({"symbol": s, "strategies": names, "blocked": blocked.get(s),
                     "last": _pub(r) if r else None, "last_ok": _pub(last_ok[s]) if s in last_ok else None})
-    return {"mode": mode, "symbols": out, "pool": ledger.pool_cash(mode), "running": working(mode), "hk": hk_view(mode),
+    return {"mode": mode, "symbols": out, "pool": ledger.pool_cash(mode), "running": working(mode),
             "market_open": _market_ok(md.now_utc()), "history": [_pub(r) for r in rows[:30]],
             "max_qty": MAX_QTY, "fractional": fraction_status(mode),
             "fractional_tests": [_pub(r) for r in rows if is_fraction(r["qty"])][:6]}

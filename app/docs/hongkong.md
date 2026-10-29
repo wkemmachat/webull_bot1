@@ -1,7 +1,12 @@
 <!--{"title": "Hong Kong ETFs and HKD", "group": "Using the app"}-->
 # Hong Kong ETFs and Hong Kong dollars
 
-The bot can now hold **Hong Kong dollars (HKD)** and run a **test trade** on three Hong Kong 2x ETFs:
+> **Status, 29 Oct 2026: Webull Thailand does not allow Hong Kong trading for this account** (checked in the Webull app).
+> The Go-live Hong Kong test was removed and the bot refuses Hong Kong test trades. No strategy trades Hong Kong.
+> The HKD money block stays so any HKD you gave the bot can be returned to Webull (Money → Hong Kong dollars →
+> *Return HKD to Webull*). The steps below are kept as a record of what was built.
+
+The bot can hold **Hong Kong dollars (HKD)**, and it was built to run a **test trade** on three Hong Kong 2x ETFs:
 
 | Code | ETF | Tracks | Board lot |
 | --- | --- | --- | --- |

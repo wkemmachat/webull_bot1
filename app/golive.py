@@ -245,24 +245,6 @@ def report(mode="test"):
     _item(mine, "m_floor", "Protected cash floor set for Live", floor > 0, f"${floor:,.0f}" if floor else "not set",
           "Set it after connecting the Live key: Live mode → Money → 🛡 Set.", "", "#/money", must=False)
 
-    # ---------------------------------------------------------------- 4. Hong Kong (optional, not counted)
-    from . import hk, ledger
-    hki = []
-    st = testtrade.hk_status(mode)
-    for sym, p in hk.PRODUCTS.items():
-        r = st[sym]
-        state = r["state"]
-        val = {"ok": "can buy", "refused": "refused by Webull", "failed": "not filled", None: "not tested"}[state]
-        _item(hki, f"hk_{sym}", f"Can the bot buy {sym} ({p['short']})? Buy 1 board lot ({hk.lot(sym)} shares) and sell it back",
-              state == "ok", val + (f" · {_ny(r['at']).strftime('%d %b')}" if r.get("at") else ""),
-              (r.get("text") or "") + (f" → {r['hint']}" if r.get("hint") else ""),
-              "Go-live → Test trade → Hong Kong: needs bot HKD (Money → Hong Kong dollars) and the Hong Kong market open "
-              "(08:30–11:00 / 12:00–15:00 Bangkok).", "#/golive", must=False, warn=state == "failed", at=r.get("at"))
-    hk_cash = ledger.hk_cash(mode)
-    _item(hki, "hk_money", "Hong Kong dollars given to the bot (for the Hong Kong tests)", hk_cash >= 500,
-          f"HK${hk_cash:,.2f}", "One lot of 7234 costs about HK$500–600; 7226 about HK$220; 7233 about HK$370.",
-          "Convert USD to HKD in the Webull app, then Money → Hong Kong dollars → Allocate HKD to the bot.", "#/money", must=False)
-
     allitems = ops + tests + mine
     passed = sum(1 for i in allitems if i["status"] == "ok")
     musts = [i for i in allitems if i["must"]]
@@ -273,6 +255,4 @@ def report(mode="test"):
             "must_total": len(musts), "ready": ready,
             "sections": [{"id": "ops", "title": "Daily operations", "sub": "measured automatically", "items": ops},
                          {"id": "tests", "title": "Planned tests", "sub": "detected automatically when you do them", "items": tests},
-                         {"id": "mine", "title": "Your checks", "sub": "tick when done", "items": mine},
-                         {"id": "hk", "title": "Hong Kong market (optional)", "counted": False,
-                          "sub": "not counted in readiness · can the bot trade the Hong Kong 2x ETFs?", "items": hki}]}
+                         {"id": "mine", "title": "Your checks", "sub": "tick when done", "items": mine}]}

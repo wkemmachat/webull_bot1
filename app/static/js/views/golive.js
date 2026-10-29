@@ -81,46 +81,6 @@
           <td class="r">${r.status === 'holding' ? `<button class="btn s" data-sell="${r.id}">Sell again</button> <button class="btn s" data-gone="${r.id}">I sold it</button>` : ''}</td></tr>`).join('')}</tbody></table></div>` : ''}
       </div>`;
     }
-    let hkLots = 1;
-    function hkHtml(h) {
-      if (!h) return '';
-      const live = gmode === 'live';
-      const low = h.bot_hkd < 700;
-      const hkd = (x) => x == null ? '—' : 'HK$' + (+x).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      const res = (r) => {
-        if (!r || !r.state) return '<span class="muted small">not tested</span>';
-        if (r.state === 'ok') return `${U.pill('ok', 'Can buy')} <span class="muted small">${U.esc(U.dt(r.at))}</span>`;
-        return `${U.pill('err', r.state === 'refused' ? 'Refused by Webull' : 'Not filled')} <span class="muted small">${U.esc(U.dt(r.at))}</span>`;
-      };
-      return `<div class="col" style="gap:10px;border-top:1px solid var(--line2);padding-top:14px;margin-top:4px">
-        <div class="row sb" style="flex-wrap:wrap;gap:8px"><div><h3 style="margin:0;font-size:15px;font-weight:600">Hong Kong: can the bot buy 7234, 7226 and 7233?</h3>
-          <div class="muted small" style="max-width:760px;margin-top:4px">Buys ${hkLots} board lot${hkLots > 1 ? 's' : ''} (100 shares each) with Webull's Hong Kong order type (enhanced limit, HKEX price steps) and sells straight back. Paid in <b>Hong Kong dollars</b> from <b>bot HKD</b> (${hkd(h.bot_hkd)} now). Webull Thailand's API documents US trading only, so this test is how we find out. Not counted in readiness.</div></div>
-          <div>${h.market.open ? U.pill('ok', 'Hong Kong market open') : U.pill('', 'Closed')}</div></div>
-        ${h.market.open ? '' : `<div class="muted small">${U.esc(h.market.text)} · ${U.esc(h.market.hours)}</div>`}
-        ${low ? `<div class="note warn">Bot HKD has ${hkd(h.bot_hkd)}. Convert USD to HKD in the Webull app (Assets → Currency exchange), then <a href="#/money">Money → Hong Kong dollars → Allocate HKD to the bot</a> (about HK$1,500 covers all three tests).</div>` : ''}
-        <div class="tw"><table class="t"><thead><tr><th>ETF</th><th>Tracks</th><th class="r">1 lot ≈</th><th>Result</th><th class="r">Cost</th><th></th></tr></thead><tbody>
-        ${h.symbols.map((s) => {
-          const r = s.last, ok = s.last_ok;
-          const busy = r && ['queued', 'buying', 'selling', 'holding'].includes(r.status);
-          return `<tr><td><b class="mono">${U.esc(s.symbol)}</b></td><td class="small">${U.esc(s.name)}<div class="muted">lot ${s.lot} · ${s.price ? 'HK$' + (+s.price).toFixed(3) : 'no price'}</div></td>
-            <td class="r num small">${hkd(s.lot_value)}</td>
-            <td style="white-space:nowrap">${busy ? ttState(r) : res(s.result)}</td>
-            <td class="r num small">${ok ? hkd(ok.cost) : '—'}</td>
-            <td class="r" style="white-space:nowrap">${r && r.status === 'holding'
-              ? `<button class="btn s" data-sell="${r.id}">Sell again</button> <button class="btn s" data-gone="${r.id}">I sold it</button>`
-              : `<button class="btn s" data-hk="${U.esc(s.symbol)}" ${busy ? 'disabled' : ''}>Test</button>`}</td></tr>
-            ${s.result && s.result.state && s.result.state !== 'ok' && !busy ? `<tr><td></td><td colspan="5" class="small" style="padding-top:0;white-space:normal">
-              <div style="color:var(--text2)">${U.esc(s.result.text || '')}</div>${s.result.hint ? `<div class="muted">→ ${U.esc(s.result.hint)}</div>` : ''}
-              ${r && r.raw ? `<details><summary class="muted" style="cursor:pointer">Webull's own answer</summary><pre class="mono small" style="white-space:pre-wrap;word-break:break-all;margin:6px 0">${U.esc(r.raw)}</pre></details>` : ''}</td></tr>` : ''}
-            ${r && ['queued', 'buying', 'selling'].includes(r.status) ? `<tr><td></td><td colspan="5" class="small muted" style="padding-top:0;white-space:normal">${(r.log || []).slice(-3).map((l) => `${U.esc(U.time(l[0]))} ${U.esc(l[1])}`).join('<br>')}</td></tr>` : ''}`;
-        }).join('')}</tbody></table></div>
-        <div class="row" style="gap:10px;flex-wrap:wrap;align-items:center">
-          <label class="small muted" for="hkl">Lots per test</label>
-          <select class="in" id="hkl" style="width:auto">${Array.from({ length: h.max_lots }, (_, i) => i + 1).map((n) => `<option ${n === hkLots ? 'selected' : ''}>${n}</option>`).join('')}</select>
-          <button class="btn p" id="hkall" ${h.running ? 'disabled' : ''}>Test all 3 Hong Kong ETFs</button>
-          ${live ? '<span class="small" style="color:var(--warn-fg)">Live: real orders on your Webull account, in HKD.</span>' : ''}</div>
-      </div>`;
-    }
     function ttRender(box, d) {
       const lowPool = d.pool < 150;
       const live = gmode === 'live';
@@ -155,22 +115,8 @@
           <select class="in" id="ttq" style="width:auto">${Array.from({ length: d.max_qty }, (_, i) => i + 1).map((n) => `<option ${n === ttQty ? 'selected' : ''}>${n}</option>`).join('')}</select>
           <button class="btn p" id="ttall" ${d.running ? 'disabled' : ''}>Test all ${d.symbols.length} ETFs</button>
           <span class="muted small">One at a time; each takes about 10–60 seconds when the market is open.</span></div>
-        ${frHtml(d)}
-        ${hkHtml(d.hk)}`;
+        ${frHtml(d)}`;
       box.querySelector('#ttq').onchange = (e) => { ttQty = +e.target.value; ttRender(box, d); };
-      const hkl = box.querySelector('#hkl');
-      if (hkl) hkl.onchange = (e) => { hkLots = +e.target.value; ttRender(box, d); };
-      const hkGo = async (syms, btn) => {
-        const what = syms.length === 1 ? syms[0] : syms.join(', ');
-        const ok = await U.confirm(`Hong Kong test trade in ${U.modeLabel[gmode]}?`,
-          `Buy ${hkLots} lot${hkLots > 1 ? 's' : ''} (${hkLots * 100} shares) of ${U.esc(what)} in Hong Kong, then sell straight back. Paid in HKD from bot HKD; you lose the spread + fees.`
-          + (gmode === 'live' ? '<br><br><b>These are real orders on your Webull account.</b>' : ''), { ok: 'Buy and sell', word: gmode === 'live' ? 'TEST' : undefined });
-        if (!ok) return;
-        await U.busy(btn, async () => { ttLoad(await U.api('/api/testtrade/start', { body: { mode: gmode, symbols: syms, qty: hkLots } })); U.toast('Hong Kong test started'); });
-      };
-      U.on(box, '[data-hk]', 'click', (e, b) => hkGo([b.dataset.hk], b));
-      const hka = box.querySelector('#hkall');
-      if (hka) hka.onclick = (e) => hkGo(d.hk.symbols.filter((s) => !(s.last && ['queued', 'buying', 'selling', 'holding'].includes(s.last.status))).map((s) => s.symbol), e.target);
       const go = async (syms, btn) => {
         const what = syms.length === 1 ? syms[0] : `${syms.length} ETFs (${syms.join(', ')})`;
         const ok = await U.confirm(`Test trade in ${U.modeLabel[gmode]}?`,

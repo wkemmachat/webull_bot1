@@ -70,13 +70,10 @@ can force On or Off per mode there.
   ETFs with a **Reset** button.
 - Paper follows Live unless you set it yourself.
 
-## Hong Kong test: can the bot buy 7234, 7226, 7233? (optional)
+## Hong Kong test (removed)
 
-Below the fractional test, the **Hong Kong** block buys **1 board lot (100 shares)** of each Hong Kong 2x ETF with Webull's
-Hong Kong order type and sells it straight back. It is paid in **Hong Kong dollars** from **bot HKD**
-(Money → Hong Kong dollars → Allocate HKD to bot; convert USD to HKD in the Webull app first) and runs only while Hong Kong
-is open (08:30–11:00 and 12:00–15:00 Bangkok). The result shows in the checklist section **Hong Kong market (optional)**,
-which is **not counted** in readiness. See [Hong Kong ETFs and HKD](#/docs/hongkong).
+The Hong Kong test (7234, 7226, 7233) was taken off this page on 29 Oct 2026: Webull Thailand does not allow Hong Kong
+trading for this account (checked in the Webull app). See [Hong Kong ETFs and HKD](#/docs/hongkong).
 
 ## Webull login: renew every 15 days
 

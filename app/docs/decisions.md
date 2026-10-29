@@ -159,3 +159,12 @@
   (so the dates always match). Comparison lines: the traded ETF and the signal index held (the first two benchmark series of
   the backtest); log scale by default; the real line is the time-weighted real index started at the backtest's value that day.
   Both charts are drawn at the page's real width with the same margins, so their years line up.
+- **Opposite orders settled inside the bot** (added 29 Oct 2026, your request): when one strategy sells a symbol another
+  buys while both plans are running, the shares move between the two strategies' books at one price (mid of bid/ask, else
+  the last price) with no fee, and only the net goes to Webull. One account means the real position never needed both trades.
+  The 20-year backtests show about 12 such days a year (USD, QLD, GLD, BIL). Each side gets an *inside the bot* fill
+  (`orders.cross_with` = the other strategy, `broker_order_id` = internal, no submit time), so Webull order counts, fees and
+  the Go-live counts are not changed. On by default (Execution page).
+- **Hong Kong test removed** (29 Oct 2026, your check in the Webull app: Hong Kong trading is not allowed for this account): the
+  Go-live checklist no longer has the *Hong Kong market* section and the bot refuses Hong Kong test trades. The HKD money block
+  stays only so bot HKD can be returned; no strategy trades Hong Kong.

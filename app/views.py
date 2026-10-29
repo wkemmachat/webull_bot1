@@ -320,7 +320,7 @@ def execution_settings():
     strats = S.all_instances()
     return {"defaults": {k: s.get(k) for k in ("exec_lots", "exec_interval_min", "exec_start_mode", "exec_start_time", "exec_exit_mode",
                                                "exec_session", "exec_limit_offset_pct", "exec_retries", "exec_min_lot_usd",
-                                               "exec_min_trade_usd", "exec_max_order_usd", "new_money_start")},
+                                               "exec_min_trade_usd", "exec_max_order_usd", "new_money_start", "exec_cross")},
             "strategies": [{"id": x.id, "name": x.name, "color": x.color, "family": x.family, "override": x.row.get("exec") or {},
                             "type_defaults": x.EXEC_DEFAULTS, "effective": execution.exec_cfg(x), "text": execution.describe_cfg(execution.exec_cfg(x))}
                            for x in strats],

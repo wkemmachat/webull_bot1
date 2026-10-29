@@ -38,18 +38,23 @@ def all_for(mode: str) -> dict:
 
 def book_fill(mode, sid, symbol, side, dq, dv):
     """Apply a (partial) fill: dq shares for dv dollars."""
-    sign = 1 if side == "BUY" else -1
     with db.tx() as c:
-        c.execute("INSERT OR IGNORE INTO holdings(mode,strategy,symbol,qty,cost) VALUES(?,?,?,0,0)", (mode, sid, symbol))
-        h = c.execute("SELECT qty, cost FROM holdings WHERE mode=? AND strategy=? AND symbol=?", (mode, sid, symbol)).fetchone()
-        qty, cost = h["qty"], h["cost"]
-        if side == "BUY":
-            qty, cost = qty + dq, cost + dv
-        else:
-            avg = cost / qty if qty > 1e-9 else 0
-            qty, cost = max(0.0, qty - dq), max(0.0, cost - avg * dq)
-        c.execute("UPDATE holdings SET qty=?, cost=? WHERE mode=? AND strategy=? AND symbol=?", (qty, cost, mode, sid, symbol))
-        c.execute("UPDATE ledger SET cash=cash-?, updated_at=? WHERE mode=? AND strategy=?", (sign * dv, int(time.time()), mode, sid))
+        book_fill_c(c, mode, sid, symbol, side, dq, dv)
+
+
+def book_fill_c(c, mode, sid, symbol, side, dq, dv):
+    """book_fill inside a transaction the caller holds (several bookings that must land together)."""
+    sign = 1 if side == "BUY" else -1
+    c.execute("INSERT OR IGNORE INTO holdings(mode,strategy,symbol,qty,cost) VALUES(?,?,?,0,0)", (mode, sid, symbol))
+    h = c.execute("SELECT qty, cost FROM holdings WHERE mode=? AND strategy=? AND symbol=?", (mode, sid, symbol)).fetchone()
+    qty, cost = h["qty"], h["cost"]
+    if side == "BUY":
+        qty, cost = qty + dq, cost + dv
+    else:
+        avg = cost / qty if qty > 1e-9 else 0
+        qty, cost = max(0.0, qty - dq), max(0.0, cost - avg * dq)
+    c.execute("UPDATE holdings SET qty=?, cost=? WHERE mode=? AND strategy=? AND symbol=?", (qty, cost, mode, sid, symbol))
+    c.execute("UPDATE ledger SET cash=cash-?, updated_at=? WHERE mode=? AND strategy=?", (sign * dv, int(time.time()), mode, sid))
 
 
 def value(mode: str, sid: str, prices: dict | None = None) -> dict:

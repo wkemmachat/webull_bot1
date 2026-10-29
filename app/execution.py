@@ -461,6 +461,143 @@ def _blocked(mode, o, strat, why):
         db.set_state(f"guard_alert:{mode}", int(time.time()))
 
 
+# ---------------------------------------------------------------- settling opposite orders inside the bot
+# Two strategies share one Webull account. On a day one of them sells a symbol another one buys (2x Semis regime
+# buys USD while USD Trend + IBS-dip sells USD), sending both to Webull would pay the fee and the spread twice
+# for no change in the account. Instead the bot moves the shares between the two strategies' books at one price
+# (the middle of bid/ask, else the last price) with no fee, and only the rest goes to Webull as usual.
+# The account's shares and cash do not change, so the strategies' books still add up to Webull's numbers.
+CROSS_NOTE = "settled inside the bot"
+
+
+def cross_on(settings) -> bool:
+    return str((settings or {}).get("exec_cross", "1")) != "0"
+
+
+def _xprice(q) -> float:
+    b, a = q.get("bid"), q.get("ask")
+    if b and a and 0 < b <= a and (a - b) / a < 0.01:
+        return round((a + b) / 2, 4)
+    return float(q["price"])
+
+
+def _sell_left(mode, plan_id, sid, sym):
+    """Shares a plan still has to sell of sym (its waiting sell lots), within what the strategy holds."""
+    rows = db.rows("SELECT * FROM orders WHERE plan_id=? AND symbol=? AND side='SELL' AND status='scheduled' "
+                   "ORDER BY scheduled_at DESC, id DESC", (plan_id, sym))
+    want = sum((r["qty"] if r["qty"] else (r["plan_qty"] or 0)) for r in rows)
+    held = ledger.get(mode, sid)["holdings"].get(sym, 0.0)
+    return max(0.0, min(want, held - _pending_sell(mode, sym, sid))), rows
+
+
+def _buy_left(mode, sid, plan, sym, px, broker):
+    """(shares the plan still wants of sym, shares its free cash pays for) at price px."""
+    L = ledger.get(mode, sid)
+    target = json.loads(plan["target"] or "{}")
+    prices = {s: (px if s == sym else broker.quote(s)["price"]) for s in L["holdings"]}
+    cash = ledger.tradable_cash(L)
+    E = cash + sum(q * prices[s] for s, q in L["holdings"].items())
+    need = max(0.0, target.get(sym, 0) * E - L["holdings"].get(sym, 0) * px - _pending_buy(mode, sid, sym))
+    cash_keep = max(0.0, (1 - sum(target.values())) * E) if target else 0.0
+    free = max(0.0, cash - _pending_buy(mode, sid) - cash_keep * 0.5)
+    return need / px, min(need, free) / px
+
+
+def cross(mode, now, broker, settings=None) -> list:
+    """Settle waiting sells against waiting buys of the same symbol from other strategies (see above).
+    Runs before send_due: once either side's lot is due, during the regular session."""
+    settings = settings if settings is not None else db.get_settings()
+    if not cross_on(settings) or settings.get("trading_paused") == "1":
+        return []
+    close = mh.current_close(now, "CORE")
+    if close is None or (close - now) < timedelta(minutes=3):
+        return []
+    from . import hk
+    rows = db.rows("SELECT o.* FROM orders o JOIN plans p ON p.id=o.plan_id WHERE o.mode=? AND o.status='scheduled' "
+                   "AND p.status='active' AND o.scheduled_at<=? ORDER BY o.scheduled_at, o.id", (mode, _ts(close)))
+    book = {}
+    for r in rows:
+        if hk.is_hk(r["symbol"]) or r["symbol"] in blocked_symbols(mode):
+            continue
+        book.setdefault(r["symbol"], {"SELL": {}, "BUY": {}})[r["side"]].setdefault((r["strategy"], r["plan_id"]), []).append(r)
+    done = []
+    for sym, d in book.items():
+        for (ssid, spid), srows in d["SELL"].items():
+            for (bsid, bpid), brows in d["BUY"].items():
+                if ssid == bsid or min(r["scheduled_at"] for r in srows + brows) > _ts(now):
+                    continue                               # same strategy, or neither side is due yet
+                try:
+                    x = _cross_pair(mode, now, broker, settings, sym, ssid, spid, bsid, bpid)
+                except Exception as e:
+                    log.warning("cross %s %s→%s: %s", sym, ssid, bsid, e)
+                    x = None
+                if x:
+                    done.append(x)
+    return done
+
+
+def _cross_pair(mode, now, broker, settings, sym, ssid, spid, bsid, bpid):
+    splan, bplan = db.one("SELECT * FROM plans WHERE id=?", (spid,)), db.one("SELECT * FROM plans WHERE id=?", (bpid,))
+    sst, bst = S.get(ssid), S.get(bsid)
+    if not splan or not bplan or splan["status"] != "active" or bplan["status"] != "active" or sst is None or bst is None:
+        return None
+    px = _xprice(broker.quote(sym))
+    if not px or px <= 0:
+        return None
+    sell_q, srows = _sell_left(mode, spid, ssid, sym)
+    _, buy_q = _buy_left(mode, bsid, bplan, sym, px, broker)
+    frac = fractional_on(mode, sym, settings)
+    qty = _down(min(sell_q, buy_q), SELL_DP if frac else 0)
+    if qty <= EPS or qty * px < MIN_FRACTION_USD:
+        return None
+    val = round(qty * px, 6)
+    brow = db.one("SELECT * FROM orders WHERE plan_id=? AND symbol=? AND side='BUY' AND status='scheduled' ORDER BY scheduled_at, id LIMIT 1",
+                  (bpid, sym))
+    if not brow or not srows:
+        return None
+    srow = srows[-1]                                          # the earliest waiting sell lot
+    t = int(time.time())
+    tag = secrets.token_hex(3)
+    cuts, left, planned = [], qty, 0.0                       # the last waiting sell lots give up their shares first
+    for r in srows:
+        if left <= EPS:
+            break
+        rq = r["qty"] if r["qty"] else (r["plan_qty"] or 0)
+        cut = min(left, rq)
+        left = round(left - cut, 6)
+        cuts.append((r, round(rq - cut, 6)))
+        if r["retry"] == 0:
+            planned += cut                                    # a retry's shares are already in its first lot's plan
+    with db.tx() as c:
+        for side, pid, sid, other, r, pq in (("SELL", spid, ssid, bsid, srow, round(planned, 6)), ("BUY", bpid, bsid, ssid, brow, None)):
+            c.execute("INSERT INTO orders(plan_id,mode,strategy,step,lot,lots,symbol,side,qty,plan_qty,limit_price,session,scheduled_at,"
+                      "status,client_order_id,broker_order_id,filled_qty,avg_price,applied_qty,applied_value,fee,error,updated_at,"
+                      "retry,cross_with) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                      (pid, mode, sid, r["step"], r["lot"], r["lots"], sym, side, qty, pq, px, r["session"], _ts(now), "filled",
+                       f"int{mode[0]}{pid}{side[0]}{tag}", "internal", qty, px, qty, val, 0.0, None, t, 0, other))
+            ledger.book_fill_c(c, mode, sid, sym, side, qty, val)
+        for r, new in cuts:
+            keep_plan = r["plan_qty"] if r["retry"] else (new if new > EPS else 0)
+            if new <= EPS:
+                c.execute("UPDATE orders SET status='skipped', qty=0, plan_qty=?, error=?, updated_at=? WHERE id=?",
+                          (keep_plan, f"{CROSS_NOTE} with {bst.name}", t, r["id"]))
+            else:
+                c.execute("UPDATE orders SET plan_qty=?, qty=?, updated_at=? WHERE id=?",
+                          (keep_plan, new if r["qty"] else None, t, r["id"]))
+    need, _ = _buy_left(mode, bsid, bplan, sym, px, broker)
+    if need * px < max(_f(settings.get("exec_min_trade_usd"), 100), MIN_FRACTION_USD if frac else px):
+        db.run("UPDATE orders SET status='skipped', qty=0, error=?, updated_at=? WHERE plan_id=? AND symbol=? AND side='BUY' "
+               "AND status='scheduled'", (f"{CROSS_NOTE} with {sst.name}", t, bpid, sym))
+    saved = val * 2 * (FEE_RESERVE + _f(settings.get("exec_limit_offset_pct"), 0.10) / 100)
+    msg = (f"{qs(qty)} {sym} @ ${px:,.2f} (${val:,.2f}) moved from {sst.name} to {bst.name} without a Webull order: one sold what "
+           f"the other bought. No fee; about ${saved:,.2f} of fees and spread saved. Webull's account does not change.")
+    for sid in (ssid, bsid):
+        db.add_event("info", "orders", f"Settled inside the bot: {qs(qty)} {sym}", msg, strategy=sid, mode=mode)
+    notify.send("lot_filled", f"{brokers.MODE_LABEL[mode]} · {msg}", strategy=bsid)
+    log.info("cross %s: %s %s %s→%s @ %s", mode, qty, sym, ssid, bsid, px)
+    return {"symbol": sym, "qty": qty, "price": px, "from": ssid, "to": bsid, "value": val}
+
+
 def send_due(mode, now, broker, settings, positions=None, acct=None):
     if settings.get("trading_paused") == "1":
         return []
@@ -848,12 +985,15 @@ def finish_plans(mode):
         if db.one(f"SELECT COUNT(*) n FROM orders WHERE plan_id=? AND status IN ({_q(len(OPEN))})", (p["id"], *OPEN))["n"]:
             continue
         rows = db.rows("SELECT * FROM orders WHERE plan_id=? AND filled_qty>0", (p["id"],))
-        parts = {}
+        parts, inside = {}, {}
         for o in rows:
             k = (o["side"], o["symbol"])
             q, v = parts.get(k, (0.0, 0.0))
             parts[k] = (q + o["filled_qty"], v + o["filled_qty"] * (o["avg_price"] or 0))
-        summary = [{"side": s, "symbol": sym, "qty": q, "avg": v / q if q else None, "value": v} for (s, sym), (q, v) in parts.items()]
+            if o.get("cross_with"):
+                inside[k] = inside.get(k, 0.0) + o["filled_qty"]
+        summary = [{"side": s, "symbol": sym, "qty": q, "avg": v / q if q else None, "value": v, "inside": inside.get((s, sym), 0.0)}
+                   for (s, sym), (q, v) in parts.items()]
         retried = db.one("SELECT COUNT(*) n FROM orders WHERE plan_id=? AND retry>0", (p["id"],))["n"]
         db.run("UPDATE plans SET status='done', finished_at=?, summary=? WHERE id=?",
                (int(time.time()), json.dumps({"fills": summary, "retried": retried}), p["id"]))
@@ -868,7 +1008,8 @@ def finish_plans(mode):
             row = S.row(p["strategy"])
             if row and row["control"] == "stopping":
                 S.update(p["strategy"], control="stopped")
-        txt = "\n".join(f"{x['side']} {qs(x['qty'])} {x['symbol']} @ ${x['avg']:,.2f} avg" for x in summary if x["qty"])
+        txt = "\n".join(f"{x['side']} {qs(x['qty'])} {x['symbol']} @ ${x['avg']:,.2f} avg"
+                        + (f" ({qs(x['inside'])} {CROSS_NOTE})" if x["inside"] else "") for x in summary if x["qty"])
         db.add_event("info", "orders", f"{name}: plan #{p['id']} done", txt or "nothing filled", strategy=p["strategy"], mode=mode)
         if summary:
             notify.send("plan_done", f"{brokers.MODE_LABEL[mode]} · {name} · plan done ({p['reason']})\n{txt}"
@@ -1087,6 +1228,10 @@ def process(now=None, settings=None):
                         db.set_state(f"not_ready_alert:{m}", int(time.time()))
                     continue
                 poll(m, now, broker, settings=s)
+                try:
+                    cross(m, now, broker, s)               # opposite orders of two strategies: settled inside the bot first
+                except Exception as e:
+                    log.warning("cross %s: %s", m, e)
                 positions, acct = None, None
                 due_sides = {r["side"] for r in db.rows("SELECT DISTINCT side FROM orders WHERE mode=? AND status='scheduled' "
                                                         "AND scheduled_at<=?", (m, _ts(now)))}
@@ -1134,10 +1279,13 @@ def plans_view(mode, status=None, limit=30, sid=None):
     names = {r["id"]: r for r in S.rows(include_archived=True)}
     for p in out:
         p["orders"] = db.rows("SELECT id,step,lot,lots,symbol,side,qty,plan_qty,limit_price,scheduled_at,submitted_at,status,filled_qty,"
-                              "avg_price,error,retry,client_order_id,updated_at FROM orders WHERE plan_id=? ORDER BY step, scheduled_at, id",
+                              "avg_price,error,retry,client_order_id,updated_at,cross_with FROM orders WHERE plan_id=? ORDER BY step, scheduled_at, id",
                               (p["id"],))
         r = names.get(p["strategy"]) or {}
         p["name"], p["color"] = r.get("name", p["strategy"]), r.get("color")
+        for o in p["orders"]:
+            if o.get("cross_with"):
+                o["cross_name"] = (names.get(o["cross_with"]) or {}).get("name", o["cross_with"])
         p["target"] = json.loads(p["target"] or "{}")
         p["summary"] = json.loads(p["summary"] or "null")
         sched = [o["scheduled_at"] for o in p["orders"] if o["scheduled_at"]]
@@ -1149,7 +1297,7 @@ def plans_view(mode, status=None, limit=30, sid=None):
 
 def fills_view(mode, sid=None, side=None, limit=50, offset=0, since=None):
     q = ("SELECT o.id, o.plan_id, o.strategy, o.symbol, o.side, o.filled_qty, o.avg_price, o.updated_at, o.lot, o.lots, o.retry, "
-         "p.reason, p.note FROM orders o JOIN plans p ON p.id=o.plan_id WHERE o.mode=? AND o.filled_qty>0")
+         "p.reason, p.note, o.cross_with FROM orders o JOIN plans p ON p.id=o.plan_id WHERE o.mode=? AND o.filled_qty>0")
     args = [mode]
     if sid:
         q += " AND o.strategy=?"
@@ -1161,7 +1309,7 @@ def fills_view(mode, sid=None, side=None, limit=50, offset=0, since=None):
         q += " AND o.updated_at>=?"
         args.append(int(since))
     total = db.one(q.replace("SELECT o.id, o.plan_id, o.strategy, o.symbol, o.side, o.filled_qty, o.avg_price, o.updated_at, o.lot, "
-                             "o.lots, o.retry, p.reason, p.note", "SELECT COUNT(*) n"), tuple(args))["n"]
+                             "o.lots, o.retry, p.reason, p.note, o.cross_with", "SELECT COUNT(*) n"), tuple(args))["n"]
     q += " ORDER BY o.updated_at DESC, o.id DESC LIMIT ? OFFSET ?"
     rows = db.rows(q, (*args, limit, offset))
     names = {r["id"]: r for r in S.rows(include_archived=True)}
@@ -1169,4 +1317,6 @@ def fills_view(mode, sid=None, side=None, limit=50, offset=0, since=None):
         x = names.get(r["strategy"]) or {}
         r["name"], r["color"] = x.get("name", r["strategy"]), x.get("color")
         r["value"] = (r["filled_qty"] or 0) * (r["avg_price"] or 0)
+        if r.get("cross_with"):
+            r["cross_name"] = (names.get(r["cross_with"]) or {}).get("name", r["cross_with"])
     return {"rows": rows, "total": total}

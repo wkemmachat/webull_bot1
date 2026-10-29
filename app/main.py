@@ -484,7 +484,7 @@ async def exec_settings_save(request: Request, u=Depends(user)):
     d = b.get("defaults") or {}
     allowed = {"exec_lots", "exec_interval_min", "exec_start_mode", "exec_start_time", "exec_exit_mode", "exec_session",
                "exec_limit_offset_pct", "exec_retries", "exec_min_lot_usd", "exec_min_trade_usd", "exec_max_order_usd", "new_money_start",
-               "exec_fractional_paper", "exec_fractional_test", "exec_fractional_live"}
+               "exec_fractional_paper", "exec_fractional_test", "exec_fractional_live", "exec_cross"}
     upd = {k: str(v) for k, v in d.items() if k in allowed}
     try:
         if "exec_lots" in upd and not (1 <= int(upd["exec_lots"]) <= 60):
@@ -495,6 +495,8 @@ async def exec_settings_save(request: Request, u=Depends(user)):
             datetime.strptime(upd["exec_start_time"], "%H:%M")
         if "exec_limit_offset_pct" in upd and not (0 <= float(upd["exec_limit_offset_pct"]) <= 2):
             raise ValueError("Limit offset: 0 to 2%")
+        if "exec_cross" in upd and upd["exec_cross"] not in ("0", "1"):
+            raise ValueError("Settle inside the bot: '0' or '1'")
         if "new_money_start" in upd and upd["new_money_start"] not in ("now", "buy"):
             raise ValueError("New money: 'now' or 'buy'")
         for m in ("paper", "test", "live"):
@@ -560,6 +562,8 @@ def order_raw(oid: int, u=Depends(user)):
     o = db.one("SELECT * FROM orders WHERE id=?", (oid,))
     if not o or not o["client_order_id"]:
         raise HTTPException(404, "No such order")
+    if o.get("cross_with"):
+        return {"order": o, "note": "Settled inside the bot with another strategy: no Webull order was sent."}
     b = brokers.get(o["mode"])
     fn = getattr(b, "order_raw", None)
     try:
