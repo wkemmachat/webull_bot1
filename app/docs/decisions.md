@@ -9,6 +9,12 @@
   (or per deposit). Waiting money stays as plain cash in the strategy, outside its plans.
 - **QLD + Trend + bear-dip** (added 23 Oct 2026 from the ETF Strategy Lab): same timing as the regimes (decide after the close,
   trade from the next open), T-bills via BIL when out, $10,000 paper money like the others.
+- **QLD Trend + bear-dip + Vol** (added 30 Oct 2026 from *Research on ETF*, ETF Strategy Lab v3): not a new type, but an option
+  on Trend + bear-dip (*Volatility filter: percentile*, 0 = off), so the existing strategy is unchanged. The filter compares
+  QQQ's 20-day standard deviation of daily changes with its own 80th percentile over the last 252 days, today included (the
+  research's definition, checked day by day against my independent version: same position on all 5,793 days). The expected
+  return uses the bot's backtest (34.9%), not the research's 38.4%, because the settings were the best of about 60
+  neighbours (median about 32%).
 - **QLD Trend + IBS-dip** (added 25 Oct 2026 from *Research on single Stock Nasdaq*, strategy 2): the signal comes from QLD's own
   daily bar, the size from QQQ's 60-day volatility (resized only on a 20-point move), parking 50% GLD + 50% BIL (BIL rather than
   SGOV so the backtest reaches back to 2007, like the other QLD strategies). Dip days are one-day trades; resizes are sent to

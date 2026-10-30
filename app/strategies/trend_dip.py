@@ -7,6 +7,10 @@ After each US close, from the signal index's daily closes:
   dip     a dip trade opens when close ≤ SMA(ma_days) and RSI(rsi_len) < rsi_buy,
           and closes on the first close above SMA(exit_ma)        → in while open
   out     neither                                                 → cash ETF (BIL)
+Optional volatility filter (vol_gate_q > 0, "Trend + bear-dip + Vol", ETF Strategy Lab v3 30 Oct 2026, code/v3_tbdvol.py):
+the trend counts only while the index is calm, i.e. its 20-day standard deviation of daily changes is below the
+vol_gate_q-th percentile of the same number over the last 252 days (today included). Above the average but jumpy
+→ "volatile" (out, unless a dip trade is still open). Dip trades are not filtered.
 Orders go out from the next market open, split into lots (like the regimes).
 """
 from __future__ import annotations
@@ -19,14 +23,31 @@ from .. import marketdata as md
 from .base import register
 from .regime import NY, RANGE_DAYS, TV, RegimeStrategy, tv_url
 
-STATE_COLOR = {"trend": "#26A69A", "dip": "#F5C76B", "out": "#4A5263"}
-STATE_TEXT = {"trend": "above the long average", "dip": "bear-market dip trade", "out": "out · in T-bills"}
+STATE_COLOR = {"trend": "#26A69A", "dip": "#F5C76B", "volatile": "#8E6BBF", "out": "#4A5263"}
+STATE_TEXT = {"trend": "above the long average", "dip": "bear-market dip trade", "volatile": "above the average but jumpy · out",
+              "out": "out · in T-bills"}
 
 
-def positions(close, ma=200, rsi_len=2, rsi_buy=5.0, exit_ma=5):
-    """The research rule, bar by bar. Returns (state array, sma_long, sma_exit, rsi)."""
+def vol_gate(close, q_pct=80.0, days=20, lookback=252):
+    """(calm flags, today's volatility, its threshold). calm = the `days`-day standard deviation of daily changes is below
+    the q_pct-th percentile of that number over the last `lookback` days (today included; pandas' linear percentile).
+    Days before enough history: NaN volatility, not calm."""
+    c = pd.Series(np.asarray(close, dtype=float))
+    v = c.pct_change().rolling(days).std()
+    thr = v.rolling(lookback).quantile(q_pct / 100.0)
+    calm = (v < thr).values
+    return calm, v.values, thr.values
+
+
+def positions(close, ma=200, rsi_len=2, rsi_buy=5.0, exit_ma=5, vol_q=0.0, vol_days=20):
+    """The research rule, bar by bar. Returns (state array, sma_long, sma_exit, rsi, vol, vol threshold).
+    vol_q = 0: no volatility filter (the original Trend + bear-dip)."""
     c = np.asarray(close, dtype=float)
     sl, se, r = I.sma(c, ma), I.sma(c, exit_ma), I.rsi(c, rsi_len)
+    if vol_q and vol_q > 0:
+        calm, vol, thr = vol_gate(c, vol_q, vol_days)
+    else:
+        calm, vol, thr = np.ones(len(c), dtype=bool), np.full(len(c), np.nan), np.full(len(c), np.nan)
     st = np.array([""] * len(c), dtype=object)
     dip_on = False
     for i in range(len(c)):
@@ -38,9 +59,13 @@ def positions(close, ma=200, rsi_len=2, rsi_buy=5.0, exit_ma=5):
             dip_on = True
         if np.isnan(sl[i]):
             st[i] = ""
+        elif up and calm[i]:
+            st[i] = "trend"
+        elif dip_on:
+            st[i] = "dip"
         else:
-            st[i] = "trend" if up else ("dip" if dip_on else "out")
-    return st, sl, se, r
+            st[i] = "volatile" if up else "out"
+    return st, sl, se, r, vol, thr
 
 
 @register
@@ -64,6 +89,12 @@ class TrendDipStrategy(RegimeStrategy):
         {"key": "rsi_buy", "label": "Buy a dip when RSI is below", "kind": "float", "default": 5.0, "min": 1, "max": 30, "group": "Rules"},
         {"key": "exit_ma", "label": "Sell the dip on a close above SMA (days)", "kind": "int", "default": 5, "min": 2, "max": 50,
          "group": "Rules"},
+        {"key": "vol_gate_q", "label": "Volatility filter: percentile (0 = off)", "kind": "float", "default": 0.0, "min": 0, "max": 99,
+         "group": "Rules",
+         "help": "Hold the trend only while the index's volatility is below this percentile of its last year (80 = the research's "
+                 "Trend + bear-dip + Vol). Dip trades are not filtered."},
+        {"key": "vol_days", "label": "Volatility window (days)", "kind": "int", "default": 20, "min": 5, "max": 100, "group": "Rules",
+         "help": "Standard deviation of this many daily changes"},
         {"key": "cash_buffer_pct", "label": "Cash buffer %", "kind": "float", "default": 1.0, "min": 0, "max": 20, "group": "Money"},
         {"key": "rebalance_band_pct", "label": "Rebalance band %", "kind": "float", "default": 10.0, "min": 1, "max": 50, "group": "Money",
          "help": "Between signals, trade only when a holding drifts this far from its target"},
@@ -79,12 +110,20 @@ class TrendDipStrategy(RegimeStrategy):
         if len(df) < p["ma_days"] + 2:
             raise md.DataError(f"Need {p['ma_days'] + 2} daily closes of {p['signal']}, have {len(df)}")
         c = df["c"].astype(float)
-        st, sl, se, r = positions(c.values, p["ma_days"], p["rsi_len"], p["rsi_buy"], p["exit_ma"])
+        st, sl, se, r, vol, thr = positions(c.values, p["ma_days"], p["rsi_len"], p["rsi_buy"], p["exit_ma"],
+                                            self.vol_q(), int(p.get("vol_days") or 20))
         out = pd.DataFrame(index=df.index)
         out["o"], out["h"], out["l"], out["c"] = df["o"], df["h"], df["l"], c
         out["sma_long"], out["sma_exit"], out["rsi"], out["state"] = sl, se, r, st
+        out["vol"], out["vol_thr"] = vol * 100, thr * 100          # % per day
         out["weight"] = [self.weight(s) for s in st]
         return out
+
+    def vol_q(self):
+        try:
+            return float(self.params.get("vol_gate_q") or 0)
+        except (TypeError, ValueError):
+            return 0.0
 
     def weight(self, state):
         return 1.0 if state in ("trend", "dip") else 0.0
@@ -128,6 +167,13 @@ class TrendDipStrategy(RegimeStrategy):
              "cls": "up" if last["c"] > last["sma_exit"] else "dn",
              "h": "An open dip trade is sold on a close above this" if state == "dip" else "Exit line for dip trades"},
         ]
+        if self.vol_q() > 0:
+            vv, vt = float(last["vol"]), float(last["vol_thr"])
+            calm = vv < vt
+            checks.insert(1, {"k": f"Volatility {int(p.get('vol_days') or 20)}d", "v": f"{vv:.2f}% vs {vt:.2f}% · {'calm' if calm else 'jumpy'}",
+                              "cls": "up" if calm else "warn",
+                              "h": f"The trend counts only while daily volatility is below the {self.vol_q():g}th percentile of the "
+                                   f"last year ({vt:.2f}%)"})
         hist = []
         sts = fr["state"].values
         for i in range(max(1, len(fr) - 1500), len(fr)):
@@ -139,17 +185,26 @@ class TrendDipStrategy(RegimeStrategy):
             r = fr.iloc[i]
             log_rows.append({"date": str(fr.index[i].date()), "close": float(r["c"]), "sma_long": float(r["sma_long"]),
                              "sma_exit": float(r["sma_exit"]), "rsi": float(r["rsi"]), "state": r["state"],
+                             "vol": float(r["vol"]) if r["vol"] == r["vol"] else None,
+                             "vol_thr": float(r["vol_thr"]) if r["vol_thr"] == r["vol_thr"] else None,
                              "changed": bool(i > 0 and inpos[i] != inpos[i - 1]), "from": sts[i - 1] if i > 0 else None})
         target = self.target_for(state)
         tiles = [{"k": "trend", "title": "In · trend", "text": f"{p['signal']} above SMA{p['ma_days']}", "hold": f"100% {p['trade']}",
                   "color": STATE_COLOR["trend"]},
                  {"k": "dip", "title": "In · dip trade", "text": f"Below SMA{p['ma_days']}, bought on RSI({p['rsi_len']}) < {p['rsi_buy']:g}; "
                   f"sold on a close above SMA{p['exit_ma']}", "hold": f"100% {p['trade']}", "color": STATE_COLOR["dip"]},
-                 {"k": "out", "title": "Out", "text": f"Below SMA{p['ma_days']}, no dip trade open", "hold": f"100% {p['cash_symbol']}",
+                 {"k": "out", "title": "Out", "text": f"Below SMA{p['ma_days']}, no dip trade open", "hold": f"100% {p['cash_symbol'] or 'cash'}",
                   "color": STATE_COLOR["out"]}]
         log_cols = [{"k": "close", "label": p["signal"], "fmt": "n2"}, {"k": "sma_long", "label": f"SMA{p['ma_days']}", "fmt": "n2"},
                     {"k": "sma_exit", "label": f"SMA{p['exit_ma']}", "fmt": "n2"}, {"k": "rsi", "label": f"RSI({p['rsi_len']})", "fmt": "n1"}]
-        label = {"trend": f"IN · {p['trade']} (trend)", "dip": f"IN · {p['trade']} (dip trade)", "out": f"OUT · {p['cash_symbol']}"}[state]
+        if self.vol_q() > 0:
+            tiles[0]["text"] = f"{p['signal']} above SMA{p['ma_days']} and calm (volatility below its {self.vol_q():g}th percentile)"
+            tiles.insert(2, {"k": "volatile", "title": "Out · jumpy", "text": f"Above SMA{p['ma_days']} but volatility above its "
+                             f"{self.vol_q():g}th percentile of the last year", "hold": f"100% {p['cash_symbol'] or 'cash'}",
+                             "color": STATE_COLOR["volatile"]})
+            log_cols += [{"k": "vol", "label": "Vol %", "fmt": "n2"}, {"k": "vol_thr", "label": f"Vol p{self.vol_q():g} %", "fmt": "n2"}]
+        label = {"trend": f"IN · {p['trade']} (trend)", "dip": f"IN · {p['trade']} (dip trade)",
+                 "volatile": f"OUT · {p['cash_symbol'] or 'cash'} (jumpy)", "out": f"OUT · {p['cash_symbol'] or 'cash'}"}[state]
         return {"ok": True, "state": state, "label": label, "target": target,
                 "bar_time": self.close_ts(fr.index[-1]), "signal_time": self.close_ts(fr.index[k]), "price": float(last["c"]),
                 "checks": checks, "history": hist, "next_check": self.next_check(now),
@@ -162,7 +217,13 @@ class TrendDipStrategy(RegimeStrategy):
         a, z = fr["state"].iloc[i - 1], fr["state"].iloc[i]
         c, sl = fr["c"].iloc[i], fr["sma_long"].iloc[i]
         if z == "trend":
-            return f"{p['signal']} closed above SMA{p['ma_days']} ({c:,.2f} > {sl:,.2f})"
+            if self.vol_q() > 0 and a == "volatile":
+                return f"Calm again: {p['signal']} volatility {fr['vol'].iloc[i]:.2f}% < {fr['vol_thr'].iloc[i]:.2f}%, above SMA{p['ma_days']}"
+            return f"{p['signal']} closed above SMA{p['ma_days']} ({c:,.2f} > {sl:,.2f})" + (
+                " and calm" if self.vol_q() > 0 else "")
+        if z == "volatile":
+            return (f"Jumpy: {p['signal']} volatility {fr['vol'].iloc[i]:.2f}% ≥ {fr['vol_thr'].iloc[i]:.2f}% "
+                    f"(its {self.vol_q():g}th percentile of the last year)")
         if z == "dip":
             return f"Dip buy: {p['signal']} below SMA{p['ma_days']} and RSI({p['rsi_len']}) {fr['rsi'].iloc[i]:.1f} < {p['rsi_buy']:g}"
         if a == "dip":
@@ -195,7 +256,11 @@ class TrendDipStrategy(RegimeStrategy):
                "ribbon": [{"time": t[i], "color": STATE_COLOR.get(s, "#2A2E39"), "state": s} for i, s in enumerate(stv)],
                "panes": [{"id": "rsi", "title": f"RSI({p['rsi_len']})", "height": 110,
                           "lines": [{"name": "RSI", "color": "#B084F5", "width": 2, "data": ln("rsi", 2)}],
-                          "hlines": [{"value": p["rsi_buy"], "label": f"dip buy < {p['rsi_buy']:g}"}]}],
+                          "hlines": [{"value": p["rsi_buy"], "label": f"dip buy < {p['rsi_buy']:g}"}]}]
+               + ([{"id": "vol", "title": f"Volatility {int(p.get('vol_days') or 20)}d (% a day)", "height": 110,
+                    "lines": [{"name": "Volatility", "color": "#8E6BBF", "width": 2, "data": ln("vol", 3)},
+                              {"name": f"{self.vol_q():g}th percentile (1 year)", "color": "#FF9800", "width": 1, "data": ln("vol_thr", 3)}],
+                    "hlines": []}] if self.vol_q() > 0 else []),
                "markers": markers, "tv": tv_url(p["signal"]), "tv_symbol": TV.get(p["signal"], p["signal"])}
         charts = [sig]
         tr = md.daily_closed(p["trade"], now)
@@ -219,16 +284,20 @@ class TrendDipStrategy(RegimeStrategy):
         p = self.params
         return {"rules": [
             f"After each US close, read {p['signal']}'s daily close, SMA{p['ma_days']}, SMA{p['exit_ma']} and RSI({p['rsi_len']}).",
-            f"Trend: close > SMA{p['ma_days']} → 100% {p['trade']}.",
+            f"Trend: close > SMA{p['ma_days']} → 100% {p['trade']}." if self.vol_q() <= 0 else
+            f"Trend: close > SMA{p['ma_days']} AND calm ({int(p.get('vol_days') or 20)}-day volatility below its {self.vol_q():g}th "
+            f"percentile of the last 252 days) → 100% {p['trade']}; above the average but jumpy → out.",
             f"Below SMA{p['ma_days']}: buy a dip when RSI({p['rsi_len']}) < {p['rsi_buy']:g}; sell it on the first close above "
             f"SMA{p['exit_ma']}.",
-            f"Otherwise → {p['cash_symbol']} (T-bills).",
+            f"Otherwise → {p['cash_symbol'] or 'cash'}" + (" (T-bills)." if p['cash_symbol'] else "."),
             "Orders start at the next market open, split into lots."],
             "flow": f"{p['signal']} daily → {p['trade']} · {p['cash_symbol']}",
             "tv": f'"Moving Average" lengths {p["ma_days"]} and {p["exit_ma"]}, "Relative Strength Index" length {p["rsi_len"]} '
-                  f'on {p["signal"]} daily',
-            "rule": f"{p['signal']} > SMA{p['ma_days']}, or RSI({p['rsi_len']}) < {p['rsi_buy']:g} dips below it (exit > SMA{p['exit_ma']}) "
-                    f"→ {p['trade']}, else {p['cash_symbol']}"}
+                  f'on {p["signal"]} daily' + (f'; volatility: "Historical Volatility" is annualised, so compare the bot\'s '
+                                               f'Volatility pane instead' if self.vol_q() > 0 else ''),
+            "rule": f"{p['signal']} > SMA{p['ma_days']}" + (" and calm" if self.vol_q() > 0 else "") +
+                    f", or RSI({p['rsi_len']}) < {p['rsi_buy']:g} dips below it (exit > SMA{p['exit_ma']}) "
+                    f"→ {p['trade']}, else {p['cash_symbol'] or 'cash'}"}
 
     # ---------------------------------------------------------------- health check: independent recompute
     def check_table(self, now, rows=12):
@@ -247,6 +316,28 @@ class TrendDipStrategy(RegimeStrategy):
                 ag = (ag * (n - 1) + gains[i]) / n
                 al = (al * (n - 1) + losses[i]) / n
             rs[i] = 50.0 if (al == 0 and ag == 0) else (100.0 if al == 0 else 100 - 100 / (1 + ag / al))
+        # volatility filter, the long way: sample standard deviation of the last vd daily changes, and its q-th percentile
+        # (linear between the two nearest ranks) over the last 252 values, today included
+        vq, vd = self.vol_q(), int(p.get("vol_days") or 20)
+        calm = [True] * len(c)
+        if vq > 0:
+            chg = [float("nan")] + [c[i] / c[i - 1] - 1 for i in range(1, len(c))]
+            sd = [float("nan")] * len(c)
+            for i in range(vd, len(c)):
+                w = chg[i - vd + 1:i + 1]
+                m = sum(w) / vd
+                sd[i] = (sum((x - m) ** 2 for x in w) / (vd - 1)) ** 0.5
+            for i in range(len(c)):
+                win = sd[i - 251:i + 1] if i >= 251 else []
+                if len(win) < 252 or any(x != x for x in win):
+                    calm[i] = False
+                    continue
+                srt = sorted(win)
+                pos = (len(srt) - 1) * vq / 100.0
+                lo = int(pos)
+                hi = min(lo + 1, len(srt) - 1)
+                thr = srt[lo] + (srt[hi] - srt[lo]) * (pos - lo)
+                calm[i] = sd[i] < thr
         # replay the position rule from the recomputed numbers
         state, dip = [], False
         for i in range(len(c)):
@@ -260,7 +351,7 @@ class TrendDipStrategy(RegimeStrategy):
                 dip = False
             elif not dip and not up and rs[i] == rs[i] and rs[i] < buy:
                 dip = True
-            state.append("trend" if up else ("dip" if dip else "out"))
+            state.append("trend" if (up and calm[i]) else ("dip" if dip else ("volatile" if up else "out")))
         cols = ["Close", f"SMA{ma} · bot", f"SMA{ma} · check", f"RSI({n}) · bot", f"RSI({n}) · check", "State bot / check"]
         out, worst = [], 0.0
         for i in range(len(c) - rows, len(c)):

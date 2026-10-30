@@ -217,6 +217,25 @@
     "sharpe": 1.2,
     "bench": "2008-2016 (not tuned on): 15.0% a year; ROM held 10 years: 37.1% a year, worst fall −67.6%"
    }
+  },
+  "qld_tbdv": {
+   "doc": "strategy-qld-tbdv",
+   "reviewed": "2026-10-30",
+   "expect": {
+    "cagr": 34.9,
+    "maxdd": -34.4,
+    "basis": "bot backtest, real fee",
+    "period": "Oct 2007 – Oct 2026",
+    "note": "The bot's own backtest at Webull's real fee (0.11% per buy and per sell), not the research's 38.4%: the research picked these settings as the best of their neighbours (the median neighbour made about 32% a year), so the lower number is the safer one to plan with."
+   },
+   "research": {
+    "source": "ETF Strategy Lab v3, 30 Oct 2026 · Trend + bear-dip + Vol filter",
+    "period": "Oct 2007 – Oct 2026",
+    "cagr": 38.4,
+    "maxdd": -33.0,
+    "sharpe": 1.17,
+    "bench": "Same rules without the filter: 32.9% a year, worst fall −42.5%; QQQ held: 15.1% a year, worst fall −53.3%"
+   }
   }
  },
  "log": [
@@ -231,6 +250,10 @@
   {
    "date": "2026-10-26",
    "what": "Added ROM Trend + RSI(2) (from the 2x ETF research): expected 50.0% a year at the real fee, worst fall −37.9%."
+  },
+  {
+   "date": "2026-10-30",
+   "what": "Added QLD Trend + bear-dip + Vol (ETF Strategy Lab v3): the QLD + Trend + bear-dip rules plus a volatility filter. Expected 34.9% a year (the bot's own backtest at the real fee, below the research's 38.4%), worst fall −34.4%."
   }
  ]
 }

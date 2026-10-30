@@ -4,6 +4,7 @@
 | Strategy | A year (10 years) | Worst fall | Sharpe | Last year | Risk |
 |---|---|---|---|---|---|
 | QLD + Trend + bear-dip | **+36.4%** | −42.6% | 0.98 | +22.7% | high |
+| QLD Trend + bear-dip + Vol ‡ | **+42.0%** | −24.5% | 1.31 | +9.3% | high |
 | QLD regime | **+36.4%** | −36.6% | 1.07 | +32.0% | high |
 | 2x Semis regime | **+55.9%** | −46.4% | 1.10 | +61.1% | very high |
 | C2-7 Momentum 1x | **+31.5%** | −19.8% | 1.30 | +45.0% | medium |
@@ -16,11 +17,12 @@
 | Silver #1 · Donchian 30/15 | +12.7% † | −33.9% † | — | −13.1% | very high |
 | Silver #2 · Supertrend 10/3 | +14.4% † | −34.3% † | — | +10.9% | very high |
 
-Bot backtests on real prices, 26 Oct 2026. † Gold and silver: the research's 10-year ETF test, lowered by what Webull's real fee costs in the bot's 2-year backtest (Yahoo has only 2 years of hourly futures prices). QQQ held over the same 10 years: about 20% a year, worst fall −35%.
+Bot backtests on real prices, 26 Oct 2026. † Gold and silver: the research's 10-year ETF test, lowered by what Webull's real fee costs in the bot's 2-year backtest (Yahoo has only 2 years of hourly futures prices). QQQ held over the same 10 years: about 20% a year, worst fall −35%. ‡ Added 30 Oct 2026, the bot's backtest code on prices to 26 Oct 2026. Its settings were the best of their neighbours in the research, so plan on less (see [its page](#/docs/strategy-qld-tbdv)).
 
 | Strategy | Holds | Since 2007 (or its start): a year / worst fall | Last 5 years |
 |---|---|---|---|
 | QLD + Trend + bear-dip | QLD or BIL | +31.7% / −42.6% (from 2007) | +32.9% |
+| QLD Trend + bear-dip + Vol ‡ | QLD or BIL | +34.9% / −34.4% (from Oct 2007) | +35.1% |
 | QLD regime | QLD / BIL / GLD | +25.5% / −39.6% (from 2007) | +28.2% |
 | 2x Semis regime | USD / BIL / GLD | +35.4% / −49.1% (from 2007) | +67.7% |
 | C2-7 Momentum 1x | 7 Nasdaq stocks or GLD+SGOV | +31.5% / −19.8% (from 2016) | +43.5% |
@@ -47,7 +49,7 @@ Bot backtests on real prices, 26 Oct 2026. † Gold and silver: the research's 1
 
 | Group | Strategies | Why |
 |---|---|---|
-| Nasdaq | QLD regime, QLD + Trend + bear-dip, QLD Trend + IBS-dip, ROM Trend + RSI(2), C2-7 Momentum 1x/2x | same index, SMA200-type signals: in and out at similar times (QLD Trend + IBS-dip the least: monthly correlation about 0.7) |
+| Nasdaq | QLD regime, QLD + Trend + bear-dip (with or without Vol), QLD Trend + IBS-dip, ROM Trend + RSI(2), C2-7 Momentum 1x/2x | same index, SMA200-type signals: in and out at similar times (QLD Trend + IBS-dip the least: monthly correlation about 0.7) |
 | Semiconductors | 2x Semis regime, USD Trend + IBS-dip | both hold USD; 2x Semis reads SMH, USD Trend + IBS-dip reads USD itself (monthly correlation about 0.6) |
 | Gold | Gold #1, Gold #2 | same futures, similar Supertrend: usually both long or both flat |
 | Silver | Silver #1, Silver #2 | same futures; silver crashes hit both |

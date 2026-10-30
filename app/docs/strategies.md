@@ -54,5 +54,5 @@ At the top, **Money in strategies** shows the same donut as the dashboard: each 
 ## Adding a strategy
 
 **Strategies → + Add strategy** offers every strategy type: Supertrend (with optional ADX filter), Donchian breakout, Regime,
-Trend + bear-dip, Trend + IBS-dip with a volatility cap (used for QLD and for USD; options for full-size dip days and the comparison symbol), and Momentum basket (C2-7: the strongest of the largest Nasdaq-100 stocks, 1x or 2x). For example a *TQQQ regime* or a *Supertrend on silver with different settings*. New strategies start with paper money
+Trend + bear-dip (optional volatility filter), Trend + IBS-dip with a volatility cap (used for QLD and for USD; options for full-size dip days and the comparison symbol), and Momentum basket (C2-7: the strongest of the largest Nasdaq-100 stocks, 1x or 2x). For example a *TQQQ regime* or a *Supertrend on silver with different settings*. New strategies start with paper money
 only. Completely new rule types are Python plugins (see *Add a strategy plugin*).

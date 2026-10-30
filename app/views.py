@@ -77,7 +77,7 @@ def _state_class(s, st):
     if not st.get("ok"):
         return "err"
     if s.family == "regime":
-        return {"2x": "info", "1x": "info", "0.5x": "warn", "off": "", "trend": "ok", "dip": "warn", "out": ""}.get(st.get("state"), "")
+        return {"2x": "info", "1x": "info", "0.5x": "warn", "off": "", "trend": "ok", "dip": "warn", "volatile": "", "out": ""}.get(st.get("state"), "")
     return "ok" if st.get("state") == "long" else ""
 
 

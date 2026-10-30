@@ -13,6 +13,7 @@ sends every order as **split lots from a start time you choose**, tells you on *
 | QLD regime | QQQ daily | QLD (2x Nasdaq) · BIL · GLD | daily, after the US close |
 | 2x Semis regime | SMH daily | USD (2x semis) · BIL · GLD | daily, after the US close |
 | QLD + Trend + bear-dip | QQQ daily | QLD · BIL | daily, after the US close |
+| QLD Trend + bear-dip + Vol | QQQ daily + its 20-day volatility | QLD · BIL | daily, after the US close |
 | QLD Trend + IBS-dip | QLD daily (own price) + QQQ volatility | QLD (size capped) · GLD · cash | daily, after the US close |
 | USD Trend + IBS-dip | USD daily (own price and volatility) | USD (2x chips, size capped, 100% on dip days) · GLD · cash | daily, after the US close |
 | ROM Trend + RSI(2) | IYW daily | ROM (2x US tech) · cash | daily, after the US close |
