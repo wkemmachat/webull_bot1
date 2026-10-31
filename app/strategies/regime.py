@@ -260,13 +260,13 @@ class RegimeStrategy(StrategyBase):
         return {"rules": [
             f"After each US close, read {p['signal']}'s daily close, SMA{p['ma_days']}, SMA{p['confirm_days']} and {p['vol_days']}-day volatility.",
             f"2x: close > SMA{p['ma_days']}, SMA{p['confirm_days']} > SMA{p['ma_days']} and volatility < {p['vol_gate_pct']:g}% → {p['calm_weight']:g}% {p['trade']}.",
-            f"0.5x: same but volatility ≥ {p['vol_gate_pct']:g}% → {p['jumpy_weight']:g}% {p['trade']}, rest {p['cash_symbol']}.",
-            f"1x: close > SMA{p['ma_days']} but SMA{p['confirm_days']} ≤ SMA{p['ma_days']} → {p['unconfirmed_weight']:g}% {p['trade']}, rest {p['cash_symbol']}.",
+            f"0.5x: same but volatility ≥ {p['vol_gate_pct']:g}% → {p['jumpy_weight']:g}% {p['trade']}, rest {p['cash_symbol'] or 'cash'}.",
+            f"1x: close > SMA{p['ma_days']} but SMA{p['confirm_days']} ≤ SMA{p['ma_days']} → {p['unconfirmed_weight']:g}% {p['trade']}, rest {p['cash_symbol'] or 'cash'}.",
             f"Off: close ≤ SMA{p['ma_days']} → 100% {p['off_symbol']}.",
             "Orders start at the next market open, split into lots. Between state changes the bot trades only when a holding drifts "
             f"more than {p['rebalance_band_pct']:g}% from target."],
-            "flow": f"{p['signal']} daily → {p['trade']} · {p['cash_symbol']} · {p['off_symbol']}",
+            "flow": f"{p['signal']} daily → {p['trade']} · {p['cash_symbol'] or 'cash'} · {p['off_symbol']}",
             "tv": f'"Moving Average" lengths {p["ma_days"]} and {p["confirm_days"]} on {p["signal"]} daily; '
                   f'"Historical Volatility" length {p["vol_days"]}',
             "rule": f"{p['signal']} vs SMA{p['ma_days']} / SMA{p['confirm_days']}, {p['vol_days']}-day vol gate {p['vol_gate_pct']:g}% → "
-                    f"{p['trade']}, {p['cash_symbol']} or {p['off_symbol']}"}
+                    f"{p['trade']}, {p['cash_symbol'] or 'cash'} or {p['off_symbol']}"}

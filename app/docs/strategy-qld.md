@@ -10,8 +10,8 @@ After each US close, from QQQ's daily closes:
 | State | When | Holds |
 |---|---|---|
 | **2x** | QQQ > SMA200, SMA50 > SMA200, 20-day volatility < 30% | 99% QLD |
-| **0.5x** | as 2x but volatility ≥ 30% | 25% QLD, 74% BIL |
-| **1x** | QQQ > SMA200 but SMA50 ≤ SMA200 (not confirmed) | 50% QLD, 49% BIL |
+| **0.5x** | as 2x but volatility ≥ 30% | 25% QLD, rest cash |
+| **1x** | QQQ > SMA200 but SMA50 ≤ SMA200 (not confirmed) | 50% QLD, rest cash |
 | **Off** | QQQ ≤ SMA200 | 99% GLD |
 
 Volatility = standard deviation of the last 20 daily log returns × √252. The bot trades on a state change (about 6–8 a year) or when
@@ -19,7 +19,7 @@ a holding drifts more than 10% from its target.
 
 ## What it holds
 
-QLD (ProShares Ultra QQQ, 2x), BIL (T-bills) and GLD (gold).
+QLD (ProShares Ultra QQQ, 2x), GLD (gold) and cash. Until 31 Oct 2026 the cash part was held in BIL (T-bills); plain cash saves 0.22% in fees on every round trip and did slightly better in every period of the bot's backtest (10 years +37.2% against +36.8%). To go back, set *Cash part goes to* to BIL.
 
 ## When it trades
 

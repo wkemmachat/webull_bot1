@@ -1,7 +1,7 @@
 <!--{"title": "QLD Trend + bear-dip + Vol", "group": "The strategies"}-->
 # QLD Trend + bear-dip + Vol
 
-The same rules as [QLD + Trend + bear-dip](#/docs/strategy-qld-tbd), plus a **volatility filter**: the trend half holds **QLD (2x Nasdaq-100)** only while QQQ is above its 200-day average **and calm**. When the market turns jumpy, the strategy steps aside into T-bills (BIL) even above the average. The RSI(2) dip trades are unchanged and are not filtered.
+The same rules as [QLD + Trend + bear-dip](#/docs/strategy-qld-tbd), plus a **volatility filter**: the trend half holds **QLD (2x Nasdaq-100)** only while QQQ is above its 200-day average **and calm**. When the market turns jumpy, the strategy steps aside (half gold, half cash) even above the average. The RSI(2) dip trades are unchanged and are not filtered.
 
 The filter helps most in a sell-off that starts from a high, while QQQ is still above its average. It stepped aside in late February 2020 as the crash began, and from December 2021 through January 2022 before QQQ broke its average. So the worst fall over 10 years was −25% instead of −43%. The price is that it also steps aside in nervous bull markets (2014, 2024, this year), so it can lag the plain version for a year or two.
 
@@ -13,8 +13,8 @@ After each US close, from QQQ's daily closes:
 |---|---|---|
 | **In · trend** | QQQ closes above its SMA200 **and** is calm | 99% QLD |
 | **In · dip trade** | below SMA200 a dip trade opens when RSI(2) < 5; it closes on the first close above SMA5 | 99% QLD |
-| **Out · jumpy** | above SMA200 but not calm, and no dip trade open | 99% BIL |
-| **Out** | below SMA200 and no dip trade | 99% BIL |
+| **Out · jumpy** | above SMA200 but not calm, and no dip trade open | 49.5% GLD, rest cash |
+| **Out** | below SMA200 and no dip trade | 49.5% GLD, rest cash |
 
 **Calm** means: the standard deviation of QQQ's last 20 daily changes is **below the 80th percentile** of the same number over the last 252 trading days (today included). So the filter is relative to the last year. It does not use a fixed level, and it turns off on roughly the jumpiest fifth of days. An open dip trade always runs to its exit, even on a jumpy day.
 
@@ -22,7 +22,27 @@ The strategy page shows today's volatility and its threshold in the checks, a **
 
 ## What it holds
 
-QLD (2x Nasdaq-100) or BIL (T-bills). Nothing else.
+QLD (2x Nasdaq-100) while in. When out: **half GLD (gold), half cash** (the default since 31 Oct 2026). Nothing else.
+
+Two settings in Parameters decide where the parked money waits:
+- *Gold share when out (%)*: 50 = half in GLD (default), 0 = none, 100 = all.
+- *When out, hold*: empty = plain cash (default); BIL = T-bills, as the research did.
+
+**Why cash, not BIL:** every trip into BIL and back costs 0.22% in Webull fees, and BIL needs about three weeks out to earn that back at 4% a year. This strategy's out spells are often shorter (the jumpy-market exits), so plain cash came out ahead in every period of the bot's backtest, even counting cash at 0% interest.
+
+**Why half gold:** gold tends to rise in the stressed markets when this strategy is out.
+
+The bot's backtest, Webull's fee, prices to 26 Oct 2026 (a year / worst fall):
+
+| When out | 1 year | 3 years | 5 years | 10 years | Since Oct 2007 |
+|---|---|---|---|---|---|
+| all BIL (the research's way) | +9.3% / −18.6% | +44.5% / −21.6% | +35.1% / −22.5% | +42.0% / −24.5% | +34.9% / −34.4% |
+| all cash | +9.8% / −18.6% | +45.7% / −21.1% | +36.7% / −22.5% | +43.2% / −24.3% | +36.6% / −33.5% |
+| half GLD + half BIL | +12.3% / −18.6% | +52.1% / −19.8% | +41.2% / −22.5% | +45.9% / −23.9% | +38.6% / −29.7% |
+| **half GLD + half cash (default)** | **+12.6% / −18.6%** | **+52.7% / −19.6%** | **+42.0% / −22.5%** | **+46.5% / −23.8%** | **+39.5% / −29.2%** |
+| all GLD | +14.7% / −18.6% | +59.6% / −19.9% | +47.0% / −22.5% | +49.6% / −23.9% | +42.0% / −30.3% |
+
+Across 120 neighbouring settings, half gold (with half BIL) beat all-T-bills on return per unit of risk in every one, and on return in 92% of them before 2016 (before the recent gold boom). The cost: gold can fall while the money waits in it (−28% in 2013, about −28% from its January 2026 high), and in about half of those settings the worst fall was deeper (by about 2 points in the middle setting). 50% keeps most of the gain with less gold risk than 100%.
 
 ## When it trades
 
@@ -30,7 +50,7 @@ Decided after each US close (the bot checks at about 03:10 Bangkok). Orders star
 
 ## Backtest results
 
-Numbers from the bot's own backtest code on 30 Oct 2026, run on prices up to 26 Oct 2026: the strategy's live code over Yahoo prices (dividends included), traded at the bot's real times, paying Webull's real fee (0.11% of every buy and every sell). Open the strategy → **Backtest** for today's numbers, the chart and every trade.
+The tables below are the original settings (parked all in BIL); the table above has today's default, about 4 points a year more over 10 years. Numbers from the bot's own backtest code on 30 Oct 2026, run on prices up to 26 Oct 2026: the strategy's live code over Yahoo prices (dividends included), traded at the bot's real times, paying Webull's real fee (0.11% of every buy and every sell). Open the strategy → **Backtest** for today's numbers, the chart and every trade.
 
 | Period | A year | Worst fall | Sharpe | Plain Trend + bear-dip | QLD held a year / worst fall | QQQ held a year / worst fall |
 |---|---|---|---|---|---|---|

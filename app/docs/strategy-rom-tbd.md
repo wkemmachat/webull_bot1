@@ -19,6 +19,8 @@ Why IYW and not ROM's own chart: the signal comes from the clean, liquid 1x ETF;
 
 ROM or cash. Nothing else. Cash is kept as cash (not a T-bill ETF): the strategy is in the market about 80% of the days and every switch would otherwise pay Webull's fee twice.
 
+Option: *Gold share when out (%)* in Parameters holds part of the parked money in GLD. Not recommended here: 10 years +50.9% with 0% and +53.2% with 50%, but the last year +22.0% → +18.9% and the worst fall since 2007 −62.3% → −66.0% (bot backtest, 26 Oct 2026).
+
 ## When it trades
 
 Decided after each US close (the bot checks at about 03:10 Bangkok). Orders start at the **next market open** (20:30 Bangkok in US summer time, 21:30 in winter), 10 lots 5 minutes apart. About **5–10 trades a year**: the fewest of the bot's strategies, so Webull's fee costs it under 1 point a year.

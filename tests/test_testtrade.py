@@ -16,7 +16,7 @@ def _strategy_books():
 
 def test_symbols_come_from_the_strategies():
     s = T.symbols()
-    assert {"QLD", "USD", "UGL", "AGQ", "SGOV", "BIL", "GLD"} <= set(s)
+    assert {"QLD", "USD", "UGL", "AGQ", "SGOV", "GLD"} <= set(s)
     assert "QLD + Trend + bear-dip" in s["QLD"]
 
 

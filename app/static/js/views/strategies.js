@@ -127,8 +127,8 @@
           <div class="muted small">${U.esc(g.k)}</div><div class="num ${g.cls || ''}" style="font-size:16px;font-weight:600">${U.esc(g.v)}</div><div class="muted small">${U.esc(g.h || '')}</div></div>`).join('')}</div>
       </section>`;
       if (c.type !== 'regime') return `<section class="card"><h2 class="h2">${U.esc(det.title || 'Position')}</h2><div class="muted" style="margin-top:6px">Waiting for the first evaluation — the bot reads the latest close within a minute of starting.</div></section>`;
-      const tiles = [['2x', 'Trend on, confirmed, calm', `${p.calm_weight}% ${p.trade}`], ['0.5x', `Trend on, confirmed, jumpy (vol ≥ ${p.vol_gate_pct}%)`, `${p.jumpy_weight}% ${p.trade} · rest ${p.cash_symbol}`],
-        ['1x', `Trend on, not confirmed (SMA${p.confirm_days} ≤ SMA${p.ma_days})`, `${p.unconfirmed_weight}% ${p.trade} · rest ${p.cash_symbol}`], ['off', `${p.signal} at or below SMA${p.ma_days}`, `100% ${p.off_symbol}`]];
+      const tiles = [['2x', 'Trend on, confirmed, calm', `${p.calm_weight}% ${p.trade}`], ['0.5x', `Trend on, confirmed, jumpy (vol ≥ ${p.vol_gate_pct}%)`, `${p.jumpy_weight}% ${p.trade} · rest ${p.cash_symbol || 'cash'}`],
+        ['1x', `Trend on, not confirmed (SMA${p.confirm_days} ≤ SMA${p.ma_days})`, `${p.unconfirmed_weight}% ${p.trade} · rest ${p.cash_symbol || 'cash'}`], ['off', `${p.signal} at or below SMA${p.ma_days}`, `100% ${p.off_symbol}`]];
       const colors = { '2x': '#5B8DEF', '1x': '#34508A', '0.5x': '#F5C76B', off: '#B9852C' };
       return `<section class="card col" style="gap:14px">
         <div class="row sb"><h2 class="h2">Regime state · decided after each US close</h2><span class="muted small">${det.date ? 'Last decision on the ' + U.esc(det.date) + ' close' : ''}</span></div>

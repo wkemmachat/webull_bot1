@@ -17,14 +17,14 @@
 | Silver #1 · Donchian 30/15 | +12.7% † | −33.9% † | — | −13.1% | very high |
 | Silver #2 · Supertrend 10/3 | +14.4% † | −34.3% † | — | +10.9% | very high |
 
-Bot backtests on real prices, 26 Oct 2026. † Gold and silver: the research's 10-year ETF test, lowered by what Webull's real fee costs in the bot's 2-year backtest (Yahoo has only 2 years of hourly futures prices). QQQ held over the same 10 years: about 20% a year, worst fall −35%. ‡ Added 30 Oct 2026, the bot's backtest code on prices to 26 Oct 2026. Its settings were the best of their neighbours in the research, so plan on less (see [its page](#/docs/strategy-qld-tbdv)).
+Bot backtests on real prices, 26 Oct 2026. † Gold and silver: the research's 10-year ETF test, lowered by what Webull's real fee costs in the bot's 2-year backtest (Yahoo has only 2 years of hourly futures prices). QQQ held over the same 10 years: about 20% a year, worst fall −35%. Parked money: since 31 Oct 2026 these four park in cash instead of BIL (QLD Trend + bear-dip + Vol: half GLD, half cash); the numbers here are from the BIL versions, about 0.4–1.7 points a year lower (4 points for QLD Trend + bear-dip + Vol with its gold half). ‡ Added 30 Oct 2026, the bot's backtest code on prices to 26 Oct 2026. Its settings were the best of their neighbours in the research, so plan on less (see [its page](#/docs/strategy-qld-tbdv)).
 
 | Strategy | Holds | Since 2007 (or its start): a year / worst fall | Last 5 years |
 |---|---|---|---|
-| QLD + Trend + bear-dip | QLD or BIL | +31.7% / −42.6% (from 2007) | +32.9% |
-| QLD Trend + bear-dip + Vol ‡ | QLD or BIL | +34.9% / −34.4% (from Oct 2007) | +35.1% |
-| QLD regime | QLD / BIL / GLD | +25.5% / −39.6% (from 2007) | +28.2% |
-| 2x Semis regime | USD / BIL / GLD | +35.4% / −49.1% (from 2007) | +67.7% |
+| QLD + Trend + bear-dip | QLD or cash | +31.7% / −42.6% (from 2007) | +32.9% |
+| QLD Trend + bear-dip + Vol ‡ | QLD or half GLD + cash | +34.9% / −34.4% (from Oct 2007) | +35.1% |
+| QLD regime | QLD / GLD / cash | +25.5% / −39.6% (from 2007) | +28.2% |
+| 2x Semis regime | USD / GLD / cash | +35.4% / −49.1% (from 2007) | +67.7% |
 | C2-7 Momentum 1x | 7 Nasdaq stocks or GLD+SGOV | +31.5% / −19.8% (from 2016) | +43.5% |
 | C2-7 Momentum 2x | 7 stocks via 2x ETFs or GLD+SGOV | +53.8% / −33.3% (from 2016) | +76.1% |
 | QLD Trend + IBS-dip | QLD (vol-capped) or GLD + cash | +29.1% / −30.6% (from 2007) | +44.8% |

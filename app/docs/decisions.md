@@ -9,6 +9,17 @@
   (or per deposit). Waiting money stays as plain cash in the strategy, outside its plans.
 - **QLD + Trend + bear-dip** (added 23 Oct 2026 from the ETF Strategy Lab): same timing as the regimes (decide after the close,
   trade from the next open), T-bills via BIL when out, $10,000 paper money like the others.
+- **Cash instead of BIL** (31 Oct 2026): QLD regime, 2x Semis regime, QLD + Trend + bear-dip and QLD Trend + bear-dip + Vol
+  park in plain cash, not BIL. Each BIL round trip costs 0.22% in fees, and BIL needs about three weeks out to earn that
+  back at 4% a year; plain cash (counted at 0%) did better in every period of the bot's backtest: +0.3 to +1 point a year
+  over the last 1–3 years, +0.4 to +1.7 over 10 years and since 2007, worst falls unchanged. This reverses the 26 Oct
+  choice to keep BIL for these four. Strategies still on the old default moved once at the restart (Logs: *settings updated
+  to the new default*); ones you changed were left alone. C2-7 keeps SGOV (not tested).
+- **Gold share when out** (31 Oct 2026): Trend + bear-dip strategies can hold part of their parked money in GLD
+  (*Gold share when out (%)*; 0 = none). QLD Trend + bear-dip + Vol uses 50 by default (half GLD, half cash). Tested over 120 neighbouring settings: half GLD / half BIL beat all
+  BIL on Sharpe in all of them for QLD and ROM; the gold-trend filter (gold only while GLD > SMA200) was worse and was
+  not added. Used on QLD Trend + bear-dip + Vol only. The other strategy types already park in gold:
+  regimes in GLD when off, IBS-dip in GLD + T-bills, C2-7 in GLD + SGOV.
 - **QLD Trend + bear-dip + Vol** (added 30 Oct 2026 from *Research on ETF*, ETF Strategy Lab v3): not a new type, but an option
   on Trend + bear-dip (*Volatility filter: percentile*, 0 = off), so the existing strategy is unchanged. The filter compares
   QQQ's 20-day standard deviation of daily changes with its own 80th percentile over the last 252 days, today included (the

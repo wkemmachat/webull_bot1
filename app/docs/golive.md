@@ -24,7 +24,7 @@ protected floor above your free cash, see the next buy blocked, set it back) · 
 
 ## Test trade: buy 1 share, sell it back
 
-On the Go-live page, **Test trade** checks every ETF the strategies use (QLD, USD, UGL, AGQ, GLD, BIL, SGOV and the C2-7 2x ETFs) one by one:
+On the Go-live page, **Test trade** checks every ETF the strategies use (QLD, USD, UGL, AGQ, GLD, SGOV and the C2-7 2x ETFs; BIL only if a strategy is set to park in it) one by one:
 the bot buys 1 share (a limit order a little above the ask, like a strategy lot), waits for the fill, sells it straight
 back and shows the cost, the fees and how long the fill took. It proves Webull accepts the symbol, fills it and reports it
 correctly — before a strategy needs it.

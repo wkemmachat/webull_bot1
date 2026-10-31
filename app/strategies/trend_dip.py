@@ -84,6 +84,11 @@ class TrendDipStrategy(RegimeStrategy):
          "help": "Leveraged ETF held while in"},
         {"key": "cash_symbol", "label": "When out, hold", "kind": "symbol", "default": "BIL", "group": "Symbols",
          "help": "T-bill ETF (the research earned T-bill interest when out)"},
+        {"key": "gold_share_pct", "label": "Gold share when out (%)", "kind": "float", "default": 0.0, "min": 0, "max": 100,
+         "group": "Symbols",
+         "help": "Part of the parked money held in the gold ETF instead (50 = half gold, half T-bills; 0 = all T-bills, as before)"},
+        {"key": "gold_symbol", "label": "Gold ETF", "kind": "symbol", "default": "GLD", "group": "Symbols",
+         "help": "Used only when the gold share is above 0"},
         {"key": "ma_days", "label": "Trend average (days)", "kind": "int", "default": 200, "min": 20, "max": 400, "group": "Rules"},
         {"key": "rsi_len", "label": "RSI length (dips)", "kind": "int", "default": 2, "min": 2, "max": 14, "group": "Rules"},
         {"key": "rsi_buy", "label": "Buy a dip when RSI is below", "kind": "float", "default": 5.0, "min": 1, "max": 30, "group": "Rules"},
@@ -102,7 +107,26 @@ class TrendDipStrategy(RegimeStrategy):
 
     def trade_symbols(self):
         p = self.params
-        return [s for s in (p["trade"], p["cash_symbol"]) if s]
+        return [s for s in (p["trade"], p["cash_symbol"], self.gold_sym()) if s]
+
+    def gold_share(self):
+        try:
+            return min(max(float(self.params.get("gold_share_pct") or 0), 0.0), 100.0) / 100.0
+        except (TypeError, ValueError):
+            return 0.0
+
+    def gold_sym(self):
+        return (self.params.get("gold_symbol") or "GLD") if self.gold_share() > 0 else ""
+
+    def park_text(self):
+        """What the strategy holds when out, e.g. '50% GLD + 50% BIL'."""
+        p, g = self.params, self.gold_share()
+        cash = p["cash_symbol"] or "cash"
+        if g <= 0:
+            return cash
+        if g >= 1:
+            return self.gold_sym()
+        return f"{g * 100:g}% {self.gold_sym()} + {(1 - g) * 100:g}% {cash}"
 
     def frame(self, now) -> pd.DataFrame:
         p = self.params
@@ -132,14 +156,19 @@ class TrendDipStrategy(RegimeStrategy):
         p, buf = self.params, self.buffer()
         if state in ("trend", "dip"):
             return {p["trade"]: round(1 - buf, 4)}
-        return {p["cash_symbol"]: round(1 - buf, 4)} if p["cash_symbol"] else {}
+        g, out = self.gold_share(), {}
+        if g > 0:
+            out[self.gold_sym()] = round((1 - buf) * g, 4)
+        if p["cash_symbol"] and g < 1:
+            out[p["cash_symbol"]] = round((1 - buf) * (1 - g), 4)
+        return out
 
     def is_buy_signal(self, sig: dict) -> bool:
         return sig.get("kind") == "BUY"
 
     def signal_message(self, h):
         word = "BUY" if h["kind"] == "BUY" else "SELL"
-        to = self.params["trade"] if word == "BUY" else self.params["cash_symbol"]
+        to = self.params["trade"] if word == "BUY" else self.park_text()
         return f"{word} · {self.name}\n{h['text']}\nMoves to {to}"
 
     def evaluate(self, now):
@@ -193,18 +222,18 @@ class TrendDipStrategy(RegimeStrategy):
                   "color": STATE_COLOR["trend"]},
                  {"k": "dip", "title": "In · dip trade", "text": f"Below SMA{p['ma_days']}, bought on RSI({p['rsi_len']}) < {p['rsi_buy']:g}; "
                   f"sold on a close above SMA{p['exit_ma']}", "hold": f"100% {p['trade']}", "color": STATE_COLOR["dip"]},
-                 {"k": "out", "title": "Out", "text": f"Below SMA{p['ma_days']}, no dip trade open", "hold": f"100% {p['cash_symbol'] or 'cash'}",
+                 {"k": "out", "title": "Out", "text": f"Below SMA{p['ma_days']}, no dip trade open", "hold": self.park_text() if self.gold_share() > 0 else f"100% {p['cash_symbol'] or 'cash'}",
                   "color": STATE_COLOR["out"]}]
         log_cols = [{"k": "close", "label": p["signal"], "fmt": "n2"}, {"k": "sma_long", "label": f"SMA{p['ma_days']}", "fmt": "n2"},
                     {"k": "sma_exit", "label": f"SMA{p['exit_ma']}", "fmt": "n2"}, {"k": "rsi", "label": f"RSI({p['rsi_len']})", "fmt": "n1"}]
         if self.vol_q() > 0:
             tiles[0]["text"] = f"{p['signal']} above SMA{p['ma_days']} and calm (volatility below its {self.vol_q():g}th percentile)"
             tiles.insert(2, {"k": "volatile", "title": "Out · jumpy", "text": f"Above SMA{p['ma_days']} but volatility above its "
-                             f"{self.vol_q():g}th percentile of the last year", "hold": f"100% {p['cash_symbol'] or 'cash'}",
+                             f"{self.vol_q():g}th percentile of the last year", "hold": self.park_text() if self.gold_share() > 0 else f"100% {p['cash_symbol'] or 'cash'}",
                              "color": STATE_COLOR["volatile"]})
             log_cols += [{"k": "vol", "label": "Vol %", "fmt": "n2"}, {"k": "vol_thr", "label": f"Vol p{self.vol_q():g} %", "fmt": "n2"}]
         label = {"trend": f"IN · {p['trade']} (trend)", "dip": f"IN · {p['trade']} (dip trade)",
-                 "volatile": f"OUT · {p['cash_symbol'] or 'cash'} (jumpy)", "out": f"OUT · {p['cash_symbol'] or 'cash'}"}[state]
+                 "volatile": f"OUT · {self.park_text()} (jumpy)", "out": f"OUT · {self.park_text()}"}[state]
         return {"ok": True, "state": state, "label": label, "target": target,
                 "bar_time": self.close_ts(fr.index[-1]), "signal_time": self.close_ts(fr.index[k]), "price": float(last["c"]),
                 "checks": checks, "history": hist, "next_check": self.next_check(now),
@@ -289,15 +318,16 @@ class TrendDipStrategy(RegimeStrategy):
             f"percentile of the last 252 days) → 100% {p['trade']}; above the average but jumpy → out.",
             f"Below SMA{p['ma_days']}: buy a dip when RSI({p['rsi_len']}) < {p['rsi_buy']:g}; sell it on the first close above "
             f"SMA{p['exit_ma']}.",
-            f"Otherwise → {p['cash_symbol'] or 'cash'}" + (" (T-bills)." if p['cash_symbol'] else "."),
+            (f"Otherwise → {self.park_text()}." if self.gold_share() > 0 else
+             f"Otherwise → {p['cash_symbol'] or 'cash'}" + (" (T-bills)." if p['cash_symbol'] else ".")),
             "Orders start at the next market open, split into lots."],
-            "flow": f"{p['signal']} daily → {p['trade']} · {p['cash_symbol']}",
+            "flow": f"{p['signal']} daily → {p['trade']} · {' · '.join(x for x in (self.gold_sym(), p['cash_symbol'] or 'cash') if x)}",
             "tv": f'"Moving Average" lengths {p["ma_days"]} and {p["exit_ma"]}, "Relative Strength Index" length {p["rsi_len"]} '
                   f'on {p["signal"]} daily' + (f'; volatility: "Historical Volatility" is annualised, so compare the bot\'s '
                                                f'Volatility pane instead' if self.vol_q() > 0 else ''),
             "rule": f"{p['signal']} > SMA{p['ma_days']}" + (" and calm" if self.vol_q() > 0 else "") +
                     f", or RSI({p['rsi_len']}) < {p['rsi_buy']:g} dips below it (exit > SMA{p['exit_ma']}) "
-                    f"→ {p['trade']}, else {p['cash_symbol'] or 'cash'}"}
+                    f"→ {p['trade']}, else {self.park_text()}"}
 
     # ---------------------------------------------------------------- health check: independent recompute
     def check_table(self, now, rows=12):

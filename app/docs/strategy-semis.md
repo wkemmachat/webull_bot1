@@ -10,15 +10,15 @@ After each US close, from SMH's daily closes:
 | State | When | Holds |
 |---|---|---|
 | **2x** | SMH > SMA200, SMA50 > SMA200, 20-day volatility < **40%** | 99% USD |
-| **0.5x** | as 2x but volatility ≥ 40% | 25% USD, 74% BIL |
-| **1x** | SMH > SMA200 but SMA50 ≤ SMA200 | 50% USD, 49% BIL |
+| **0.5x** | as 2x but volatility ≥ 40% | 25% USD, rest cash |
+| **1x** | SMH > SMA200 but SMA50 ≤ SMA200 | 50% USD, rest cash |
 | **Off** | SMH ≤ SMA200 | 99% GLD |
 
 The gate is 40% because semiconductors normally move about 10 points more than the Nasdaq-100.
 
 ## What it holds
 
-USD (ProShares Ultra Semiconductors, 2x), BIL and GLD.
+USD (ProShares Ultra Semiconductors, 2x), GLD and cash. Until 31 Oct 2026 the cash part was held in BIL (T-bills); plain cash did slightly better in every period of the bot's backtest (10 years +56.8% against +56.2%). To go back, set *Cash part goes to* to BIL.
 
 ## When it trades
 

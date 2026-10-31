@@ -64,7 +64,7 @@ def test_seeded_and_evaluates():
     assert s and s.type == "trend_dip" and s.params["signal"] == "QQQ" and s.params["trade"] == "QLD"
     ev = s.evaluate(NOW)
     assert ev["ok"] and ev["state"] in ("trend", "dip", "out")
-    assert ev["target"] in ({"QLD": 0.99}, {"BIL": 0.99})
+    assert ev["target"] in ({"QLD": 0.99}, {})                      # out: cash
     assert all(h["kind"] in ("BUY", "SELL") for h in ev["history"])
     spec = s.chart(NOW)
     assert [c["title"].split()[0] for c in spec["charts"]] == ["QQQ", "QLD"]

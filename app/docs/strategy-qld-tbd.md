@@ -1,7 +1,7 @@
 <!--{"title": "QLD + Trend + bear-dip", "group": "The strategies"}-->
 # QLD + Trend + bear-dip
 
-Holds **QLD (2x Nasdaq-100)** while QQQ is above its 200-day average; below it, only short, sharp RSI(2) dips are bought and sold on the first bounce. T-bills (BIL) the rest of the time. Simple, and the best-checked strategy: the bot's backtest matches the research almost exactly.
+Holds **QLD (2x Nasdaq-100)** while QQQ is above its 200-day average; below it, only short, sharp RSI(2) dips are bought and sold on the first bounce. Cash the rest of the time. Simple, and the best-checked strategy: the bot's backtest matches the research almost exactly.
 
 ## How it decides
 
@@ -11,11 +11,13 @@ After each US close, from QQQ's daily closes:
 |---|---|---|
 | **In · trend** | QQQ closes above its SMA200 | 99% QLD |
 | **In · dip trade** | below SMA200, a dip trade opens when RSI(2) < 5 and closes on the first close above SMA5 | 99% QLD |
-| **Out** | below SMA200 and no dip trade | 99% BIL |
+| **Out** | below SMA200 and no dip trade | cash |
 
 ## What it holds
 
-QLD (2x Nasdaq-100) or BIL (T-bills). Nothing else.
+QLD (2x Nasdaq-100) or cash. Nothing else. Until 31 Oct 2026 the cash waited in BIL (T-bills); plain cash saves 0.22% in fees on every round trip and did slightly better in every period of the bot's backtest (10 years +37.3% / −42.4% against +36.5% / −42.7%; since 2007 +31.7% against +30.5%). The tables below are from the BIL version. To go back, set *When out, hold* to BIL.
+
+Option: *Gold share when out (%)* in Parameters holds part of the parked money in GLD (0 = all cash, the default). On this strategy it adds a little return but deepens the worst fall: 10 years +37.3% / −42.4% with 0%, +39.2% / −44.2% with 50% (bot backtest, 26 Oct 2026). It helps more on [QLD Trend + bear-dip + Vol](#/docs/strategy-qld-tbdv), which is out more often.
 
 ## When it trades
 

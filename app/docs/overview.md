@@ -10,10 +10,10 @@ sends every order as **split lots from a start time you choose**, tells you on *
 | Gold #2 · Supertrend 30/2.5 | COMEX gold GC=F | UGL · cash | 4H bars |
 | Silver #1 · Donchian 30/15 | COMEX silver SI=F | AGQ (2x silver) · cash | 4H bars |
 | Silver #2 · Supertrend 10/3 | COMEX silver SI=F | AGQ · cash | 4H bars |
-| QLD regime | QQQ daily | QLD (2x Nasdaq) · BIL · GLD | daily, after the US close |
-| 2x Semis regime | SMH daily | USD (2x semis) · BIL · GLD | daily, after the US close |
-| QLD + Trend + bear-dip | QQQ daily | QLD · BIL | daily, after the US close |
-| QLD Trend + bear-dip + Vol | QQQ daily + its 20-day volatility | QLD · BIL | daily, after the US close |
+| QLD regime | QQQ daily | QLD (2x Nasdaq) · GLD · cash | daily, after the US close |
+| 2x Semis regime | SMH daily | USD (2x semis) · GLD · cash | daily, after the US close |
+| QLD + Trend + bear-dip | QQQ daily | QLD · cash | daily, after the US close |
+| QLD Trend + bear-dip + Vol | QQQ daily + its 20-day volatility | QLD · half GLD + half cash | daily, after the US close |
 | QLD Trend + IBS-dip | QLD daily (own price) + QQQ volatility | QLD (size capped) · GLD · cash | daily, after the US close |
 | USD Trend + IBS-dip | USD daily (own price and volatility) | USD (2x chips, size capped, 100% on dip days) · GLD · cash | daily, after the US close |
 | ROM Trend + RSI(2) | IYW daily | ROM (2x US tech) · cash | daily, after the US close |
@@ -23,7 +23,7 @@ sends every order as **split lots from a start time you choose**, tells you on *
 ## How a trade happens
 
 1. Every 30 seconds the bot refreshes prices and **evaluates every strategy**. A strategy never trades by itself: it says what it
-   wants to hold, its **target** (for example *99% UGL*, or *25% QLD + 74% BIL*).
+   wants to hold, its **target** (for example *99% UGL*, or *25% QLD, the rest cash*).
 2. When the target changes, or a holding drifts more than the rebalance band from it (for example after you add money), the bot
    makes a **plan**: N rounds of limit orders, M minutes apart, from the start time. In each round sells go first, then buys.
 3. Each lot is a limit order slightly through the market. A lot that does not fill is cancelled and re-sent at a fresh price,

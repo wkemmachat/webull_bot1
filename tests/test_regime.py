@@ -16,6 +16,9 @@ def qld():
 
 def test_targets_for_each_state(qld):
     assert qld.target_for("2x") == {"QLD": 0.99}
+    assert qld.target_for("0.5x") == {"QLD": 0.25}                 # the rest stays cash (default since 31 Oct 2026)
+    assert qld.target_for("1x") == {"QLD": 0.5}
+    qld.params = dict(qld.params, cash_symbol="BIL")                 # the old T-bill parking still works
     assert qld.target_for("0.5x") == {"QLD": 0.25, "BIL": 0.74}
     assert qld.target_for("1x") == {"QLD": 0.5, "BIL": 0.49}
     assert qld.target_for("off") == {"GLD": 0.99}

@@ -22,11 +22,11 @@ DEFAULTS = [
     ("silver_st", "supertrend", "Silver #2 · Supertrend 10/3", "#8592A3",
      {"symbol": "SI", "atr": 10, "mult": 3.0, "adx_min": 0, "etf": "AGQ", "cash_etf": ""}, {}),
     ("qld_regime", "regime", "QLD regime", "#5B8DEF",
-     {"signal": "QQQ", "trade": "QLD", "off_symbol": "GLD", "cash_symbol": "BIL", "vol_gate_pct": 30}, {}),
+     {"signal": "QQQ", "trade": "QLD", "off_symbol": "GLD", "cash_symbol": "", "vol_gate_pct": 30}, {}),
     ("semis_regime", "regime", "2x Semis regime", "#B084F5",
-     {"signal": "SMH", "trade": "USD", "off_symbol": "GLD", "cash_symbol": "BIL", "vol_gate_pct": 40}, {}),
+     {"signal": "SMH", "trade": "USD", "off_symbol": "GLD", "cash_symbol": "", "vol_gate_pct": 40}, {}),
     ("qld_tbd", "trend_dip", "QLD + Trend + bear-dip", "#3DC9C0",
-     {"signal": "QQQ", "trade": "QLD", "cash_symbol": "BIL", "ma_days": 200, "rsi_len": 2, "rsi_buy": 5.0, "exit_ma": 5}, {}),
+     {"signal": "QQQ", "trade": "QLD", "cash_symbol": "", "ma_days": 200, "rsi_len": 2, "rsi_buy": 5.0, "exit_ma": 5}, {}),
     ("c27_mom", "momentum_basket", "C2-7 Momentum 1x", "#E8875A", {"leverage": "1x"}, {}),
     ("c27_mom2x", "momentum_basket", "C2-7 Momentum 2x", "#9BCB4E", {"leverage": "2x"}, {}),
     ("qld_ibs", "ibs_dip", "QLD Trend + IBS-dip", "#E46AA8",
@@ -39,8 +39,8 @@ DEFAULTS = [
     ("rom_tbd", "trend_dip", "ROM Trend + RSI(2)", "#20C997",
      {"signal": "IYW", "trade": "ROM", "cash_symbol": "", "ma_days": 150, "rsi_len": 2, "rsi_buy": 5.0, "exit_ma": 10}, {}),
     ("qld_tbdv", "trend_dip", "QLD Trend + bear-dip + Vol", "#7FDBCA",
-     {"signal": "QQQ", "trade": "QLD", "cash_symbol": "BIL", "ma_days": 200, "rsi_len": 2, "rsi_buy": 5.0, "exit_ma": 5,
-      "vol_gate_q": 80.0, "vol_days": 20}, {}),
+     {"signal": "QQQ", "trade": "QLD", "cash_symbol": "", "ma_days": 200, "rsi_len": 2, "rsi_buy": 5.0, "exit_ma": 5,
+      "vol_gate_q": 80.0, "vol_days": 20, "gold_share_pct": 50.0, "gold_symbol": "GLD"}, {}),
 ]
 # Earlier defaults: a strategy still on exactly these settings is moved to the new ones once (lower-cost versions, 26 Oct 2026:
 # IBS-dip T-bill half as cash + QLD IBS < 0.15; metals flat in cash instead of SGOV).
@@ -56,7 +56,17 @@ UPGRADES = [
     ("lowcost_metals_2026_10", "gold_st30", {"symbol": "GC", "atr": 30, "mult": 2.5, "adx_min": 0, "etf": "UGL", "cash_etf": "SGOV"}),
     ("lowcost_metals_2026_10", "silver_dc", {"symbol": "SI", "entry": 30, "exit": 15, "etf": "AGQ", "cash_etf": "SGOV"}),
     ("lowcost_metals_2026_10", "silver_st", {"symbol": "SI", "atr": 10, "mult": 3.0, "adx_min": 0, "etf": "AGQ", "cash_etf": "SGOV"}),
+    # 31 Oct 2026: park in cash instead of BIL (each BIL round trip costs 0.22% in fees; plain cash won in every period of the
+    # bot's backtest), and QLD Trend + bear-dip + Vol parks half in gold.
+    ("cash_parking_2026_10", "qld_regime", {"signal": "QQQ", "trade": "QLD", "off_symbol": "GLD", "cash_symbol": "BIL", "vol_gate_pct": 30}),
+    ("cash_parking_2026_10", "semis_regime", {"signal": "SMH", "trade": "USD", "off_symbol": "GLD", "cash_symbol": "BIL", "vol_gate_pct": 40}),
+    ("cash_parking_2026_10", "qld_tbd",
+     {"signal": "QQQ", "trade": "QLD", "cash_symbol": "BIL", "ma_days": 200, "rsi_len": 2, "rsi_buy": 5.0, "exit_ma": 5}),
+    ("cash_parking_2026_10", "qld_tbdv",
+     {"signal": "QQQ", "trade": "QLD", "cash_symbol": "BIL", "ma_days": 200, "rsi_len": 2, "rsi_buy": 5.0, "exit_ma": 5,
+      "vol_gate_q": 80.0, "vol_days": 20}),
 ]
+UPGRADE_WHY = {"cash_parking_2026_10": "Parks in cash instead of BIL (each BIL round trip cost 0.22% in fees)"}
 PALETTE = ["#3DC9C0", "#E8875A", "#E46AA8", "#9BCB4E", "#F2C14E", "#5B8DEF", "#B084F5"]
 
 
@@ -111,7 +121,7 @@ def upgrade_defaults() -> list:
         db.run("UPDATE strategies SET params=?, updated_at=? WHERE id=?", (json.dumps(new[4]), int(time.time()), sid))
         changes = {k: v for k, v in cls.merge_params(new[4]).items() if cls.merge_params(old).get(k) != v}
         db.add_event("info", "strategy", f"{r['name']}: settings updated to the new default",
-                     "Lower-cost version (Webull fee 0.107% per trade): " + ", ".join(f"{k} → {v if v != '' else 'cash'}" for k, v in changes.items()),
+                     UPGRADE_WHY.get(key, "Lower-cost version (Webull fee 0.107% per trade)") + ": " + ", ".join(f"{k} → {v if v != '' else 'cash'}" for k, v in changes.items()),
                      strategy=sid)
         moved.append(sid)
     db.set_state("upgrades_done", sorted(seen))
