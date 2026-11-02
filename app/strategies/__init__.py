@@ -77,6 +77,8 @@ UPGRADES = [
       "vol_gate_q": 80.0, "vol_days": 20}),
 ]
 UPGRADE_WHY = {"cash_parking_2026_10": "Parks in cash instead of BIL (each BIL round trip cost 0.22% in fees)"}
+# Added with LINE alerts off: they hold no money until you move some to them (turn LINE on in the strategy when you do).
+QUIET_DEFAULTS = {"usd_smh_ibs", "rom_vol_ibs"}
 PALETTE = ["#3DC9C0", "#E8875A", "#E46AA8", "#9BCB4E", "#F2C14E", "#5B8DEF", "#B084F5"]
 
 
@@ -104,7 +106,8 @@ def seed() -> list:
                 continue
             c.execute("INSERT INTO strategies(id,type,name,color,params,exec,control,line_on,archived,sort,created_at,updated_at) "
                       "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
-                      (sid, typ, name, color, json.dumps(params), json.dumps(ex), "active", 1, 0, max(k, n), now, now))
+                      (sid, typ, name, color, json.dumps(params), json.dumps(ex), "active", 0 if sid in QUIET_DEFAULTS else 1, 0,
+                       max(k, n), now, now))
             added.append(sid)
     db.set_state("seeded_defaults", sorted(done | {d[0] for d in DEFAULTS}))
     upgrade_defaults()

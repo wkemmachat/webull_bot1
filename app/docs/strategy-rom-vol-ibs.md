@@ -3,7 +3,7 @@
 
 Holds **ROM (ProShares Ultra Technology, 2x US tech)** while the 1x tech ETF **IYW** is above its 150-day exponential average and calm. Below the average it buys RSI(2) dip trades and one-day dips after ROM closes near the low of its day. Cash the rest of the time. It is challenger **R1** of the research *2x ETF Strategy Challengers* (2 Nov 2026), the ROM strategy that held up best in the stress tests, and is meant to replace [ROM Trend + RSI(2)](#/docs/strategy-rom-tbd).
 
-Added on 2 Nov 2026 **with no money**. It trades only after you move money to it (Money → Move).
+Added on 2 Nov 2026 **with no money**. It trades only after you move money to it (Money → Move), and its LINE alerts start off: turn LINE on in the strategy when you give it money.
 
 ## How it decides
 

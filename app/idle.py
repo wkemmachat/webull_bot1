@@ -48,7 +48,7 @@ def is_in(s, target: dict) -> bool:
 def next_buy_text(s, st: dict) -> str:
     """Plain words: what the strategy's next BUY signal is from here."""
     p, det, state = s.params, st.get("detail") or {}, st.get("state")
-    if s.family == "regime":
+    if s.type == "regime":
         sig, ma = p.get("signal"), p.get("ma_days")
         if state == "off":
             return (f"The next buy is {sig} closing above its SMA{ma}" + (f" ({det['sma_long']:,.2f}; last close {det['close']:,.2f})"

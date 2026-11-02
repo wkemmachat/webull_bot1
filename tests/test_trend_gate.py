@@ -184,6 +184,7 @@ def test_new_defaults_added_once_to_an_existing_install():
     assert sorted(S.seed()) == ["rom_vol_ibs", "usd_smh_ibs"]
     assert S.seed() == []
     assert S.get("usd_smh_ibs").params["ma_days"] == 125
+    assert S.get("usd_smh_ibs").row["line_on"] == 0 and S.get("rom_vol_ibs").row["line_on"] == 0   # LINE off while no money
 
 
 def test_paper_plan_reaches_a_capped_target(clean, clock):
@@ -236,3 +237,30 @@ def test_pages_and_api_for_the_new_strategies(clean, clock):
             assert doc in [x["name"] for x in c.get("/api/docs").json()["docs"]]
         assert c.get("/api/expected?mode=paper").status_code == 200
         assert c.post("/api/health/run").status_code == 200
+
+
+def test_a_missing_bar_does_not_move_the_averages(monkeypatch):
+    """One ETF day missing from the data: the signal's averages and volatility still come from its own full series."""
+    dfs = fake_market(monkeypatch, 11, "IYW", "ROM")
+    full = strat(R1).frame(NOW)
+    gap = dfs["ROM"].index[-50]
+    dfs["ROM"] = dfs["ROM"].drop(gap)
+    part = strat(R1).frame(NOW)
+    assert gap not in part.index and len(part) == len(full) - 1
+    same = full.drop(gap)
+    assert np.allclose(part["ma"].values, same["ma"].values, equal_nan=True)
+    assert np.allclose(part["vol_thr"].values, same["vol_thr"].values, equal_nan=True)
+
+
+def test_health_check_replays_sizes(monkeypatch):
+    fake_market(monkeypatch, 12, "SMH", "USD")
+    s = strat(U1)
+    cols, rows, worst = s.check_table(NOW, rows=400)
+    assert "Size bot / check" in cols and worst < 1e-6
+    assert len({r["vals"][-1] for r in rows}) > 3                    # several different sizes were checked
+
+
+def test_average_type_is_checked():
+    with pytest.raises(ValueError):
+        S.TYPES["trend_gate"].merge_params({**R1, "ma_type": "WMA"})
+    assert S.TYPES["trend_gate"].merge_params({**R1, "ma_type": "ema"})["ma_type"] == "EMA"

@@ -3,7 +3,7 @@
 
 Holds **USD (ProShares Ultra Semiconductors, 2x chips)** while the 1x chip ETF **SMH** is above its 125-day average and calm, sized by USD's own volatility. When SMH is below its average, it buys USD for **one day** after SMH closes near the bottom of its day. Cash the rest of the time. It is challenger **U1** of the research *2x ETF Strategy Challengers* (2 Nov 2026), the USD strategy that held up best in the stress tests, and is meant to replace [USD Trend + IBS-dip](#/docs/strategy-usd-ibs).
 
-Added on 2 Nov 2026 **with no money**. It trades only after you move money to it (Money → Move).
+Added on 2 Nov 2026 **with no money**. It trades only after you move money to it (Money → Move), and its LINE alerts start off: turn LINE on in the strategy when you give it money.
 
 ## How it decides
 

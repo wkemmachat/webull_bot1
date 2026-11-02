@@ -118,6 +118,15 @@ class TrendGateDipStrategy(RegimeStrategy):
          "help": "Between signals, trade only when a holding drifts this far from its target"},
     ]
 
+    @classmethod
+    def merge_params(cls, given: dict) -> dict:
+        out = super().merge_params(given)
+        t = str(out.get("ma_type") or "").strip().upper()
+        if t not in ("SMA", "EMA"):
+            raise ValueError(f"Trend average type: SMA or EMA (not {out.get('ma_type')})")
+        out["ma_type"] = t
+        return out
+
     # ---------------------------------------------------------------- symbols
     def dip_sym(self):
         return self.params.get("dip_ibs_symbol") or self.params["trade"]
@@ -198,34 +207,41 @@ class TrendGateDipStrategy(RegimeStrategy):
             if df is None or df.empty:
                 raise md.DataError(f"No daily bars of {s}")
             dfs[s] = df[~df.index.duplicated(keep="last")]
-        idx = dfs[p["signal"]].index
-        for s, df in dfs.items():
-            idx = idx.intersection(df.index)          # only days where every symbol the rule reads has a closed bar
+        # Indicators come from each symbol's own full series (a day missing from one symbol must not shift another symbol's
+        # averages); decisions are made only on days where every symbol the rule reads has a closed bar.
+        sg = dfs[p["signal"]]
+        cs = sg["c"].astype(float).values
+        ma_s = I.ema(cs, p["ma_days"]) if p["ma_type"] == "EMA" else I.sma(cs, p["ma_days"])
+        sexit_s = I.sma(cs, p["exit_ma"])
+        rsi_s = I.rsi(cs, p["rsi_len"])
+        if p["vol_gate_q"] > 0:
+            calm_s, vol_s, thr_s = vol_gate(cs, p["vol_gate_q"], p["vol_days"], p["vol_lookback"])
+            ready_s = ~np.isnan(thr_s)
+        else:
+            calm_s, vol_s, thr_s = np.ones(len(cs), dtype=bool), np.full(len(cs), np.nan), np.full(len(cs), np.nan)
+            ready_s = np.ones(len(cs), dtype=bool)
+        ok_s = ~np.isnan(ma_s) & ready_s
+        up_s = ok_s & (cs > np.nan_to_num(ma_s, nan=np.inf))
+        rsi_on_s = rsi_dips(cs, rsi_s, sexit_s, ok_s & ~up_s, p["rsi_buy"]) if p["rsi_buy"] > 0 else np.zeros(len(cs), dtype=bool)
+        tc_full = dfs[p["trade"]]["c"].astype(float)
+        tvol_full = tc_full.pct_change(fill_method=None).rolling(p["size_vol_days"]).std() * math.sqrt(252)
+        idx = sg.index
+        for df in dfs.values():
+            idx = idx.intersection(df.index)
         need = max(p["ma_days"], p["vol_lookback"] + p["vol_days"], p["size_vol_days"]) + 2
         if len(idx) < need:
             raise md.DataError(f"Need {need} daily bars of {', '.join(dfs)} on the same days, have {len(idx)}")
-        sig = dfs[p["signal"]].reindex(idx)
-        tr = dfs[p["trade"]].reindex(idx)
-        c = sig["c"].astype(float).values
-        ma = I.ema(c, p["ma_days"]) if p["ma_type"] == "EMA" else I.sma(c, p["ma_days"])
-        sexit = I.sma(c, p["exit_ma"])
-        rsi = I.rsi(c, p["rsi_len"])
-        if p["vol_gate_q"] > 0:
-            calm, vol, thr = vol_gate(c, p["vol_gate_q"], p["vol_days"], p["vol_lookback"])
-            ready = ~np.isnan(thr)
-        else:
-            calm, vol, thr = np.ones(len(c), dtype=bool), np.full(len(c), np.nan), np.full(len(c), np.nan)
-            ready = np.ones(len(c), dtype=bool)
-        ok = ~np.isnan(ma) & ready
-        up = ok & (c > np.nan_to_num(ma, nan=np.inf))
+        pos = sg.index.get_indexer(idx)
+
+        def on(a):
+            return np.asarray(a)[pos]
+        sig = sg.reindex(idx)
+        c, ma, sexit, rsi = on(cs), on(ma_s), on(sexit_s), on(rsi_s)
+        calm, vol, thr, ok, up, rsi_on = on(calm_s), on(vol_s), on(thr_s), on(ok_s), on(up_s), on(rsi_on_s)
         trend = up & calm
         jumpy = up & ~calm
         out_day = ok & ~up
-        dip = np.zeros(len(c), dtype=bool)
-        rsi_on = np.zeros(len(c), dtype=bool)
-        if p["rsi_buy"] > 0:
-            rsi_on = rsi_dips(c, rsi, sexit, out_day, p["rsi_buy"])
-            dip |= rsi_on
+        dip = rsi_on.copy()
         ibs_d = ibs_of(dfs[self.dip_sym()].reindex(idx)) if p["dip_ibs_max"] > 0 else np.full(len(c), np.nan)
         ibs_j = ibs_of(dfs[self.jumpy_sym()].reindex(idx)) if p["jumpy_ibs_max"] > 0 else np.full(len(c), np.nan)
         ibs_dip = np.zeros(len(c), dtype=bool)
@@ -237,8 +253,7 @@ class TrendGateDipStrategy(RegimeStrategy):
             jumpy_dip = jumpy & (ibs_j < p["jumpy_ibs_max"])
             dip |= jumpy_dip
         dip &= ok
-        tc = tr["c"].astype(float)
-        tvol = (tc.pct_change().rolling(p["size_vol_days"]).std() * math.sqrt(252)).values
+        tvol = tvol_full.reindex(idx).values
         if self.sized():
             with np.errstate(invalid="ignore", divide="ignore"):
                 raw = np.minimum(1.0, (p["target_vol_pct"] / 100) / tvol)
@@ -491,7 +506,7 @@ class TrendGateDipStrategy(RegimeStrategy):
                 f"{p['vol_lookback']} days)") if p["vol_gate_q"] > 0 else ""
         size = (f"min(100%, {p['target_vol_pct']:g}% ÷ {p['trade']} {p['size_vol_days']}-day volatility), resized only on a move over "
                 f"{p['size_band_pct']:g} points") if self.sized() else "100%"
-        rules = [f"After each US close, read {p['signal']}'s daily bar: {self.ma_name()}" + (f", volatility" if p["vol_gate_q"] > 0 else "")
+        rules = [f"After each US close, read {p['signal']}'s daily bar: {self.ma_name()}" + (", volatility" if p["vol_gate_q"] > 0 else "")
                  + (f", RSI({p['rsi_len']}) and SMA{p['exit_ma']}" if p["rsi_buy"] > 0 else "") + ".",
                  f"Trend: close > {self.ma_name()}{gate} → {p['trade']} at {size}."]
         if p["rsi_buy"] > 0:
@@ -520,13 +535,15 @@ class TrendGateDipStrategy(RegimeStrategy):
 
     # ---------------------------------------------------------------- health check: independent recompute
     def check_table(self, now, rows=12):
-        """Recompute the last `rows` decisions the long way (plain loops, no app.indicators) and compare."""
+        """Recompute the last `rows` decisions the long way (plain loops, no app.indicators) and compare state and size."""
         p = self.params
         fr = self.frame(now)
-        c = fr["c"].values.astype(float).tolist()
+        sg = md.daily_closed(p["signal"], now)
+        sg = sg[~sg.index.duplicated(keep="last")]
+        c = sg["c"].astype(float).tolist()
         n = len(c)
         L = p["ma_days"]
-        # trend average
+        # trend average on the signal's own full series
         ma = [float("nan")] * n
         if p["ma_type"] == "EMA":
             a = 2.0 / (L + 1)
@@ -552,10 +569,10 @@ class TrendGateDipStrategy(RegimeStrategy):
                     calm[i], ready[i] = False, False
                     continue
                 srt = sorted(win)
-                pos = (len(srt) - 1) * vq / 100.0
-                lo = int(pos)
+                q = (len(srt) - 1) * vq / 100.0
+                lo = int(q)
                 hi = min(lo + 1, len(srt) - 1)
-                calm[i] = sd[i] < srt[lo] + (srt[hi] - srt[lo]) * (pos - lo)
+                calm[i] = sd[i] < srt[lo] + (srt[hi] - srt[lo]) * (q - lo)
         # RSI the long way (Wilder averages seeded with a simple mean)
         k = p["rsi_len"]
         rs = [float("nan")] * n
@@ -567,49 +584,83 @@ class TrendGateDipStrategy(RegimeStrategy):
                 ag = (ag * (k - 1) + gains[i]) / k
                 al = (al * (k - 1) + losses[i]) / k
             rs[i] = 50.0 if (al == 0 and ag == 0) else (100.0 if al == 0 else 100 - 100 / (1 + ag / al))
-        # IBS straight from the stored bars
-        def ibs_list(sym):
-            d = md.daily_closed(sym, now).reindex(fr.index)
-            out = []
-            for h_, l_, c_ in zip(d["h"].values, d["l"].values, d["c"].values):
-                rg = h_ - l_
-                out.append(round((c_ - l_) / rg, 4) if rg > 0 else 0.5)
-            return out
-        ibd = ibs_list(self.dip_sym()) if p["dip_ibs_max"] > 0 else [1.0] * n
-        ibj = ibs_list(self.jumpy_sym()) if p["jumpy_ibs_max"] > 0 else [1.0] * n
-        # replay the rule (sizes not replayed: the size is compared through the state and its target only)
-        state, on = [], False
+        # RSI dip trades replayed on every signal day
+        okd, upd, rsi_on, on = [False] * n, [False] * n, [False] * n, False
         for i in range(n):
-            ok = ma[i] == ma[i] and ready[i]
-            up = ok and c[i] > ma[i]
+            okd[i] = ma[i] == ma[i] and ready[i]
+            upd[i] = okd[i] and c[i] > ma[i]
             se = sum(c[i - p["exit_ma"] + 1:i + 1]) / p["exit_ma"] if i >= p["exit_ma"] - 1 else float("nan")
             if p["rsi_buy"] > 0:
                 if on and se == se and c[i] > se:
                     on = False
-                elif not on and ok and not up and rs[i] == rs[i] and rs[i] < p["rsi_buy"]:
+                elif not on and okd[i] and not upd[i] and rs[i] == rs[i] and rs[i] < p["rsi_buy"]:
                     on = True
-            d = on or (ok and not up and p["dip_ibs_max"] > 0 and ibd[i] < p["dip_ibs_max"]) or \
-                (up and not calm[i] and p["jumpy_ibs_max"] > 0 and ibj[i] < p["jumpy_ibs_max"])
+            rsi_on[i] = on
+
+        ibs_src = {}
+
+        def ibs_at(sym, day):
+            if sym not in ibs_src:
+                ibs_src[sym] = md.daily_closed(sym, now)
+            r = ibs_src[sym].loc[day]
+            if isinstance(r, pd.DataFrame):
+                r = r.iloc[-1]
+            rg = r["h"] - r["l"]
+            return round((r["c"] - r["l"]) / rg, 4) if rg > 0 else 0.5
+        # trade ETF volatility the long way, for the size
+        tr = md.daily_closed(p["trade"], now)
+        tr = tr[~tr.index.duplicated(keep="last")]
+        tcl = tr["c"].astype(float).tolist()
+        tpos = {d: i for i, d in enumerate(tr.index)}
+        vdz = p["size_vol_days"]
+
+        def tvol(day):
+            j = tpos[day]
+            if j < vdz:
+                return float("nan")
+            ch = [tcl[x] / tcl[x - 1] - 1 for x in range(j - vdz + 1, j + 1)]
+            m = sum(ch) / vdz
+            return (sum((x - m) ** 2 for x in ch) / (vdz - 1)) ** 0.5 * 252 ** 0.5
+        spos = {d: i for i, d in enumerate(sg.index)}
+        state, size, held = [], [], 0.0
+        for day in fr.index:
+            i = spos[day]
+            ok, up = okd[i], upd[i]
+            d = rsi_on[i] or (ok and not up and p["dip_ibs_max"] > 0 and ibs_at(self.dip_sym(), day) < p["dip_ibs_max"]) or \
+                (up and not calm[i] and p["jumpy_ibs_max"] > 0 and ibs_at(self.jumpy_sym(), day) < p["jumpy_ibs_max"])
+            d = d and ok
+            tr_on = up and calm[i]
+            if tr_on and self.sized():
+                v = tvol(day)
+                if v == v:
+                    raw = min(1.0, (p["target_vol_pct"] / 100) / v)
+                    if held == 0 or abs(raw - held) > p["size_band_pct"] / 100:
+                        held = round(raw, 2)
+                else:
+                    held = 0.0
+            else:
+                held = 1.0 if tr_on else 0.0
+            sz = 1.0 if d else held
             if not ok:
                 state.append("")
-            elif d:
-                state.append("dip")
-            elif up and calm[i]:
-                state.append("trend")
-            elif up:
-                state.append("volatile")
+                size.append(0.0)
             else:
-                state.append("out")
-        cols = ["Close", f"{self.ma_name()} · bot", f"{self.ma_name()} · check", "Calm bot / check", "State bot / check"]
+                state.append("dip" if d else "trend" if tr_on and sz > 0 else "volatile" if up and not tr_on else "out")
+                size.append(sz)
+        cols = ["Close", f"{self.ma_name()} · bot", f"{self.ma_name()} · check", "Calm bot / check", "State bot / check",
+                "Size bot / check"]
         out, worst = [], 0.0
-        for i in range(n - rows, n):
-            a_ = float(fr["ma"].iloc[i])
-            bv = fr["vol"].iloc[i] < fr["vol_thr"].iloc[i] if vq > 0 else True
-            sb = fr["state"].iloc[i]
+        m = len(fr)
+        for j in range(m - rows, m):
+            i = spos[fr.index[j]]
+            a_ = float(fr["ma"].iloc[j])
+            bv = bool(fr["vol"].iloc[j] < fr["vol_thr"].iloc[j]) if vq > 0 else True
+            sb, zb = fr["state"].iloc[j], float(fr["size"].iloc[j])
             diff = abs(a_ - ma[i]) / ma[i]
-            if bool(bv) != bool(calm[i]) or sb != state[i]:
+            if bv != bool(calm[i]) or sb != state[j] or abs(zb - size[j]) > 1e-9:
                 diff = max(diff, 1.0)
             worst = max(worst, diff)
-            out.append({"t": int(pd.Timestamp(fr.index[i]).timestamp()),
-                        "vals": [c[i], a_, ma[i], f"{bool(bv)} / {bool(calm[i])}", f"{sb} / {state[i]}"], "ok": diff < 1e-6})
+            out.append({"t": int(pd.Timestamp(fr.index[j]).timestamp()),
+                        "vals": [c[i], a_, ma[i], f"{bv} / {bool(calm[i])}", f"{sb} / {state[j]}", f"{zb * 100:.0f}% / {size[j] * 100:.0f}%"],
+                        "ok": diff < 1e-6})
         return cols, out, worst
