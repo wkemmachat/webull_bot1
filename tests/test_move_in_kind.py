@@ -216,3 +216,41 @@ def test_extra_shares_stay_inside_half_the_band(clean, clock):
         S.update(B, params={"rebalance_band_pct": band})
     assert r["status"] == "pending"                                                 # the rest is sold, not over-weighted:
     assert 0.99 * 2500 < r["in_kind_value"] <= (0.99 + 0.005) * 2500 + 0.01        # at most half the 1% band above target
+
+
+def test_rest_that_throws_does_not_freeze_the_receiver(clean, clock, monkeypatch):
+    setup(clock)
+    set_target(B, {"ROM": 0.5})
+    db.run("UPDATE ledger SET cash=0 WHERE mode='paper' AND strategy=?", (A,))
+
+    def boom(*a, **k):
+        raise RuntimeError("database is locked")
+    monkeypatch.setattr(X, "build_plan", boom)
+    r = moneyops.move("paper", A, B, 4000)
+    assert r["status"] == "done" and "database is locked" in r["warning"]
+    assert not db.rows("SELECT * FROM money WHERE status='pending'")                # the rest's row is marked failed
+    assert db.one("SELECT COUNT(*) n FROM money WHERE status='failed' AND other=?", (B,))["n"] == 1
+    assert not ledger.move_rest_pending("paper", B)
+
+
+def test_a_new_signal_does_not_wait_for_the_rest(clean, clock):
+    setup(clock)
+    set_target(B, {"ROM": 0.5})
+    db.run("UPDATE ledger SET cash=0 WHERE mode='paper' AND strategy=?", (A,))
+    r = moneyops.move("paper", A, B, 4000)
+    assert r["status"] == "pending"
+    s, b = S.get(B), brokers.get("paper")
+    ev = dict(s.evaluate(clock.dt), ok=True)
+    assert X.reconcile("paper", s, dict(ev, target={"ROM": 0.5}), clock.dt, b, db.get_settings()) is None   # same signal: waits
+    pid = X.reconcile("paper", s, dict(ev, target={}), clock.dt, b, db.get_settings())                    # an exit: sells now
+    assert pid and db.one("SELECT reason FROM plans WHERE id=?", (pid,))["reason"] in ("signal", "stop")
+
+
+def test_money_actions_do_not_overlap(clean):
+    assert moneyops._MONEY.acquire(blocking=False)
+    import threading
+    out = {}
+    t = threading.Thread(target=lambda: out.setdefault("e", pytest.raises(ValueError, moneyops.withdraw, "paper", A, 100)))
+    t.start(); t.join()
+    moneyops._MONEY.release()
+    assert "Another money action" in str(out["e"].value)

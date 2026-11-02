@@ -1075,9 +1075,9 @@ def reconcile(mode, strat, ev, now, broker, settings):
     L = ledger.get(mode, strat.id)
     if (L["cap_in"] or 0) <= 0 and L["cash"] <= 0 and not L["holdings"]:
         return None
-    if control != "stopping" and ledger.move_rest_pending(mode, strat.id):
+    if control != "stopping" and ledger.move_rest_pending(mode, strat.id, ev["target"]):
         return None                                     # Move as shares: wait for the rest (cash) before trading, so the
-                                                        # shares just received are not sold and bought back
+                                                        # shares just received are not sold and bought back (same signal)
     target = dict(ev["target"])
     if hasattr(strat, "fallback_for"):                  # e.g. a 2x ETF Webull refuses → hold the stock itself
         blk0 = blocked_symbols(mode)

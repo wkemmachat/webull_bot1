@@ -197,8 +197,8 @@
 - **Move as shares** (3 Nov 2026, your request after the ROM move sold ROM on Webull only for the new ROM strategy to buy it
   back): *Move* first hands over the shares the receiving strategy wants too, inside the bot at the bot's own valuation
   price (so neither strategy's profit changes), with no Webull order and no fee, so it also works when the market is closed.
-  Only the rest is raised as before (cash first, then a split sell plan), and the receiving strategy does not trade until
-  that cash arrives. It takes up to its current target of that symbol, or a little more (at most half its band and 2%) when
+  Only the rest is raised as before (cash first, then a split sell plan), and the receiving strategy does not trade on the
+  same signal until that cash arrives (a new signal trades at once; the wait ends with the sell plan, however it ends). It takes up to its current target of that symbol, or a little more (at most half its band and 2%) when
   the sending strategy has too little cash for the rest; a rest smaller than one share (or $5) makes the move that much
   smaller rather than sell a crumb. If the rest cannot be raised, the shares stay moved and the screen and LINE say so.
   Not used for *wait for the next buy signal*, when the receiving strategy is not Active or its last check failed, or while

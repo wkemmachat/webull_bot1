@@ -14,12 +14,32 @@ To Webull  bot unassigned → the account; the bot stops using it (to take it ou
 """
 from __future__ import annotations
 
+import functools
 import json
+import logging
 import math
+import threading
 import time
 
 from . import brokers, db, execution, ledger, marketdata as md, notify
 from . import strategies as S
+
+log = logging.getLogger(__name__)
+_MONEY = threading.RLock()
+
+
+def _one_at_a_time(fn):
+    """Money actions never overlap (a move waits off the web app's thread, so a withdraw could otherwise run at the same
+    time and both would count the same free cash). A second one is refused at once rather than waiting."""
+    @functools.wraps(fn)
+    def run(*a, **k):
+        if not _MONEY.acquire(blocking=False):
+            raise ValueError("Another money action is still running. Try again in a moment.")
+        try:
+            return fn(*a, **k)
+        finally:
+            _MONEY.release()
+    return run
 
 
 def account_cash(mode: str):
@@ -52,6 +72,7 @@ def _invest(v):
 WAIT_TXT = "kept in cash until the next buy signal"
 
 
+@_one_at_a_time
 def to_bot(mode, amount, note=""):
     amount = round(float(amount), 2)
     cash = account_cash(mode)
@@ -67,6 +88,7 @@ def to_bot(mode, amount, note=""):
     return {"id": mid, "pool": ledger.pool_cash(mode)}
 
 
+@_one_at_a_time
 def to_webull(mode, amount, note=""):
     amount = round(float(amount), 2)
     mid = ledger.fund_out(mode, amount, note)
@@ -75,6 +97,7 @@ def to_webull(mode, amount, note=""):
     return {"id": mid, "pool": ledger.pool_cash(mode)}
 
 
+@_one_at_a_time
 def split(mode, allocations: dict, invest=None, note=""):
     """Bot unassigned → several strategies at once, e.g. {"gold_sta": 10, "qld_regime": 10}."""
     invest = _invest(invest)
@@ -117,6 +140,7 @@ def stopped_warning(s) -> str:
     return ""
 
 
+@_one_at_a_time
 def add(mode, sid, amount, invest=None, note=""):
     s = _strat(sid)
     invest = _invest(invest)
@@ -133,6 +157,7 @@ def add(mode, sid, amount, invest=None, note=""):
     return {"id": mid, "capital": L["net_in"], **({"warning": warn} if warn else {})}
 
 
+@_one_at_a_time
 def invest_now(mode, sid):
     """Cash that waits for the next buy signal joins the strategy now: it buys toward today's target (split plan)."""
     s = _strat(sid)
@@ -204,6 +229,7 @@ def _raise_cash(mode, s, amount, kind, other=None, note="", invest="now", everyt
     return "pending", pid, mid
 
 
+@_one_at_a_time
 def withdraw(mode, sid, amount, note="", everything=False):
     s = _strat(sid)
     amount = round(float(amount or 0), 2)
@@ -218,6 +244,7 @@ def withdraw(mode, sid, amount, note="", everything=False):
     return {"status": "pending", "plan_id": x}
 
 
+@_one_at_a_time
 def move(mode, src, dst, amount, note="", invest=None, everything=False):
     a, b = _strat(src), _strat(dst)
     invest = _invest(invest)
@@ -352,7 +379,9 @@ def _move_in_kind(mode, a, b, amount, note, everything):
     val = round(sum(f["value"] for f in fills), 2)
     unit = max((execution.MIN_FRACTION_USD if p["frac"] else p["price"]) for p in picks if p["qty"] > execution.EPS)
     _book_in_kind(mode, a, b, fills, val, note)
+    db.set_state(f"moverest:{mode}:{b.id}", target)    # b waits for the rest only while its signal is still this one
     out = {"in_kind": fills, "in_kind_value": val}
+    t0 = db.one("SELECT COALESCE(MAX(id),0) n FROM money")["n"]
 
     # the rest (what b does not want as shares) the usual way. Nothing below may undo the share part, so it never raises.
     try:
@@ -379,6 +408,9 @@ def _move_in_kind(mode, a, b, amount, note, everything):
             return {"status": "done", "amount": round(val + x, 2), **out}
         return {"status": "pending", "plan_id": x, "amount": val, **out}
     except Exception as e:
+        log.exception("move: the rest after the shares")
+        db.run("UPDATE money SET status='failed', note=COALESCE(note,'') || ' · could not be raised' WHERE id>? AND mode=? "
+               "AND kind='move' AND strategy=? AND other=? AND status='pending'", (t0, mode, a.id, b.id))
         warn = (f"${val:,.2f} moved as shares, but the rest could not be raised: {e}. "
                 f"Check {a.name} and move the rest again if you still want it.")
         db.add_event("warn", "money", f"Move {a.name} → {b.name}: only the shares moved", warn, strategy=a.id, mode=mode)

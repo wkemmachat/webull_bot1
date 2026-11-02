@@ -245,10 +245,20 @@ def pending_strategy_buys(mode, sid):
 MOVE_REST = "the rest of a move as shares"     # note of a Move's pending cash part after its shares moved (see moneyops)
 
 
-def move_rest_pending(mode, sid) -> bool:
-    """sid got shares from a Move whose cash part is still being raised: it waits for that cash before it trades."""
-    return bool(db.one("SELECT 1 FROM money WHERE mode=? AND kind='move' AND other=? AND status='pending' AND note LIKE ? LIMIT 1",
-                       (mode, sid, f"%{MOVE_REST}%")))
+def move_rest_pending(mode, sid, target: dict | None = None) -> bool:
+    """sid got shares from a Move whose cash part is still being sold by a running plan, and its target is still the one
+    the shares were moved for: it waits for that cash before it trades. A new signal (another target) trades at once."""
+    if not db.one("SELECT 1 FROM money m JOIN plans p ON p.id=m.plan_id WHERE m.mode=? AND m.kind='move' AND m.other=? "
+                  "AND m.status='pending' AND m.note LIKE ? AND p.status='active' LIMIT 1", (mode, sid, f"%{MOVE_REST}%")):
+        return False
+    if target is None:
+        return True
+    was = db.get_state(f"moverest:{mode}:{sid}")
+    return was is not None and target_key(was) == target_key(target)
+
+
+def target_key(t: dict) -> str:
+    return json.dumps({k: round(float(w), 6) for k, w in (t or {}).items() if w and float(w) > 0.0005}, sort_keys=True)
 
 
 def record_money(mode, kind, sid, amount, other=None, note="", invest=None, status="pending", plan_id=None) -> int:

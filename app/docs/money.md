@@ -51,7 +51,9 @@ Webull account               $100
   rest). Shares move whole, or to 0.01 with fractional shares on. The rest comes from the first strategy's cash, then by
   selling evenly with a split plan, as before; if that rest would be less than one share (or $5), the move is that much
   smaller instead. While that sale runs, the receiving strategy waits for the cash before it trades, so it does not sell the
-  shares it just got. Shares move only with *Now, by today's signal*, when the receiving strategy is Active, its last check
+  shares it just got; a new signal (another target) trades at once. If the rest cannot be raised, the shares stay moved and
+  the screen and LINE say so. Money actions run one at a time: a second one while a move is still working is refused with
+  "try again in a moment". Shares move only with *Now, by today's signal*, when the receiving strategy is Active, its last check
   is OK, and neither strategy has a plan or an order working; otherwise it all moves as cash. The sending strategy keeps the
   rest of its holdings as they are, so a strategy that holds two ETFs may rebalance itself afterwards. Both strategies show
   the move as a done plan with *inside the bot* fills on the Orders page.
