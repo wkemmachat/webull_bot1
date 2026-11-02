@@ -43,7 +43,15 @@ Webull account               $100
     money added to it anyway (with + Add) gets a warning on screen and on LINE. Set it back to Active first.
 - **Withdraw** (on a strategy): the strategy's free cash first; if that is not enough, the bot sells its holdings evenly with a
   split plan. The cash goes back to **bot unassigned**.
-- **Move**: from one strategy straight to another (selling evenly first if needed).
+- **Move**: from one strategy straight to another. Shares the receiving strategy wants too (for example moving from ROM Trend +
+  RSI(2) to ROM · Trend + Vol + RSI & IBS dips while both hold ROM) change hands **inside the bot** at one price (the middle of
+  bid and ask, or the last price when the market is closed): no Webull order, no fee, Webull's account does not change, and it
+  works when the market is closed. It takes up to what the receiving strategy's current target wants of that symbol (up to 2%
+  more when the first strategy has too little cash for the rest). The rest comes from the first strategy's cash, then by selling
+  evenly with a split plan, as before. With whole shares, if the rest would mean selling less than one share, the move is that
+  much smaller instead. Shares move only with *Now, by today's signal*, when the receiving strategy is Active, its last check is
+  OK, and neither strategy has a plan or an order working; otherwise it all moves as cash. Both strategies show it as a done
+  plan with *inside the bot* fills on the Orders page.
 - **Return to Webull**: bot unassigned → *not for the bot*. The bot stops using it. To take money out of Webull itself, withdraw in
   the Webull app (after any sale has settled).
 

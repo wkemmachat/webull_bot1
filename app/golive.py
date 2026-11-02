@@ -106,8 +106,8 @@ def report(mode="test"):
           "Days the bot was running during US market hours with this mode switched on.",
           "Leave the server running with the mode on; each US trading day counts once.", "#/dashboard", must=True)
 
-    p = db.one("SELECT SUM(status='done') done, SUM(status='cancelled') canc, COUNT(*) n FROM plans WHERE mode=? AND created_at>=?",
-               (mode, t0))
+    p = db.one("SELECT SUM(status='done') done, SUM(status='cancelled') canc, COUNT(*) n FROM plans WHERE mode=? AND created_at>=? "
+               "AND COALESCE(note,'') NOT LIKE 'moved inside the bot%'", (mode, t0))     # a Move as shares sends nothing
     stuck = db.one("SELECT COUNT(*) n FROM plans WHERE mode=? AND status='active' AND created_at < ?", (mode, now - 2 * 86400))["n"]
     done = p["done"] or 0
     _item(ops, "plans", "Order plans finish", done >= 5 and not stuck, f"{done} done · {p['canc'] or 0} cancelled · {stuck} stuck",
