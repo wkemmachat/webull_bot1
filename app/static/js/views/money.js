@@ -290,7 +290,7 @@
             <div class="row" style="gap:6px">${(tab === 'add' ? [1000, 5000, 10000] : [1000, 5000]).map((v) => `<button class="btn s" data-q="${v}">${U.usd(v, 0)}</button>`).join('')}
               <button class="btn s" data-q="${tab === 'add' ? Math.max(0, d.unassigned || 0) : r.value}" ${tab === 'add' ? '' : 'data-all="1"'}>${tab === 'add' ? 'All bot unassigned' : 'Everything'}</button></div>
             <span class="h">${tab === 'add' ? 'Bot unassigned: ' + U.usd(d.unassigned) + (d.unassigned > 0 ? '' : ' — allocate money to the bot first (Money → Allocate to bot)') : U.esc(r.name || '') + ' is worth ' + U.usd(r.value) + ' · cash in it ' + U.usd(r.cash)}</span></div>
-          ${tab !== 'withdraw' ? `${tab === 'move' ? '<div class="note info">Shares the second strategy also wants (for example both hold ROM) change hands inside the bot at one price: no Webull order, no fee. The rest comes from the first strategy\'s cash, selling evenly if needed. With <b>Wait for the next buy signal</b> it all moves as cash.</div>' : ''}
+          ${tab !== 'withdraw' ? `${tab === 'move' ? '<div class="note info">Shares the second strategy also wants (for example both hold ROM) change hands inside the bot at today\'s price: no Webull order, no fee. The rest comes from the first strategy\'s cash, selling evenly if needed. With <b>Wait for the next buy signal</b> it all moves as cash.</div>' : ''}
             <div class="col" style="gap:8px"><span class="lbl">${tab === 'move' ? 'The receiving strategy invests it' : 'Invest it'}</span>
             <label class="opt ${invest === 'now' ? 'on' : ''}"><input type="radio" name="inv" value="now" ${invest === 'now' ? 'checked' : ''}><span><b style="font-weight:500">Now, by today's signal</b><br><span class="muted small">The bot buys toward the strategy's current target with a split plan (e.g. UGL if gold is long today).</span></span></label>
             <label class="opt ${invest === 'wait' ? 'on' : ''}"><input type="radio" name="inv" value="wait" ${invest === 'wait' ? 'checked' : ''}><span><b style="font-weight:500">Wait for the next buy signal</b><br><span class="muted small">This money stays as cash in the strategy until a new BUY comes (for QLD / Semis: a step up, like off → 1x or 0.5x → 2x). Sell signals do not start it. Money already in the strategy keeps trading as usual.</span></span></label></div>`
@@ -312,7 +312,7 @@
             if (all && tab !== 'add') b.all = true;
             const r = await U.api('/api/money/' + tab, { body: b });
             const ik = (r.in_kind || []).map((f) => U.qty(f.qty) + ' ' + f.symbol).join(', ');
-            U.toast((ik ? 'Moved ' + ik + ' inside the bot (no Webull order)' + (r.status === 'pending' ? '; selling the rest with a split plan' : '') + (r.short ? ' · ' + U.usd(r.short) + ' less than asked (whole shares)' : '')
+            U.toast((ik ? 'Moved ' + ik + ' inside the bot (no Webull order)' + (r.status === 'pending' ? '; selling the rest with a split plan' : '') + (r.short ? ' · ' + U.usd(r.short) + ' less than asked (whole shares)' : '') + (r.warning ? ' · ' + r.warning : '')
               : r.status === 'pending' ? 'Selling with a split plan; the money moves when it finishes' : r.warning ? 'Done · ' + r.warning : 'Done'));
             close(); if (onDone) onDone();
           });

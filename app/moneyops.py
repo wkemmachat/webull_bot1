@@ -226,66 +226,37 @@ def move(mode, src, dst, amount, note="", invest=None, everything=False):
     amount = round(float(amount or 0), 2)
     if amount <= 0 and not everything:
         raise ValueError("Enter an amount above 0")
-    ap = execution.active_plan(mode, src)
-    if ap and ap["reason"] in ("withdraw", "move"):
-        raise ValueError("A withdrawal for this strategy is already running")
-    ik = None
-    if invest == "now":
-        v = ledger.value(mode, src)
-        total = round(v["value"], 2) if everything else amount
-        if total > v["value"] + 0.01:
-            raise ValueError(f"{a.name} is worth ${v['value']:,.2f} now (prices move); you asked for ${amount:,.2f}. "
-                             "Press Everything to take all of it.")
-        if total > 0:
-            ik = _in_kind(mode, a, b, total, everything, note)
-    if not ik:
-        st, x, mid = _raise_cash(mode, a, amount, "move", other=dst, note=note, invest=invest, everything=everything)
-        if st == "done":
-            ledger.credit(mode, dst, x, hold=(invest == "wait"))
-            db.add_event("info", "money", f"Moved ${x:,.2f}: {a.name} → {b.name}", "", strategy=src, mode=mode)
-            notify.send("money", f"{brokers.MODE_LABEL[mode]} · Moved ${x:,.2f} from {a.name} to {b.name}.", strategy=src)
-            return {"status": "done", "amount": x}
-        return {"status": "pending", "plan_id": x}
-
-    # the rest (what the receiving strategy does not want as shares) the usual way: cash first, then a sell plan
-    out = {"in_kind": ik["fills"], "in_kind_value": ik["value"]}
-    L = ledger.get(mode, src)
-    free = max(0.0, L["cash"] - ledger.pending_strategy_buys(mode, src))
-    rest = round(total - ik["value"], 2)
-    left = ledger.value(mode, src)["value"]
-    if everything:
-        rest = round(left, 2)
-    if rest <= 0.01 or left <= 0.005:
-        return {"status": "done", "amount": ik["value"], **out}
-    short = 0.0
-    if not everything and rest > free + 0.01 and rest - free < ik["unit"]:
-        short = round(rest - free, 2)          # less than one share would have to be sold: move a little less instead
-        rest = round(free, 2)
-        if rest <= 0.01:
-            out["short"] = short
-            _short_note(mode, a, ik, short)
-            return {"status": "done", "amount": ik["value"], **out}
-    st, x, mid = _raise_cash(mode, a, rest, "move", other=dst, note=(note + " · " if note else "") + "the part not moved as shares",
-                             invest=invest, everything=everything)
+    if invest == "now" and _in_kind_target(mode, a, b):
+        from . import engine
+        # no check (it could start a plan for either strategy) and no order pass while the books change hands
+        if not engine._lock.acquire(timeout=45):
+            raise ValueError("The bot is busy with its regular check. Try the move again in a minute.")
+        try:
+            if not execution._LOCK.acquire(timeout=30):
+                raise ValueError("The bot is busy sending orders. Try the move again in a minute.")
+            try:
+                r = _move_in_kind(mode, a, b, amount, note, everything)
+            finally:
+                execution._LOCK.release()
+        finally:
+            engine._lock.release()
+        if r is not None:
+            return r
+    st, x, mid = _raise_cash(mode, a, amount, "move", other=dst, note=note, invest=invest, everything=everything)
     if st == "done":
-        ledger.credit(mode, dst, x, hold=False)
-        db.add_event("info", "money", f"Moved ${x:,.2f} cash: {a.name} → {b.name}", "the rest of the move, from its cash",
-                     strategy=src, mode=mode)
-        if short:
-            out["short"] = short
-            _short_note(mode, a, ik, short)
-        return {"status": "done", "amount": round(ik["value"] + x, 2), **out}
-    return {"status": "pending", "plan_id": x, "amount": ik["value"], **out}
+        ledger.credit(mode, dst, x, hold=(invest == "wait"))
+        db.add_event("info", "money", f"Moved ${x:,.2f}: {a.name} → {b.name}", "", strategy=src, mode=mode)
+        notify.send("money", f"{brokers.MODE_LABEL[mode]} · Moved ${x:,.2f} from {a.name} to {b.name}.", strategy=src)
+        return {"status": "done", "amount": x}
+    return {"status": "pending", "plan_id": x}
 
 
+# ---------------------------------------------------------------- Move as shares
+# When the receiving strategy wants a symbol the sending one holds (both hold ROM, say), those shares change hands in the
+# bot's books at the price the bot values them at (the Money page's price): no Webull order, no fee, Webull's account does
+# not change, and neither strategy gains or loses by it. Only the rest is raised the usual way (cash, then a sell plan).
 IN_KIND_NOTE = "moved inside the bot"
-IN_KIND_OVER = 0.02            # the receiving strategy may end up to 2% of its value above its target (well inside every band)
-
-
-def _short_note(mode, a, ik, short):
-    db.add_event("info", "money", f"Move from {a.name}: ${short:,.2f} less than asked",
-                 "Whole shares moved; the rest would have meant selling part of one share on Webull, so it stays in "
-                 f"{a.name}.", strategy=a.id, mode=mode)
+IN_KIND_OVER = 0.02            # the receiving strategy may end up this much above its target (capped at half its band)
 
 
 def _target_now(s):
@@ -303,89 +274,122 @@ def _target_now(s):
     return {k: float(w) for k, w in (t or {}).items() if w and float(w) > 0.0005}
 
 
-def _in_kind(mode, a, b, amount, everything=False, note=""):
-    """Move: the shares of a that b wants too change hands in the bot's books at one price (mid of bid/ask, or last).
-    No Webull order, no fee; Webull's account does not change. Returns None when nothing can move this way."""
+def _in_kind_target(mode, a, b):
+    """b's target when some of a's shares could move to b as shares now, else None (checked again under the locks)."""
+    from . import hk
+    b = S.get(b.id) or b                               # fresh control
     if (b.row or {}).get("control", "active") != "active":
         return None
     target = _target_now(b)
     if not target:
         return None
-    from . import engine
-    # no check (it could start a plan for either strategy) and no order pass while the books change hands
-    if not engine._lock.acquire(timeout=45):
-        raise ValueError("The bot is busy with its regular check. Try the move again in a minute.")
-    try:
-        if not execution._LOCK.acquire(timeout=30):
-            raise ValueError("The bot is busy sending orders. Try the move again in a minute.")
-        try:
-            return _in_kind_locked(mode, a, b, amount, target, everything, note)
-        finally:
-            execution._LOCK.release()
-    finally:
-        engine._lock.release()
-
-
-def _in_kind_locked(mode, a, b, amount, target, everything, note):
-    from . import hk
     for sid in (a.id, b.id):
         if execution.active_plan(mode, sid):
             return None
         if db.one(f"SELECT COUNT(*) n FROM orders WHERE mode=? AND strategy=? AND status IN ({execution._q(len(execution.WORKING))})",
                   (mode, sid, *execution.WORKING))["n"]:
             return None
-    LA = ledger.get(mode, a.id)
-    if not any(LA["holdings"].get(s, 0) > execution.EPS for s in target):
-        return None
-    broker = brokers.get(mode)
+    held = ledger.get(mode, a.id)["holdings"]
     blk = execution.blocked_symbols(mode)
-    LB = ledger.get(mode, b.id)
+    if not any(held.get(s, 0) > execution.EPS and s not in blk and not hk.is_hk(s) for s in target):
+        return None
+    return target
+
+
+def _move_in_kind(mode, a, b, amount, note, everything):
+    """Under the engine and execution locks: the share part, then the rest. None = nothing moved, use the cash way."""
+    target = _in_kind_target(mode, a, b)               # again: a check may have changed it while we waited
+    if not target:
+        return None
+    b = S.get(b.id) or b
+    va = ledger.value(mode, a.id)
+    total = round(va["value"], 2) if everything else amount
+    if total <= 0:
+        return None
+    if total > va["value"] + 0.01:
+        raise ValueError(f"{a.name} is worth ${va['value']:,.2f} now (prices move); you asked for ${amount:,.2f}. "
+                         "Press Everything to take all of it.")
+    LA, LB = ledger.get(mode, a.id), ledger.get(mode, b.id)
     vb = ledger.value(mode, b.id)
-    after = max(0.0, vb["value"] - ledger.waiting_cash(LB)) + amount          # b's trading value once the money is in
+    after = max(0.0, vb["value"] - ledger.waiting_cash(LB)) + total          # b's trading value once the money is in
     free = max(0.0, LA["cash"] - ledger.pending_strategy_buys(mode, a.id))
+    over = min(IN_KIND_OVER, b.rebalance_band() / 2)
+    prices = md.prices(set(target))
     picks = []
     for sym, w in sorted(target.items(), key=lambda x: -x[1]):
-        have = LA["holdings"].get(sym, 0.0)
-        if have <= execution.EPS or sym in blk or hk.is_hk(sym):
-            continue
-        try:
-            px = execution._xprice(broker.quote(sym))
-        except Exception:
-            px = None
-        if not px or px <= 0:
+        have, px = LA["holdings"].get(sym, 0.0), prices.get(sym)
+        if have <= execution.EPS or not px or px <= 0:
             continue
         frac = execution.fractional_on(mode, sym)
-        dp = execution.SELL_DP if frac else 0
         hb = LB["holdings"].get(sym, 0.0) * px
-        picks.append({"symbol": sym, "price": px, "have": have, "dp": dp, "frac": frac,
-                      "want": max(0.0, w * after - hb), "room": max(0.0, (w + IN_KIND_OVER) * after - hb), "qty": 0})
+        picks.append({"symbol": sym, "price": px, "have": have, "dp": execution.FRAC_DP if frac else 0, "frac": frac,
+                      "want": max(0.0, w * after - hb), "room": max(0.0, (w + over) * after - hb), "qty": 0})
+    if not picks:
+        return None
+
+    def take(p, q):
+        """Up to q more shares of p, rounded down to whole shares (or 0.01); all of a's shares, exactly, when q covers them."""
+        q = max(0.0, min(q, p["have"] - p["qty"]))
+        x = p["have"] if p["qty"] + q >= p["have"] - 1e-9 else execution._down(p["qty"] + q, p["dp"])
+        added = max(0.0, x - p["qty"])
+        p["qty"] = x
+        return added * p["price"]
+
     done = 0.0
-    for p in picks:                                  # 1) what b wants, up to the amount
-        q = execution._down(min(p["have"], p["want"] / p["price"], (amount - done) / p["price"]), p["dp"])
-        p["qty"] = q
-        done += q * p["price"]
-    need = amount - done - (0 if everything else free)
-    for p in picks:                                  # 2) a has too little cash for the rest: a little more as shares
+    for p in picks:                                      # 1) what b wants, up to the amount
+        done += take(p, min(p["want"], total - done) / p["price"])
+    need = total - done - (0 if everything else free)
+    for p in picks:                                      # 2) a has too little cash for the rest: a little more as shares
         if need <= 0.01:
             break
-        q = execution._down(min(p["have"] - p["qty"], max(0.0, p["room"] / p["price"] - p["qty"]), need / p["price"],
-                                (amount - done) / p["price"]), p["dp"])
-        if q > execution.EPS:
-            p["qty"] = round(p["qty"] + q, 6)
-            done += q * p["price"]
-            need -= q * p["price"]
-    fills = []
-    for p in picks:
-        q = p["qty"]
-        if q <= execution.EPS or q * p["price"] < execution.MIN_FRACTION_USD:
-            continue
-        fills.append({"symbol": p["symbol"], "qty": q, "price": p["price"], "value": round(q * p["price"], 2)})
+        got = take(p, min(max(0.0, p["room"] - p["qty"] * p["price"]), need, total - done) / p["price"])
+        done += got
+        need -= got
+    fills = [{"symbol": p["symbol"], "qty": p["qty"], "price": p["price"], "value": round(p["qty"] * p["price"], 2)}
+             for p in picks if p["qty"] > execution.EPS and p["qty"] * p["price"] >= execution.MIN_FRACTION_USD]
     if not fills:
         return None
     val = round(sum(f["value"] for f in fills), 2)
     unit = max((execution.MIN_FRACTION_USD if p["frac"] else p["price"]) for p in picks if p["qty"] > execution.EPS)
     _book_in_kind(mode, a, b, fills, val, note)
-    return {"value": val, "fills": fills, "unit": unit}
+    out = {"in_kind": fills, "in_kind_value": val}
+
+    # the rest (what b does not want as shares) the usual way. Nothing below may undo the share part, so it never raises.
+    try:
+        L = ledger.get(mode, a.id)
+        free = max(0.0, L["cash"] - ledger.pending_strategy_buys(mode, a.id))
+        left = ledger.value(mode, a.id)["value"]
+        rest = round(left if everything else min(total - val, left), 2)
+        if rest <= 0.01:
+            return {"status": "done", "amount": val, **out}
+        short = 0.0
+        if not everything and rest > free + 0.01 and rest - free < unit:
+            short = round(rest - free, 2)          # less than one share would have to be sold: move a little less instead
+            rest = round(free, 2)
+            _short_note(mode, a, short)
+            out["short"] = short
+            if rest <= 0.01:
+                return {"status": "done", "amount": val, **out}
+        st, x, mid = _raise_cash(mode, a, rest, "move", other=b.id, note=(note + " · " if note else "") + ledger.MOVE_REST,
+                                 invest="now", everything=everything)
+        if st == "done":
+            ledger.credit(mode, b.id, x, hold=False)
+            db.add_event("info", "money", f"Moved ${x:,.2f} cash: {a.name} → {b.name}", "the rest of the move, from its cash",
+                         strategy=a.id, mode=mode)
+            return {"status": "done", "amount": round(val + x, 2), **out}
+        return {"status": "pending", "plan_id": x, "amount": val, **out}
+    except Exception as e:
+        warn = (f"${val:,.2f} moved as shares, but the rest could not be raised: {e}. "
+                f"Check {a.name} and move the rest again if you still want it.")
+        db.add_event("warn", "money", f"Move {a.name} → {b.name}: only the shares moved", warn, strategy=a.id, mode=mode)
+        notify.send("money", f"{brokers.MODE_LABEL[mode]} · {warn}", strategy=a.id)
+        return {"status": "done", "amount": val, "warning": warn, **out}
+
+
+def _short_note(mode, a, short):
+    db.add_event("info", "money", f"Move from {a.name}: ${short:,.2f} less than asked",
+                 "Shares move in whole shares; raising the last part would have meant a Webull sale smaller than one share, "
+                 f"so ${short:,.2f} stays in {a.name}.", strategy=a.id, mode=mode)
 
 
 def _book_in_kind(mode, a, b, fills, val, note=""):
@@ -412,7 +416,7 @@ def _book_in_kind(mode, a, b, fills, val, note=""):
                           "scheduled_at,status,client_order_id,broker_order_id,filled_qty,avg_price,applied_qty,applied_value,fee,"
                           "error,updated_at,retry,cross_with) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                           (pid, mode, sid, 0, 1, 1, f["symbol"], side, f["qty"], f["qty"], f["price"], "CORE", now, "filled",
-                           f"int{mode[0]}{pid}{side[0]}{tag}", "internal", f["qty"], f["price"], f["qty"], f["value"], 0.0,
+                           f"int{mode[0]}{pid}{side[0]}{f['symbol']}{tag}", "internal", f["qty"], f["price"], f["qty"], f["value"], 0.0,
                            None, now, 0, other))
                 ledger.book_fill_c(c, mode, sid, f["symbol"], side, f["qty"], f["value"])
         # the shares' value leaves a (money out) and joins b (money in); neither strategy's cash changes

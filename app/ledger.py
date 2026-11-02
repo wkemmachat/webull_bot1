@@ -242,6 +242,15 @@ def pending_strategy_buys(mode, sid):
                   "WHERE mode=? AND strategy=? AND side='BUY' AND status IN ('sending','submitted','unknown')", (mode, sid))["v"]
 
 
+MOVE_REST = "the rest of a move as shares"     # note of a Move's pending cash part after its shares moved (see moneyops)
+
+
+def move_rest_pending(mode, sid) -> bool:
+    """sid got shares from a Move whose cash part is still being raised: it waits for that cash before it trades."""
+    return bool(db.one("SELECT 1 FROM money WHERE mode=? AND kind='move' AND other=? AND status='pending' AND note LIKE ? LIMIT 1",
+                       (mode, sid, f"%{MOVE_REST}%")))
+
+
 def record_money(mode, kind, sid, amount, other=None, note="", invest=None, status="pending", plan_id=None) -> int:
     cur = db.run("INSERT INTO money(mode,t,kind,strategy,other,amount,invest,status,note,plan_id) VALUES(?,?,?,?,?,?,?,?,?,?)",
                  (mode, int(time.time()), kind, sid, other, amount, invest, status, note, plan_id))

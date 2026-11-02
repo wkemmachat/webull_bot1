@@ -368,8 +368,9 @@ async def money_action(action: str, request: Request, u=Depends(user)):
         if action == "withdraw":
             return moneyops.withdraw(mode, b.get("strategy"), b.get("amount"), b.get("note", ""), everything=bool(b.get("all")))
         if action == "move":
-            return moneyops.move(mode, b.get("strategy"), b.get("other"), b.get("amount"), b.get("note", ""), b.get("invest"),
-                                 everything=bool(b.get("all")))
+            # in a worker thread: a move as shares waits for the bot's check to finish, the web app must not
+            return await asyncio.to_thread(moneyops.move, mode, b.get("strategy"), b.get("other"), b.get("amount"),
+                                           b.get("note", ""), b.get("invest"), everything=bool(b.get("all")))
         if action == "topup":
             return idle.topup_now(mode, str(b.get("strategy") or ""))
         if action == "protect":

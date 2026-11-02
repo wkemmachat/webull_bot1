@@ -195,10 +195,13 @@
   need their dip orders filled at the next open. They start with LINE alerts off (turn LINE on when you give them money). New installs: the paper account is now $170,000 (fifteen strategies);
   existing paper accounts keep their balance and the two new strategies get $10,000 each from its free cash.
 - **Move as shares** (3 Nov 2026, your request after the ROM move sold ROM on Webull only for the new ROM strategy to buy it
-  back): *Move* first hands over the shares the receiving strategy wants too, inside the bot at one price (mid of bid/ask,
-  else the last price), with no Webull order and no fee, so it also works when the market is closed. Only the rest is raised
-  as before (cash first, then a split sell plan). The receiving strategy takes up to its current target of that symbol, or up
-  to 2% more when the sending strategy has too little cash for the rest; with whole shares, a rest smaller than one share
-  makes the move that much smaller rather than sell part of a share. Not used for *wait for the next buy signal*, when the
-  receiving strategy is not Active or its last check failed, or while either strategy has a plan or an order working. Each
-  side gets a done *move* plan with *inside the bot* fills, like opposite orders; the Go-live *plans* count leaves them out.
+  back): *Move* first hands over the shares the receiving strategy wants too, inside the bot at the bot's own valuation
+  price (so neither strategy's profit changes), with no Webull order and no fee, so it also works when the market is closed.
+  Only the rest is raised as before (cash first, then a split sell plan), and the receiving strategy does not trade until
+  that cash arrives. It takes up to its current target of that symbol, or a little more (at most half its band and 2%) when
+  the sending strategy has too little cash for the rest; a rest smaller than one share (or $5) makes the move that much
+  smaller rather than sell a crumb. If the rest cannot be raised, the shares stay moved and the screen and LINE say so.
+  Not used for *wait for the next buy signal*, when the receiving strategy is not Active or its last check failed, or while
+  either strategy has a plan or an order working. The move waits for a running check to finish (the web app stays
+  responsive). Each side gets a done *move* plan with *inside the bot* fills, like opposite orders; the Go-live *plans*
+  count leaves them out.

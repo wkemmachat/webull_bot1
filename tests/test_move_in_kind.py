@@ -85,10 +85,10 @@ def test_fractions_and_no_cash_left_in_the_sender(clean, clock):
     db.run("UPDATE ledger SET cash=0 WHERE mode='paper' AND strategy=?", (A,))     # A has no cash for the 1% B keeps as cash
     n0 = broker_orders()
     r = moneyops.move("paper", A, B, 2500)
-    assert r["status"] == "done" and not r.get("short")
+    assert r["status"] == "done" and r.get("short", 0) < X.MIN_FRACTION_USD      # a crumb under $5 stays in A
     (f,) = r["in_kind"]
-    assert f["qty"] != int(f["qty"])                                                 # a fraction
-    assert f["value"] == pytest.approx(2500, abs=0.05)                              # all of it as shares: nothing to sell
+    assert f["qty"] != int(f["qty"]) and round(f["qty"], 2) == f["qty"]             # a fraction, to 0.01 like Webull's fills
+    assert f["value"] == pytest.approx(2500, abs=X.MIN_FRACTION_USD)               # all of it as shares: nothing to sell
     assert broker_orders() == n0 and books_total() == account_total()
     assert not db.rows("SELECT * FROM plans WHERE status='active'")
     w, _ = ledger.weights("paper", B, md.prices({"ROM"}))
@@ -128,7 +128,13 @@ def test_rest_of_a_big_move_is_sold_as_before(clean, clock):
     assert r["status"] == "pending" and r["in_kind"][0]["value"] <= 0.52 * 4000
     p = db.one("SELECT * FROM plans WHERE id=?", (r["plan_id"],))
     assert p["strategy"] == A and p["status"] == "active" and json.loads(p["on_done"])["move_to"] == B
+    # B waits for the cash before it trades, so it does not sell the ROM it just got and buy it back later
+    s = S.get(B)
+    ev = dict(s.evaluate(clock.dt), ok=True, target={"ROM": 0.5})
+    assert ledger.move_rest_pending("paper", B)
+    assert X.reconcile("paper", s, ev, clock.dt, brokers.get("paper"), db.get_settings()) is None
     run_all(clock, [r["plan_id"]])
+    assert not ledger.move_rest_pending("paper", B)
     assert ledger.value("paper", B)["net_in"] == pytest.approx(4000, abs=60)       # the sale's price may move a little
     assert books_total() == account_total()
 
@@ -173,3 +179,40 @@ def test_receiver_with_a_running_plan_gets_cash(clean, clock):
     db.run("UPDATE ledger SET cash=0 WHERE mode='paper' AND strategy=?", (A,))
     r = moneyops.move("paper", A, B, 2500)
     assert "in_kind" not in r and r["status"] == "pending"
+
+
+def test_rest_that_cannot_be_raised_keeps_the_shares_and_warns(clean, clock, monkeypatch):
+    setup(clock)
+    set_target(B, {"ROM": 0.5})
+    db.run("UPDATE ledger SET cash=0 WHERE mode='paper' AND strategy=?", (A,))
+    monkeypatch.setattr(X, "build_plan", lambda *a, **k: None)                    # e.g. no price for the sale
+    r = moneyops.move("paper", A, B, 4000)
+    assert r["status"] == "done" and r["warning"] and r["amount"] == r["in_kind_value"] > 0
+    assert ledger.value("paper", B)["net_in"] == pytest.approx(r["amount"])          # the books say what really moved
+    assert books_total() == account_total()
+
+
+def test_plain_move_does_not_wait_for_the_check(clean, clock):
+    from app import engine
+    setup(clock)
+    set_target(B, {"USD": 0.99})                                                    # nothing A holds: the cash way, no lock
+    db.run("UPDATE ledger SET cash=0 WHERE mode='paper' AND strategy=?", (A,))
+    assert engine._lock.acquire(blocking=False)
+    try:
+        r = moneyops.move("paper", A, B, 1000)
+    finally:
+        engine._lock.release()
+    assert r["status"] == "pending" and "in_kind" not in r
+
+
+def test_extra_shares_stay_inside_half_the_band(clean, clock):
+    setup(clock, on=True)
+    band = S.get(B).params["rebalance_band_pct"]
+    S.update(B, params={"rebalance_band_pct": 1})
+    try:
+        db.run("UPDATE ledger SET cash=0 WHERE mode='paper' AND strategy=?", (A,))
+        r = moneyops.move("paper", A, B, 2500)
+    finally:
+        S.update(B, params={"rebalance_band_pct": band})
+    assert r["status"] == "pending"                                                 # the rest is sold, not over-weighted:
+    assert 0.99 * 2500 < r["in_kind_value"] <= (0.99 + 0.005) * 2500 + 0.01        # at most half the 1% band above target

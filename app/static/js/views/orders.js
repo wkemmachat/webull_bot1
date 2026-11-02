@@ -52,10 +52,11 @@
     const stateCls = p.state === 'queued' ? 'warn' : p.state === 'running' ? 'info' : p.status === 'done' ? 'ok' : 'err';
     const stateTxt = p.state === 'queued' ? 'Queued · starts ' + U.dt(p.start_at) + ' · ' + until(p.start_at) : p.state === 'running' ? 'Running' : p.status === 'done' ? 'Done · ' + U.dt(p.finished_at) : 'Cancelled';
     const fills = p.orders.filter((o) => o.status !== 'scheduled');
+    const inKind = p.reason === 'move' && (p.note || '').startsWith('moved inside the bot');   // Move as shares (moneyops)
     return `<section class="card col" style="gap:14px;${compact ? 'padding:14px;margin-bottom:12px' : ''}" data-plan="${p.id}">
       <div class="row sb" style="align-items:flex-start"><div class="col" style="gap:5px">
         <div class="row" style="gap:10px">${U.dot(p.color || '#888', 12)}<b style="font-size:16px">${U.esc(p.name)} · ${U.esc(p.reason)}</b>${U.pill(stateCls, stateTxt)}<span class="muted small">#${p.id}</span></div>
-        <span class="muted small">${U.esc(p.note || '')} Target: ${Object.entries(p.target || {}).map(([k, v]) => `${(v * 100).toFixed(0)}% ${k}`).join(' + ') || 'cash'}${est.value != null ? ` of ${U.usd(est.value, 0)}` : ''} · created ${U.dt(p.created_at)}</span>
+        <span class="muted small">${U.esc(p.note || '')}${inKind ? ' · no Webull order, no fee' : ` Target: ${Object.entries(p.target || {}).map(([k, v]) => `${(v * 100).toFixed(0)}% ${k}`).join(' + ') || 'cash'}${est.value != null ? ` of ${U.usd(est.value, 0)}` : ''}`} · created ${U.dt(p.created_at)}</span>
         ${est.why ? `<span class="small" style="color:var(--text2)">Why: ${U.esc(est.why)}</span>` : ''}</div>
         ${p.status === 'active' && !compact ? `<div class="row" style="gap:8px">${p.state === 'queued' ? '<button class="btn s" data-act="start-now">Start now</button>' : ''}<button class="btn d s" data-act="cancel">Cancel plan</button></div>` : ''}</div>
       <div class="grid" style="--min:170px;gap:12px">
@@ -63,7 +64,7 @@
         ${Object.entries(buys).map(([s, x]) => { const e = estBuy[s];
           if (x.filled) return `<div><div class="eyebrow">Bought</div><div class="num" style="font-size:18px;font-weight:600">${U.qty(x.filled)} ${U.esc(s)}</div><div class="muted num small">${U.usd(x.value, 0)} · avg ${U.usd(x.value / x.filled)}${e && e.qty ? ` · ≈${U.qty(e.qty)} still to buy` : ''}</div></div>`;
           return `<div><div class="eyebrow">Buy (estimate)</div><div class="num" style="font-size:18px;font-weight:600">${e && e.qty != null ? '≈' + U.qty(e.qty) : '—'} ${U.esc(s)}</div><div class="muted num small">${e && e.price ? `≈${U.usd(e.value, 0)} at ${U.usd(e.price)} · exact shares when each lot is sent` : 'sized when each lot is sent'}${e && e.blocked ? ' · <span class="dn">Webull refuses it</span>' : ''}</div></div>`; }).join('')}
-        <div><div class="eyebrow">Rounds</div><div class="num" style="font-size:18px;font-weight:600">${p.lots} × ${p.interval_min} min</div><div class="muted small">each round: sells, then buys</div></div>
+        ${inKind ? '' : `<div><div class="eyebrow">Rounds</div><div class="num" style="font-size:18px;font-weight:600">${p.lots} × ${p.interval_min} min</div><div class="muted small">each round: sells, then buys</div></div>`}
         <div><div class="eyebrow">Window (BKK)</div><div class="num" style="font-size:18px;font-weight:600">${p.window ? U.time(p.window[0]) + ' → ' + U.time(p.window[1]) : '—'}</div><div class="muted small">US regular session</div></div>
       </div>
       <div class="lots" style="--n:${Math.min(Object.keys(rounds).length, 20)}">${lotsHtml}</div>

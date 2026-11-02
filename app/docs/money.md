@@ -44,14 +44,17 @@ Webull account               $100
 - **Withdraw** (on a strategy): the strategy's free cash first; if that is not enough, the bot sells its holdings evenly with a
   split plan. The cash goes back to **bot unassigned**.
 - **Move**: from one strategy straight to another. Shares the receiving strategy wants too (for example moving from ROM Trend +
-  RSI(2) to ROM · Trend + Vol + RSI & IBS dips while both hold ROM) change hands **inside the bot** at one price (the middle of
-  bid and ask, or the last price when the market is closed): no Webull order, no fee, Webull's account does not change, and it
-  works when the market is closed. It takes up to what the receiving strategy's current target wants of that symbol (up to 2%
-  more when the first strategy has too little cash for the rest). The rest comes from the first strategy's cash, then by selling
-  evenly with a split plan, as before. With whole shares, if the rest would mean selling less than one share, the move is that
-  much smaller instead. Shares move only with *Now, by today's signal*, when the receiving strategy is Active, its last check is
-  OK, and neither strategy has a plan or an order working; otherwise it all moves as cash. Both strategies show it as a done
-  plan with *inside the bot* fills on the Orders page.
+  RSI(2) to ROM · Trend + Vol + RSI & IBS dips while both hold ROM) change hands **inside the bot** at the price the bot values
+  them at (the one the Money page shows), so neither strategy gains or loses by it: no Webull order, no fee, Webull's account
+  does not change, and it works when the market is closed. It takes up to what the receiving strategy's current target wants
+  of that symbol (a little more, at most half its rebalance band and 2%, when the first strategy has too little cash for the
+  rest). Shares move whole, or to 0.01 with fractional shares on. The rest comes from the first strategy's cash, then by
+  selling evenly with a split plan, as before; if that rest would be less than one share (or $5), the move is that much
+  smaller instead. While that sale runs, the receiving strategy waits for the cash before it trades, so it does not sell the
+  shares it just got. Shares move only with *Now, by today's signal*, when the receiving strategy is Active, its last check
+  is OK, and neither strategy has a plan or an order working; otherwise it all moves as cash. The sending strategy keeps the
+  rest of its holdings as they are, so a strategy that holds two ETFs may rebalance itself afterwards. Both strategies show
+  the move as a done plan with *inside the bot* fills on the Orders page.
 - **Return to Webull**: bot unassigned → *not for the bot*. The bot stops using it. To take money out of Webull itself, withdraw in
   the Webull app (after any sale has settled).
 
