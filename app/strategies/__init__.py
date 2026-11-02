@@ -41,6 +41,16 @@ DEFAULTS = [
     ("qld_tbdv", "trend_dip", "QLD Trend + bear-dip + Vol", "#7FDBCA",
      {"signal": "QQQ", "trade": "QLD", "cash_symbol": "", "ma_days": 200, "rsi_len": 2, "rsi_buy": 5.0, "exit_ma": 5,
       "vol_gate_q": 80.0, "vol_days": 20, "gold_share_pct": 50.0, "gold_symbol": "GLD"}, {}),
+    # 2 Nov 2026 challengers ("2x ETF Strategy Challengers" + stress tests): added with no money; move money from
+    # USD Trend + IBS-dip and ROM Trend + RSI(2) yourself when you want them to trade.
+    ("usd_smh_ibs", "trend_gate", "USD · SMH trend + SMH IBS-dip", "#2E86DE",
+     {"signal": "SMH", "trade": "USD", "cash_symbol": "", "gold_share_pct": 0.0, "ma_type": "SMA", "ma_days": 125,
+      "vol_gate_q": 80.0, "vol_days": 20, "vol_lookback": 504, "rsi_buy": 0.0, "dip_ibs_max": 0.25, "dip_ibs_symbol": "SMH",
+      "jumpy_ibs_max": 0.15, "jumpy_ibs_symbol": "USD", "target_vol_pct": 40.0, "size_vol_days": 20, "size_band_pct": 20.0}, {}),
+    ("rom_vol_ibs", "trend_gate", "ROM · Trend + Vol + RSI & IBS dips", "#12B886",
+     {"signal": "IYW", "trade": "ROM", "cash_symbol": "", "gold_share_pct": 0.0, "ma_type": "EMA", "ma_days": 150,
+      "vol_gate_q": 90.0, "vol_days": 20, "vol_lookback": 252, "rsi_buy": 5.0, "rsi_len": 2, "exit_ma": 5, "dip_ibs_max": 0.15,
+      "dip_ibs_symbol": "ROM", "jumpy_ibs_max": 0.0, "target_vol_pct": 0.0}, {}),
 ]
 # Earlier defaults: a strategy still on exactly these settings is moved to the new ones once (lower-cost versions, 26 Oct 2026:
 # IBS-dip T-bill half as cash + QLD IBS < 0.15; metals flat in cash instead of SGOV).

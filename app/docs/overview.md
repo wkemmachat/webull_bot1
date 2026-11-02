@@ -17,6 +17,8 @@ sends every order as **split lots from a start time you choose**, tells you on *
 | QLD Trend + IBS-dip | QLD daily (own price) + QQQ volatility | QLD (size capped) · GLD · cash | daily, after the US close |
 | USD Trend + IBS-dip | USD daily (own price and volatility) | USD (2x chips, size capped, 100% on dip days) · GLD · cash | daily, after the US close |
 | ROM Trend + RSI(2) | IYW daily | ROM (2x US tech) · cash | daily, after the US close |
+| USD · SMH trend + SMH IBS-dip | SMH daily + SMH/USD IBS + USD volatility | USD (size capped, 99% on dip days) · cash | daily, after the US close |
+| ROM · Trend + Vol + RSI & IBS dips | IYW daily + its 20-day volatility + ROM IBS | ROM · cash | daily, after the US close |
 | C2-7 Momentum 1x | QQQ daily + weekly Nasdaq-100 ranking | 7 Nasdaq stocks · GLD · SGOV | daily signal, weekly list |
 | C2-7 Momentum 2x | QQQ daily + weekly Nasdaq-100 ranking | 7 stocks via 2x ETFs (on Webull TH: the stocks, works like 1x) · GLD · SGOV | daily signal, weekly list |
 

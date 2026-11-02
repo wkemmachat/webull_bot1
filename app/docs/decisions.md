@@ -185,3 +185,12 @@
 - **Hong Kong test removed** (29 Oct 2026, your check in the Webull app: Hong Kong trading is not allowed for this account): the
   Go-live checklist no longer has the *Hong Kong market* section and the bot refuses Hong Kong test trades. The HKD money block
   stays only so bot HKD can be returned; no strategy trades Hong Kong.
+- **Two challengers added with no money** (2 Nov 2026, research *2x ETF Strategy Challengers* and its stress tests): a new
+  strategy type `trend_gate` (Trend + volatility gate + dips) and two strategies built on it, meant to replace USD Trend +
+  IBS-dip and ROM Trend + RSI(2) once you move the money. **USD · SMH trend + SMH IBS-dip** (SMH > SMA125 and calm over 2
+  years → USD sized 40% ÷ USD volatility; below it, one-day USD buys after SMH IBS < 0.25; jumpy days after USD IBS < 0.15;
+  cash) and **ROM · Trend + Vol + RSI & IBS dips** (IYW > EMA150 and calm → ROM; below it, RSI(2) < 5 dip trades sold above
+  SMA5 and one-day buys after ROM IBS < 0.15; cash). The old strategies are not changed. On TradingView prices the bot's code
+  gave the research engine's position on every day after the warm-up (10 years 74.5% / −37.5% and 60.0% / −34.3%). Both
+  need their dip orders filled at the next open. New installs: the paper account is now $170,000 (fifteen strategies);
+  existing paper accounts keep their balance and the two new strategies get $10,000 each from its free cash.

@@ -236,6 +236,44 @@
     "sharpe": 1.17,
     "bench": "Same rules without the filter: 32.9% a year, worst fall −42.5%; QQQ held: 15.1% a year, worst fall −53.3%"
    }
+  },
+  "usd_smh_ibs": {
+   "doc": "strategy-usd-smh-ibs",
+   "reviewed": "2026-11-02",
+   "expect": {
+    "cagr": 49.6,
+    "maxdd": -47.0,
+    "basis": "bot backtest, real fee",
+    "period": "Jan 2008 – Oct 2026",
+    "note": "The bot's own code (trend_gate) on TradingView prices at Webull's real fee (0.11% per buy and per sell), since 2008 rather than the 10-year 74.5%: the settings were chosen on the same years, so the longer, lower number is the safer one to plan with."
+   },
+   "research": {
+    "source": "2x ETF Strategy Challengers, 2 Nov 2026 · U1 (SMH trend + SMH IBS-dip), stress-tested",
+    "period": "Oct 2016 – Oct 2026",
+    "cagr": 74.5,
+    "maxdd": -37.5,
+    "sharpe": 1.37,
+    "bench": "USD Trend + IBS-dip on the same prices: 56.5% a year, worst fall −38.4%; beat it in 87% of 2,000 simulated decades"
+   }
+  },
+  "rom_vol_ibs": {
+   "doc": "strategy-rom-vol-ibs",
+   "reviewed": "2026-11-02",
+   "expect": {
+    "cagr": 42.0,
+    "maxdd": -35.4,
+    "basis": "bot backtest, real fee",
+    "period": "Jan 2008 – Oct 2026",
+    "note": "The bot's own code (trend_gate) on TradingView prices at Webull's real fee, since 2008 rather than the 10-year 60.0%: the settings were chosen on the same years, so the longer, lower number is the safer one to plan with."
+   },
+   "research": {
+    "source": "2x ETF Strategy Challengers, 2 Nov 2026 · R1 (IYW EMA150 + Vol + RSI & IBS dips), stress-tested",
+    "period": "Oct 2016 – Oct 2026",
+    "cagr": 59.9,
+    "maxdd": -34.3,
+    "sharpe": 1.32,
+    "bench": "ROM Trend + RSI(2) on the same prices: 49.7% a year, worst fall −37.6%; beat it in 88% of 2,000 simulated decades"
+   }
   }
  },
  "log": [
