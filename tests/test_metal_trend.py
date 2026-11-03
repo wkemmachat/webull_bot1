@@ -128,3 +128,13 @@ def test_gold_1_and_2_unchanged(clean):
     assert b2.type == "supertrend" and b2.params["atr"] == 30 and b2.params["adx_min"] == 0
     tbl = health.indicator_table(a, NOW, rows=10)
     assert tbl["cols"][1] == "Supertrend · bot"
+
+
+def test_sell_text_says_when_a_dip_trade_ended(clean):
+    s = S.get("gold_trend_calm")
+    b = bars()
+    res = s.compute(b)
+    raw4 = metals.series("GC", NOW)["raw4"]
+    res.loc[res.index[-2], "dip"] = True
+    res.loc[res.index[-1], ["dip", "want", "trend"]] = [False, 0, False]
+    assert "dip trade ended" in s.reason(res, len(res) - 1, 1.0, raw4)

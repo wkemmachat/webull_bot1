@@ -60,6 +60,9 @@ How it is worked out: [Expected returns](#/docs/expected-returns).
 
 ## Moving the money from Gold #1 and Gold #2
 
+Do the Moves while COMEX gold is trading (not at the weekend, roughly Saturday 07:00 to Monday 06:00 Bangkok): shares
+change hands inside the bot only while this strategy's signal is fresh.
+
 1. Money → **Move**, from Gold #1 to this strategy, **Now, by today's signal**. If this strategy wants UGL today and Gold #1 holds UGL, the shares change hands inside the bot (no Webull order, no fee); otherwise Gold #1 sells and this strategy buys at its next signal.
 2. The same from Gold #2.
 3. Set Gold #1 and Gold #2 to **Paused** or **Stopped** (they have no money left), and turn LINE on here.

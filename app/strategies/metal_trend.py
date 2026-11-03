@@ -200,7 +200,12 @@ class TrendCalmDipStrategy(MetalsSignal):
     def reason(self, res, i, f, raw4):
         r = res.iloc[i]
         c = self.fmt(float(raw4["c"].iloc[i]))
-        return f"4H close {c} · " + (self._why_on(r) if res["want"].iloc[i] else self._why_off(r))
+        if res["want"].iloc[i]:
+            return f"4H close {c} · " + self._why_on(r)
+        why = self._why_off(r)
+        if i > 0 and res["dip"].iloc[i - 1] and not r["dip"]:
+            why = f"dip trade ended (daily close above SMA{self.params['exit_ma']}); trend part off: {why}"
+        return f"4H close {c} · " + why
 
     def chart_lines(self, res, f, times, s0):
         p = self.params
