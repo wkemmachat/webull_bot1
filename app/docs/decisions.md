@@ -215,3 +215,15 @@
   −25.2%), since 2009 18.0% / −42.9%, 2011–2020 +7.2% a year (Gold #1 −1.2%); settings picked on 2009–2016 only made
   20.9% / −22.9% over 2016–2026. The bot's own code gave the research position at 99.97% of order times over the last 10
   years. LINE starts off. New installs: the paper account is now $180,000 (sixteen strategies).
+- **Silver challengers added with no money** (3 Nov 2026, research *Gold & Silver Challengers* and its silver stress test): a
+  new metals type `metal_trend_sized` and two strategies meant to share Silver #1 and #2's money half each.
+  **Silver · Trend with gold's OK + vol size** (S1): AGQ while the 4H SI Supertrend(40, 2.5) is up and gold's own 4H GC
+  Supertrend(30, 2.5) is up (gold's last closed bar at that time), sized 70% ÷ (2 × silver's 40-day volatility), at most 99%.
+  **Silver · Trend + silver leading, else 1x** (S3): in a 4H SI Supertrend(180, 4) up-trend, AGQ sized 40% ÷ (2 × silver's
+  20-day volatility) while the daily close is above its 100-day average and the gold/silver ratio is below its 100-day
+  average; 99% SLV the rest of the up-trend; cash in down-trends. Sizes are resized only when they move more than 10% of the
+  size held (history kind *SIZE*, LINE *RESIZE*). The backtest's metals path now takes per-bar targets from the strategy
+  (other metals types unchanged). Research (OANDA spot 4H since 2006, bot timing, real fee), 10 years: S1 28.5% / −50.2%,
+  S3 13.4% / −28.7%, half each 21.6% / −38.7% (Silver #1 12.8% / −60.7%); settings picked on 2009–2016 only made 21.7%
+  (S1) and 6.4% (S3) over 2016–2026. The bot's own code gave the research position at 100% (S1) and 99.97% (S3) of order
+  times over the last 10 years. LINE starts off. New installs: the paper account is now $200,000 (eighteen strategies).

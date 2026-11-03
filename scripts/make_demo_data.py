@@ -2,7 +2,7 @@
 
   python scripts/make_demo_data.py [--dir data/csv] [--days 500]
 
-GC/SI: hourly futures bars in COMEX session hours. ETFs: daily bars (QQQ, SMH, QLD, USD, GLD, BIL, SGOV, UGL, AGQ).
+GC/SI: hourly futures bars in COMEX session hours. ETFs: daily bars (QQQ, SMH, QLD, USD, GLD, BIL, SGOV, UGL, AGQ, SLV).
 The prices are random walks, NOT real market data.
 """
 from __future__ import annotations
@@ -67,6 +67,8 @@ def main(out: Path, days: int, now=None):
                      "BIL": daily(7, nd, 91.0, 0.00015, 0.0003, now), "SGOV": daily(8, nd, 100.2, 0.00015, 0.0003, now),
                      "SPY": daily(9, nd, 500, 0.0005, 0.01, now)}.items():
         df.to_csv(out / f"{name}_1d.csv", index=False)
+    slv = daily(6, nd, 30, 0.0004, 0.016, now)                       # 1x silver (the same path AGQ is built from)
+    slv.to_csv(out / "SLV_1d.csv", index=False)
     iyw = daily(10, nd, 150, 0.0008, 0.014, now)                     # US technology (ROM's index) and ROM itself
     for name, df in {"IYW": iyw, "ROM": lever(iyw, 2, 60)}.items():
         df.to_csv(out / f"{name}_1d.csv", index=False)

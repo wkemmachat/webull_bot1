@@ -398,6 +398,14 @@ def _run_metals(strat, now, cost, cfg):
     delay = timedelta(minutes=metals.delay_min() + 2)
     etf, cash = p["etf"], p["cash_etf"]
     syms = [s for s in (etf, cash) if s]
+    tmap = None
+    if hasattr(strat, "bar_targets"):            # sized or two-ETF targets (metal_trend_sized): one code per distinct target
+        keys, codes = {}, []
+        for t in strat.bar_targets(res):
+            codes.append(keys.setdefault(json.dumps(t, sort_keys=True), len(keys)))
+        tmap = {v: json.loads(k) for k, v in keys.items()}
+        want = np.array(codes)
+        syms = list(dict.fromkeys(syms + [s for t in tmap.values() for s in t]))
     idx_sym = INDEX_FOR_METAL.get(strat.sym)
     daily = {s: daily_tr(s) for s in set(syms) | {RF_SYMBOL, idx_sym} if s}
     for s in syms:
@@ -424,7 +432,12 @@ def _run_metals(strat, now, cost, cfg):
         if held is not None and w == held:
             k += 1
             continue
-        start = _exec_start(w, avail, cfg)
+        if tmap is None:
+            entry = bool(w)
+        else:                                       # buys (any weight up) wait for the entry time; pure sells go at once
+            was = tmap[held] if held is not None else {}
+            entry = any(v > was.get(s2, 0.0) + 1e-9 for s2, v in tmap[w].items())
+        start = _exec_start(entry, avail, cfg)
         j = k
         while j + 1 < len(dec) and dec[j + 1][0] <= start:        # a newer signal arrived before the orders went out
             j += 1
@@ -434,7 +447,7 @@ def _run_metals(strat, now, cost, cfg):
         times = mh.spread_lots(start, lots, interval, cfg.get("session") or "CORE")
         if times[-1] > pd.Timestamp(now):
             break
-        fills.append((start, times, w, i))
+        fills.append((start, times, w, i, entry))
         held = w
         k += 1
     # walk the trading days, applying fills in time order
@@ -448,7 +461,7 @@ def _run_metals(strat, now, cost, cfg):
     cur = None
     for d in days:
         while fi < len(fills) and pd.Timestamp(fills[fi][0]).tz_convert(NY).date() <= d:
-            start, times, w, i = fills[fi]
+            start, times, w, i, entry = fills[fi]
             fd = pd.Timestamp(start).tz_convert(NY).date()
             if fd == d:
                 ok_times = [t for t in times if pd.Timestamp(t).tz_convert(NY).date() == d] or [start]
@@ -458,13 +471,18 @@ def _run_metals(strat, now, cost, cfg):
             if True:
                 if all(s in px for s in syms):
                     why = strat.reason(res, i, float(se["factor4"].iloc[i]), raw4)
-                    B.rebalance(target_long if w else target_flat, px, start, why, "BUY" if w else ("SELL" if cur is not None else "START"))
+                    tgt = (target_long if w else target_flat) if tmap is None else tmap[w]
+                    B.rebalance(tgt, px, start, why, "BUY" if entry else ("SELL" if cur is not None else "START"))
                     cur = w
             fi += 1
         pxc = {s: P.close(s, d) for s in syms}
         eq.append(B.value(pxc))
-        expo.append(B.weights(pxc).get(etf, 0.0))
-        st.append("long" if cur else "flat")
+        if tmap is None:
+            expo.append(B.weights(pxc).get(etf, 0.0))
+            st.append("long" if cur else "flat")
+        else:
+            expo.append(sum(v for s2, v in B.weights(pxc).items() if s2 != cash))
+            st.append("long" if cur is not None and any(v > 0 for v in tmap[cur].values()) else "flat")
     bench = {etf: daily[etf]}
     if idx_sym and daily.get(idx_sym) is not None and not daily[idx_sym].empty:
         bench[idx_sym] = daily[idx_sym]

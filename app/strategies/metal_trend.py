@@ -316,3 +316,321 @@ class TrendCalmDipStrategy(MetalsSignal):
                                  "calm" if calm_c else "jumpy", "long" if res["want"].iloc[i] else "flat", "long" if sig_c else "flat"],
                         "ok": diff < 1e-6})
         return cols, out, mx
+
+
+# ---------------------------------------------------------------- silver challengers S1 / S3: sized, gold-confirmed, 1x fallback
+def _align(end_from: pd.Series, end_to: pd.Series) -> np.ndarray:
+    """For each bar of `end_to`, the index of the last bar of `end_from` that had closed by then (-1: none)."""
+    a = pd.to_datetime(end_from, utc=True).values.astype("datetime64[ns]").astype(np.int64)
+    b = pd.to_datetime(end_to, utc=True).values.astype("datetime64[ns]").astype(np.int64)
+    return np.searchsorted(a, b, side="right") - 1
+
+
+@register
+class TrendSizedStrategy(MetalsSignal):
+    """Long the 2x ETF while the metal's 4H Supertrend is up and the checks pass, sized by volatility:
+    weight = min(99%, target volatility ÷ (2 × the metal's daily volatility)). Optional checks: gold's own 4H Supertrend up
+    (silver only with gold's OK), the daily close above its SMA, the gold/silver ratio below its SMA (silver leading).
+    Trend up but a check fails: the 1x ETF if one is set, else cash. Trend down: cash."""
+    type = "metal_trend_sized"
+    label = "Supertrend sized by volatility, with gold's OK, trend and ratio checks"
+    description = ("Long the 2x ETF while the 4H Supertrend is up and the optional checks pass (gold's own trend, daily SMA, "
+                   "gold/silver ratio), sized by volatility; the 1x ETF or cash when a check fails.")
+    PARAMS = COMMON[:1] + [
+        {"key": "atr", "label": "Supertrend ATR period (4H)", "kind": "int", "default": 40, "min": 2, "max": 400, "group": "Rules"},
+        {"key": "mult", "label": "Supertrend multiplier", "kind": "float", "default": 2.5, "min": 0.5, "max": 10, "group": "Rules"},
+        {"key": "gold_confirm", "label": "Only while gold's 4H Supertrend is up", "kind": "bool", "default": False, "group": "Checks",
+         "help": "Silver trades only with gold's OK (gold's Supertrend below, the same as Gold #2's signal)"},
+        {"key": "gold_atr", "label": "Gold Supertrend ATR period", "kind": "int", "default": 30, "min": 2, "max": 400, "group": "Checks"},
+        {"key": "gold_mult", "label": "Gold Supertrend multiplier", "kind": "float", "default": 2.5, "min": 0.5, "max": 10, "group": "Checks"},
+        {"key": "daily_ma", "label": "Daily close above SMA (days, 0 = off)", "kind": "int", "default": 0, "min": 0, "max": 400, "group": "Checks"},
+        {"key": "gsr_ma", "label": "Gold/silver ratio below its SMA (days, 0 = off)", "kind": "int", "default": 0, "min": 0, "max": 400,
+         "group": "Checks", "help": "Silver leading gold: the ratio of gold's to silver's daily close is below its own average"},
+        {"key": "one_x_etf", "label": "When a check fails, hold (1x ETF)", "kind": "symbol", "default": "", "group": "Symbols",
+         "help": "e.g. SLV; empty = cash while a check fails"},
+        {"key": "target_vol_pct", "label": "Target volatility % (0 = full size)", "kind": "float", "default": 70.0, "min": 0, "max": 200,
+         "group": "Size", "help": "2x ETF weight = this ÷ (2 × the metal's daily volatility), at most 99%"},
+        {"key": "size_vol_days", "label": "Volatility days (size)", "kind": "int", "default": 40, "min": 5, "max": 250, "group": "Size"},
+        {"key": "size_band_pct", "label": "Resize only when the size moves more than (%)", "kind": "float", "default": 10.0, "min": 0,
+         "max": 100, "group": "Size", "help": "Relative to the size held, e.g. 10: a 60% position is resized below 54% or above 66%"},
+    ] + COMMON[1:]
+
+    def data_needs(self):
+        out = [(self.sym, "1h")]
+        if (self.params["gold_confirm"] or self.params["gsr_ma"] > 0) and self.sym != "GC":
+            out.append(("GC", "1h"))
+        return out
+
+    def trade_symbols(self):
+        return [s for s in (self.params["etf"], self.params["one_x_etf"], self.params["cash_etf"]) if s]
+
+    def warmup(self):
+        p = self.params
+        days = max(p["daily_ma"], p["gsr_ma"], p["size_vol_days"] if p["target_vol_pct"] > 0 else 0) + 5
+        return max(60, p["atr"] * 3, days * 6)
+
+    def _gold(self):
+        from .. import marketdata as md
+        return metals.series("GC", md.now_utc())["adj4"]
+
+    def compute(self, bars):
+        p = self.params
+        h, l, c = (bars[k].values.astype(float) for k in ("h", "l", "c"))
+        n = len(c)
+        st = ind.supertrend(h, l, c, p["atr"], p["mult"])
+        up = st["up"] & ~np.isnan(st["atr"])
+        out = pd.DataFrame(index=bars.index)
+        out["c"] = c
+        out["st_line"], out["upper"], out["lower"], out["st_up"] = st["line"], st["upper"], st["lower"], up
+        dc, days, known = daily_from_4h(bars)
+        ok_d = known >= 0
+        k = np.clip(known, 0, None)
+        s = pd.Series(dc, dtype=float)
+        at = lambda a, fill: np.where(ok_d, a[k], fill) if len(a) else np.full(n, fill)
+        # daily close above its SMA
+        if p["daily_ma"] > 0:
+            ma = s.rolling(p["daily_ma"]).mean().values
+            out["d_ma"] = at(ma, np.nan)
+            ma_ok = at(np.where(np.isnan(ma), True, dc > ma), False).astype(bool)
+        else:
+            out["d_ma"] = np.nan
+            ma_ok = np.ones(n, bool)
+        # gold: its own 4H Supertrend, and its daily closes for the ratio
+        gold_ok = np.ones(n, bool)
+        gsr_ok = np.ones(n, bool)
+        out["gold_up"], out["d_gsr"], out["d_gsr_ma"] = np.nan, np.nan, np.nan
+        if p["gold_confirm"] or p["gsr_ma"] > 0:
+            g = bars if self.sym == "GC" else self._gold()
+            j = _align(g["end"], bars["end"])
+            if p["gold_confirm"]:
+                gs = ind.supertrend(g.h.values.astype(float), g.l.values.astype(float), g.c.values.astype(float), p["gold_atr"], p["gold_mult"])
+                gup = gs["up"] & ~np.isnan(gs["atr"])
+                gold_ok = np.where(j >= 0, gup[np.clip(j, 0, None)], False).astype(bool)
+                out["gold_up"] = gold_ok
+            if p["gsr_ma"] > 0:
+                gdc, gdays, _ = daily_from_4h(g)
+                gmap = dict(zip(gdays.tolist(), gdc.tolist()))
+                ratio = pd.Series([gmap.get(int(d), np.nan) for d in days], dtype=float) / s
+                ratio = ratio.ffill()
+                rma = ratio.rolling(p["gsr_ma"]).mean()
+                out["d_gsr"], out["d_gsr_ma"] = at(ratio.values, np.nan), at(rma.values, np.nan)
+                gsr_ok = at(np.where(rma.isna().values, True, (ratio < rma).values), False).astype(bool)
+        # size from the metal's daily volatility (a 2x ETF moves twice as much)
+        if p["target_vol_pct"] > 0:
+            v = np.log(s).diff().rolling(p["size_vol_days"]).std().values * math.sqrt(252) * 2
+            raw = np.where(np.isnan(v) | (v <= 0), 1.0, np.minimum(1.0, p["target_vol_pct"] / 100.0 / np.where(v > 0, v, 1)))
+            out["d_vol2"] = at(v, np.nan)
+            raw_b = at(raw, 1.0)
+        else:
+            out["d_vol2"] = np.nan
+            raw_b = np.ones(n)
+        checks = gold_ok & ma_ok & gsr_ok
+        on2 = up & checks
+        on1 = up & ~checks & bool(p["one_x_etf"])
+        band = p["size_band_pct"] / 100.0
+        size = np.zeros(n)
+        held = 0.0
+        for i in range(n):
+            if on2[i]:
+                r = float(raw_b[i])
+                if held == 0.0 or abs(r - held) > band * held:
+                    held = round(r, 2)
+                size[i] = held
+            else:
+                held = 0.0
+        out["gold_ok"], out["ma_ok"], out["gsr_ok"], out["checks"] = gold_ok, ma_ok, gsr_ok, checks
+        out["raw_size"], out["size"], out["one_x"] = raw_b, size, on1
+        out["want"] = (on2 | on1).astype(int)
+        return out
+
+    def bar_targets(self, res):
+        p = self.params
+        buf = 1 - self.buffer()
+        out = []
+        for sz, one in zip(res["size"].values, res["one_x"].values):
+            if sz > 0:
+                out.append({p["etf"]: round(buf * float(sz), 4)})
+            elif one:
+                out.append({p["one_x_etf"]: round(buf, 4)})
+            else:
+                out.append(dict(self.cash_target()))
+        return out
+
+    def _state(self, res, i):
+        if res["size"].iloc[i] > 0:
+            return f"{self.params['etf']} {res['size'].iloc[i] * 100:.0f}%"
+        if res["one_x"].iloc[i]:
+            return f"{self.params['one_x_etf']} 99%"
+        return self.params["cash_etf"] or "cash"
+
+    def evaluate(self, now):
+        se = metals.series(self.sym, now)
+        adj4, raw4, factor = se["adj4"], se["raw4"], se["factor4"]
+        if len(adj4) < self.warmup():
+            return {"ok": False, "error": f"Not enough 4H bars yet ({len(adj4)})"}
+        res = self.compute(adj4)
+        tg = self.bar_targets(res)
+        n = len(tg)
+        ends = pd.to_datetime(raw4["end"], utc=True)
+        kk = n - 1
+        while kk > 0 and tg[kk - 1] == tg[-1]:
+            kk -= 1
+        close = float(raw4["c"].iloc[-1])
+        f_last = float(factor.iloc[-1])
+        long_ = bool(res["want"].iloc[-1])
+        checks = [{"k": "Close", "v": self.fmt(close)}] + self.check_rows(res, f_last, close, long_)
+        hist = []
+        for i in range(max(1, n - 400), n):
+            if tg[i] != tg[i - 1]:
+                a, b = tg[i - 1], tg[i]
+                up_ = any(v > a.get(s2, 0.0) + 1e-9 for s2, v in b.items())
+                same_pos = res["want"].iloc[i] and res["want"].iloc[i - 1] and set(a) == set(b)
+                kind = "SIZE" if same_pos else ("BUY" if up_ else "SELL")
+                hist.append({"t": int(ends.iloc[i].timestamp()), "kind": kind, "from": self._state(res, i - 1), "to": self._state(res, i),
+                             "price": float(raw4["c"].iloc[i]), "text": self.reason(res, i, float(factor.iloc[i]), raw4)})
+        lab = self._state(res, n - 1)
+        return {"ok": True, "state": "long" if long_ else "flat", "label": ("LONG · " if long_ else "FLAT · ") + lab,
+                "target": tg[-1], "bar_time": int(ends.iloc[-1].timestamp()), "signal_time": int(ends.iloc[kk].timestamp()),
+                "price": close, "checks": checks, "history": hist, "next_check": self.next_check(now),
+                "detail": {"bars": n, "symbol": self.sym, "size": float(res["size"].iloc[-1])}}
+
+    def signal_message(self, h):
+        word = {"SIZE": "RESIZE", "BUY": "BUY", "SELL": "SELL"}.get(h["kind"], h["kind"])
+        return f"{word} · {self.name}\n{h['text']}\n{h['from']} → {h['to']}"
+
+    def _fails(self, r):
+        p = self.params
+        bits = []
+        if p["gold_confirm"] and not r["gold_ok"]:
+            bits.append(f"gold's Supertrend({p['gold_atr']}, {p['gold_mult']:g}) down")
+        if p["daily_ma"] > 0 and not r["ma_ok"]:
+            bits.append(f"daily close below SMA{p['daily_ma']}")
+        if p["gsr_ma"] > 0 and not r["gsr_ok"]:
+            bits.append(f"gold/silver ratio above its SMA{p['gsr_ma']}")
+        return bits
+
+    def reason(self, res, i, f, raw4):
+        p = self.params
+        r = res.iloc[i]
+        c = self.fmt(float(raw4["c"].iloc[i]))
+        st = f"Supertrend({p['atr']}, {p['mult']:g})"
+        if r["size"] > 0:
+            v = r["d_vol2"]
+            sz = (f", size {r['size'] * 100:.0f}% = {p['target_vol_pct']:g}% ÷ {v * 100:.0f}% expected {p['etf']} volatility"
+                  if p["target_vol_pct"] > 0 and v == v else "")
+            return f"4H close {c} · {st} up, checks pass{sz}"
+        if r["one_x"]:
+            return f"4H close {c} · {st} up but {', '.join(self._fails(r))}: {p['one_x_etf']} instead"
+        if not r["st_up"]:
+            return f"4H close {c} · {st} down"
+        return f"4H close {c} · {st} up but {', '.join(self._fails(r))}"
+
+    def check_rows(self, res, f, close, long_):
+        p = self.params
+        r = res.iloc[-1]
+        line = float(r["st_line"]) / f
+        up = bool(r["st_up"])
+        rows = [{"k": f"Supertrend({p['atr']}, {p['mult']:g}) · 4H", "v": f"{self.fmt(line)} · {'up' if up else 'down'}",
+                 "cls": "up" if up else "dn"}]
+        if p["gold_confirm"]:
+            rows.append({"k": f"Gold's Supertrend({p['gold_atr']}, {p['gold_mult']:g})", "v": "up" if r["gold_ok"] else "down",
+                         "cls": "up" if r["gold_ok"] else "dn"})
+        if p["daily_ma"] > 0:
+            rows.append({"k": f"Daily close vs SMA{p['daily_ma']}", "v": f"{'above' if r['ma_ok'] else 'below'} ({self.fmt(float(r['d_ma']) / f)})",
+                         "cls": "up" if r["ma_ok"] else "dn"})
+        if p["gsr_ma"] > 0:
+            g, gm = float(r["d_gsr"]), float(r["d_gsr_ma"])
+            rows.append({"k": f"Gold/silver ratio vs SMA{p['gsr_ma']}", "v": f"{g:.1f} {'<' if r['gsr_ok'] else '≥'} {gm:.1f}" if g == g and gm == gm else "—",
+                         "cls": "up" if r["gsr_ok"] else "dn"})
+        if p["target_vol_pct"] > 0:
+            v = float(r["d_vol2"])
+            rows.append({"k": "Size", "v": (f"{float(r['size']) * 100:.0f}% held · now {float(r['raw_size']) * 100:.0f}% "
+                                            f"({p['target_vol_pct']:g}% ÷ {v * 100:.0f}%)" if v == v else "—")})
+        if long_:
+            rows.append({"k": "Sell if a 4H close is below", "v": f"{self.fmt(line)} ({(line / close - 1) * 100:+.1f}%)"})
+        else:
+            upper = float(r["upper"]) / f
+            rows.append({"k": "Trend turns up on a 4H close above", "v": f"{self.fmt(upper)} ({(upper / close - 1) * 100:+.1f}%)"})
+        return rows
+
+    def chart_lines(self, res, f, times, s0):
+        p = self.params
+        up = res["st_up"].values.astype(bool)
+        line = res["st_line"].values
+        lines = [{"name": f"Supertrend {p['atr']} {p['mult']:g} (up)", "color": "#26A69A", "width": 2, "data": _series(line, f, times, s0, up)},
+                 {"name": f"Supertrend {p['atr']} {p['mult']:g} (down)", "color": "#EF5350", "width": 2,
+                  "data": _series(line, f, times, s0, ~up), "legend": False}]
+        if p["daily_ma"] > 0:
+            lines.append({"name": f"Daily SMA{p['daily_ma']}", "color": "#FF9800", "width": 1, "data": _series(res["d_ma"].values, f, times, s0)})
+        one = np.ones(len(times))
+        panes = [{"id": "size", "title": f"{p['etf']} size (% of the money)", "height": 90,
+                  "lines": [{"name": "Size held", "color": "#5B8DEF", "width": 2, "data": _series(res["size"].values * 100, one, times, s0, digits=1)}]}]
+        return lines, panes
+
+    def describe(self):
+        p = self.params
+        checks = []
+        if p["gold_confirm"]:
+            checks.append(f"gold's own 4-hour Supertrend (ATR {p['gold_atr']}, multiplier {p['gold_mult']:g}) is up")
+        if p["daily_ma"] > 0:
+            checks.append(f"the last daily close is above its {p['daily_ma']}-day average")
+        if p["gsr_ma"] > 0:
+            checks.append(f"the gold/silver ratio (daily closes) is below its {p['gsr_ma']}-day average")
+        rules = [f"Trend: the 4-hour {SYMBOLS[self.sym]} Supertrend (ATR {p['atr']}, multiplier {p['mult']:g}) is up."]
+        if checks:
+            rules.append("Checks: " + "; ".join(checks) + ".")
+        size = (f"{p['etf']} weight = {p['target_vol_pct']:g}% ÷ (2 × the {p['size_vol_days']}-day volatility of daily changes), "
+                f"at most 99%, resized only when it moves more than {p['size_band_pct']:g}%" if p["target_vol_pct"] > 0 else f"99% {p['etf']}")
+        rules.append(f"Trend up and checks pass: {size}.")
+        rules.append(f"Trend up but a check fails: {'99% ' + p['one_x_etf'] if p['one_x_etf'] else 'cash'}. Trend down: {p['cash_etf'] or 'cash'}.")
+        tv = f'4H: built-in "Supertrend" (ATR length {p["atr"]}, factor {p["mult"]:g})'
+        if p["gold_confirm"]:
+            tv += f'; COMEX:GC1! 4H "Supertrend" ({p["gold_atr"]}, {p["gold_mult"]:g})'
+        return {"rules": rules, "flow": f"{self.sym}=F 4H" + (" + GC=F" if p["gold_confirm"] or p["gsr_ma"] else "") +
+                f" → {p['etf']}" + (f" / {p['one_x_etf']}" if p["one_x_etf"] else "") + f" · cash {p['cash_etf'] or '—'}", "tv": tv,
+                "rule": f"Supertrend({p['atr']}, {p['mult']:g}) up" + (" + gold up" if p["gold_confirm"] else "") +
+                (f" + > SMA{p['daily_ma']}" if p["daily_ma"] else "") + (f" + ratio < SMA{p['gsr_ma']}" if p["gsr_ma"] else "") +
+                (f" · sized {p['target_vol_pct']:g}% vol" if p["target_vol_pct"] else "")}
+
+    def check_table(self, now, rows=12):
+        """Supertrend (own and gold's) and the size's volatility recomputed the long way."""
+        from ..health import ref_supertrend
+        p = self.params
+        se = metals.series(self.sym, now)
+        adj4, raw4, f = se["adj4"], se["raw4"], se["factor4"].values
+        res = self.compute(adj4)
+        h, l, c = (adj4[k].values.astype(float).tolist() for k in ("h", "l", "c"))
+        line, _ = ref_supertrend(h, l, c, p["atr"], p["mult"])
+        gup = None
+        if p["gold_confirm"]:
+            g = adj4 if self.sym == "GC" else self._gold()
+            _, gu = ref_supertrend(g.h.astype(float).tolist(), g.l.astype(float).tolist(), g.c.astype(float).tolist(), p["gold_atr"], p["gold_mult"])
+            j = _align(g["end"], adj4["end"])
+            gup = [bool(gu[x]) if x >= 0 else False for x in j]
+        dc, _, known = daily_from_4h(adj4)
+        vd = p["size_vol_days"]
+        cols = ["Close", "Supertrend · bot", "Supertrend · check", "Gold up · bot", "Gold up · check", "Volatility · bot", "Volatility · check"]
+        out, mx = [], 0.0
+        ends = pd.to_datetime(raw4["end"], utc=True)
+        for i in range(max(0, len(c) - rows), len(c)):
+            a, b = float(res["st_line"].iloc[i]) / f[i], line[i] / f[i]
+            jx = known[i]
+            vc = float("nan")
+            if p["target_vol_pct"] > 0 and jx >= vd:
+                lg = [math.log(dc[x] / dc[x - 1]) for x in range(jx - vd + 1, jx + 1)]
+                m = sum(lg) / vd
+                vc = (sum((x - m) ** 2 for x in lg) / (vd - 1)) ** 0.5 * math.sqrt(252) * 2
+            vb = float(res["d_vol2"].iloc[i])
+            diff = abs(a - b) / max(abs(a), 1e-9)
+            if vb == vb and vc == vc:
+                diff = max(diff, abs(vb - vc))
+            gb = bool(res["gold_ok"].iloc[i]) if p["gold_confirm"] else None
+            gc = gup[i] if gup is not None else None
+            if gb is not None and gb != gc:
+                diff = max(diff, 1.0)
+            mx = max(mx, diff)
+            out.append({"t": int(ends.iloc[i].timestamp()),
+                        "vals": [float(raw4["c"].iloc[i]), a, b, "—" if gb is None else ("up" if gb else "down"),
+                                 "—" if gc is None else ("up" if gc else "down"), vb * 100 if vb == vb else None, vc * 100 if vc == vc else None],
+                        "ok": diff < 1e-6})
+        return cols, out, mx

@@ -293,6 +293,44 @@
     "sharpe": 1.19,
     "bench": "Gold #1 on the same prices: 14.5% a year, worst fall −25.2%; beat it in 98% of 2,000 reshuffled decades"
    }
+  },
+  "silver_gold_ok": {
+   "doc": "strategy-silver-gold-ok",
+   "reviewed": "2026-11-03",
+   "expect": {
+    "cagr": 12.2,
+    "maxdd": -82.9,
+    "basis": "research, real fee",
+    "period": "Jan 2009 – Oct 2026",
+    "note": "The research engine at Webull's real fee, since 2009 rather than the 10-year 28.5%: the settings were chosen on the same years, and the longer number includes the 2011-2015 silver bear market (−82.9%). Settings picked on 2009-2016 only made 21.7% a year over 2016-2026."
+   },
+   "research": {
+    "source": "Gold & Silver Challengers, 3 Nov 2026 · S1 (trend with gold's OK + vol size), full stress test",
+    "period": "Oct 2016 – Oct 2026",
+    "cagr": 28.5,
+    "maxdd": -50.2,
+    "sharpe": 0.88,
+    "bench": "Silver #1 on the same prices: 12.8% a year, worst fall −60.7%; beat it in 85% of 2,000 reshuffled decades"
+   }
+  },
+  "silver_lead_1x": {
+   "doc": "strategy-silver-lead-1x",
+   "reviewed": "2026-11-03",
+   "expect": {
+    "cagr": 10.2,
+    "maxdd": -64.8,
+    "basis": "research, real fee",
+    "period": "Jan 2009 – Oct 2026",
+    "note": "The research engine at Webull's real fee, since 2009 rather than the 10-year 13.4%: it includes the 2011-2015 silver bear market. Settings picked on 2009-2016 only made 6.4% a year over 2016-2026 (worst fall −39%), so plan on the low side."
+   },
+   "research": {
+    "source": "Gold & Silver Challengers, 3 Nov 2026 · S3 (trend + silver leading, else 1x), full stress test",
+    "period": "Oct 2016 – Oct 2026",
+    "cagr": 13.4,
+    "maxdd": -28.7,
+    "sharpe": 0.62,
+    "bench": "Silver #1 on the same prices: 12.8% a year, worst fall −60.7%; a fall worse than −60% in 14% of 2,000 reshuffled decades (Silver #1: 79%)"
+   }
   }
  },
  "log": [

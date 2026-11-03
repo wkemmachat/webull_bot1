@@ -960,7 +960,7 @@ async def reset_paper(request: Request, u=Depends(user)):
     b = await body(request)
     if b.get("confirm") != "RESET":
         raise HTTPException(400, "Type RESET to confirm")
-    cash = float(b.get("start_cash") or db.get_setting("paper_start_cash") or 180000)
+    cash = float(b.get("start_cash") or db.get_setting("paper_start_cash") or 200000)
     per = float(b.get("strategy_cash") or db.get_setting("paper_strategy_cash") or 10000)
     with execution._LOCK:
         ledger.reset_mode("paper")
@@ -1006,7 +1006,7 @@ def data_refresh(u=Depends(user)):
 DOC_ORDER = ["overview", "quick-start-mac", "first-day", "modes", "dashboard", "strategies", "backtest", "money", "portfolio", "orders", "line", "health", "golive", "hongkong",
              "strategy-compare", "strategy-timeframes", "strategy-dips", "expected-returns", "strategy-gold1", "strategy-gold2", "strategy-silver1", "strategy-silver2", "strategy-qld", "strategy-semis",
              "strategy-qld-tbd", "strategy-qld-tbdv", "strategy-qld-ibs", "strategy-usd-ibs", "strategy-rom-tbd", "strategy-usd-smh-ibs",
-             "strategy-rom-vol-ibs", "strategy-gold-trend-calm", "strategy-c27",
+             "strategy-rom-vol-ibs", "strategy-gold-trend-calm", "strategy-silver-gold-ok", "strategy-silver-lead-1x", "strategy-c27",
              "deploy", "update", "backups", "plugins", "layout", "tests", "troubleshooting", "glossary", "decisions"]
 
 
