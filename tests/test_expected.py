@@ -147,8 +147,8 @@ def test_view_for_the_dashboard(checked):
     assert v["haircut_pct"] == 30 and v["horizons"] == [1, 2, 3]
     rows = {r["id"]: r for r in v["strategies"]}
     u = rows["usd_ibs"]
-    assert u["basis"]["basis"] == "research, real fee" and u["mu"] == pytest.approx(0.629 * 0.7)
-    assert u["ranges"][1]["typical"] == pytest.approx(0.629 * 0.7)
+    assert u["basis"]["basis"] == "10 yr, real fee" and u["mu"] == pytest.approx(0.565 * 0.7)   # same 10 years for every strategy
+    assert u["ranges"][1]["typical"] == pytest.approx(0.565 * 0.7)
     funded = [r for r in v["strategies"] if r["value"] > 0]
     if funded:
         p = v["portfolio"]
@@ -241,3 +241,12 @@ def test_yearly_falls_by_calendar_year():
     assert out["years_n"] == 2 and out["year_fall"] == -10.0 and out["year_fall_min"] == -20.0
     assert out["worst_year"]["year"] == 2021 and out["worst_year"]["ret"] == -20.0
     assert E._ret_dd(50.0, -38.5) == 1.3 and E._ret_dd(None, -10) is None and E._ret_dd(10, 0) is None
+
+
+def test_every_default_plans_on_the_same_ten_years():
+    from app import expected
+    F = expected.load_file()
+    for sid, spec in F["strategies"].items():
+        e = spec["expect"]
+        assert e["period"] == "Oct 2016 – Oct 2026" and e["basis"] == "10 yr, real fee", sid
+        assert e["cagr"] > 0 and e["maxdd"] < 0, sid

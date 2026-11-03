@@ -25,8 +25,13 @@ with the plan so far.
    those settings) and lowers the research return in proportion. Example: USD Trend + IBS-dip, research 66.8%; the bot's
    10-year backtest went from 62.5% to 58.7% a year, so the plan starts from **62.9%**. The panel shows these as
    *research, real fee*.
-3. **Minus the planning haircut** (30% by default). A research return of 40% a year becomes a plan of **28% a year**.
-4. **The bot's own backtest replaces the research in two cases:**
+3. **The same 10 years for every strategy** (since 3 Nov 2026): Oct 2016 – Oct 2026 at Webull's real fee, from one price
+   source per family: TradingView daily prices for the Nasdaq, semis and ROM strategies (the bot's rules rebuilt there), OANDA
+   4-hour prices for gold and silver (Yahoo keeps only 2 years of hourly metals prices). Before, the older strategies planned on
+   their 10-year research and the newer ones on the longer, lower history since 2008, which made the newer ones look worse
+   than they are. The panel shows these as *10 yr, real fee*. Each strategy's page still shows its longer history.
+4. **Minus the planning haircut** (30% by default). A research return of 40% a year becomes a plan of **28% a year**.
+5. **The bot's own backtest replaces the research in two cases:**
    - you changed a strategy's settings, so the research no longer applies;
    - the research has no 10-year return for the strategy on its own (2x Semis regime).
 
@@ -48,9 +53,12 @@ Three columns in the table help you weigh return against pain before choosing a 
 - **Worst fall**: the deepest fall below a previous high in the strategy's backtest (the same number as on its card), and the
   longest time it then stayed below that high ("under 2.8 yr"). If you had put money in at the worst possible day, this is how
   far it would have fallen and how long you would have waited. A second line shows the last 10 years when that differs.
-- **Return ÷ fall**: the backtest's return a year divided by its worst fall, over the last 10 years (for example 57% ÷ 38% =
-  1.49). It says how much yearly return each 1% of the deepest fall bought: higher is better. Gold and silver have only about
-  2 years of backtest, marked "2 yr only": treat their numbers with care.
+- **Return ÷ fall** (the table's default order, best first): the plan's 10-year return a year divided by its worst fall over
+  the same 10 years, before the haircut (for example 74.5% ÷ 37.6% = 1.98). It says how much yearly return each 1% of the
+  deepest fall bought: higher is better. Every default strategy uses the same window, so the ranking compares like with like.
+  A strategy with your own settings uses the bot's backtest instead (gold and silver backtests reach back only about 2 years,
+  marked "2 yr only"). Rank 1 is not "put everything here": the top strategies are mostly 2x Nasdaq and semis ETFs that fall
+  together; mixing in gold, silver or the calmer strategies lowers the fall of the whole.
 - **Fall in a year**: in each full calendar year of the backtest, the deepest dip below that year's high; the column shows the
   average. Every strategy here dips about 20–35% at some point in a normal year, even in years that end well: a dip that size is
   not a sign that something is broken. The small line names the worst year (lowest return ÷ fall) and its return.

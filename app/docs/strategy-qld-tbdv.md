@@ -111,7 +111,7 @@ What does hold up across the neighbours is the **risk** side: 90% of the neighbo
 
 ## Expected return
 
-What the bot plans with for this strategy (the Dashboard's *Expected return* panel uses the same numbers). This entry uses the bot's own backtest (34.9%), not the research's 38.4%, because of the selection effect above. The return minus the planning haircut is the typical case; the weak and good cases are about 1 period in 10 worse or better.
+What the bot plans with for this strategy (the Dashboard's *Expected return* panel uses the same numbers). Since 3 Nov 2026 every strategy plans on the same 10 years (Oct 2016 – Oct 2026, real fee); for this one that is 45.7% a year with a −23.7% worst fall (the bot's rules on TradingView prices). The longer history above (34.9% since 2007) is the reminder of the selection effect. The return minus the planning haircut is the typical case; the weak and good cases are about 1 period in 10 worse or better.
 
 <!--expected:qld_tbdv-->
 

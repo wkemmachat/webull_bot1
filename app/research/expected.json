@@ -1,18 +1,18 @@
 {
  "about": "Expected yearly return of each default strategy: the research number the bot plans with (minus the planning haircut). Review once a year: update cagr, reviewed and add a line to log. Docs and the Dashboard read this file.",
- "reviewed": "2026-10-26",
+ "reviewed": "2026-11-03",
  "review_every_days": 365,
  "haircut_pct": 30,
  "strategies": {
   "qld_regime": {
    "doc": "strategy-qld",
-   "reviewed": "2026-10-26",
+   "reviewed": "2026-11-03",
    "expect": {
-    "cagr": 38.9,
-    "maxdd": -36.6,
-    "basis": "research, real fee",
-    "period": "2016 – 2026",
-    "note": "Research 39.7% adjusted by what Webull's real fee (0.11% per buy and per sell) change in the bot's own backtest over 10 years: 37.2% → 36.4% a year."
+    "cagr": 36.6,
+    "maxdd": -36.3,
+    "basis": "10 yr, real fee",
+    "period": "Oct 2016 – Oct 2026",
+    "note": "The bot's rules rebuilt on TradingView daily prices at Webull's real fee (0.11% per buy and per sell), Oct 2016 – Oct 2026: the same prices, fee and 10 years for every Nasdaq / semis / ROM strategy (research \"2x ETF Strategy Challengers\", 2 Nov 2026)."
    },
    "research": {
     "source": "Strategy to beat QQQ · strategy F (next-open fills)",
@@ -22,13 +22,13 @@
   },
   "semis_regime": {
    "doc": "strategy-semis",
-   "reviewed": "2026-10-26",
+   "reviewed": "2026-11-03",
    "expect": {
-    "cagr": 55.9,
-    "maxdd": -46.4,
-    "basis": "bot backtest",
+    "cagr": 55.7,
+    "maxdd": -45.9,
+    "basis": "10 yr, real fee",
     "period": "Oct 2016 – Oct 2026",
-    "note": "The bot's own 10-year backtest at Webull's real fee (0.11% per buy and per sell), 55.9% (was 57.3% at 0.05%)."
+    "note": "The bot's rules rebuilt on TradingView daily prices at Webull's real fee (0.11% per buy and per sell), Oct 2016 – Oct 2026: the same prices, fee and 10 years for every Nasdaq / semis / ROM strategy (research \"2x ETF Strategy Challengers\", 2 Nov 2026)."
    },
    "research": {
     "source": "Strategy to beat QQQ · strategy U",
@@ -38,13 +38,13 @@
   },
   "qld_tbd": {
    "doc": "strategy-qld-tbd",
-   "reviewed": "2026-10-26",
+   "reviewed": "2026-11-03",
    "expect": {
-    "cagr": 31.6,
-    "maxdd": -42.6,
-    "basis": "research, real fee",
-    "period": "Oct 2007 – Oct 2026",
-    "note": "Research 32.9% adjusted by what Webull's real fee (0.11% per buy and per sell) change in the bot's own backtest over since 2007: 33.0% → 31.7% a year."
+    "cagr": 36.6,
+    "maxdd": -42.3,
+    "basis": "10 yr, real fee",
+    "period": "Oct 2016 – Oct 2026",
+    "note": "The bot's rules rebuilt on TradingView daily prices at Webull's real fee (0.11% per buy and per sell), Oct 2016 – Oct 2026: the same prices, fee and 10 years for every Nasdaq / semis / ROM strategy (research \"2x ETF Strategy Challengers\", 2 Nov 2026)."
    },
    "research": {
     "source": "ETF Strategy Lab, 23 Oct 2026",
@@ -57,13 +57,13 @@
   },
   "c27_mom": {
    "doc": "strategy-c27",
-   "reviewed": "2026-10-26",
+   "reviewed": "2026-11-03",
    "expect": {
     "cagr": 32.1,
     "maxdd": -19.8,
-    "basis": "research, real fee",
+    "basis": "10 yr, real fee",
     "period": "Oct 2016 – Oct 2026",
-    "note": "Research 34.7% adjusted by what Webull's real fee (0.11% per buy and per sell) change in the bot's own backtest over 10 years: 34.0% → 31.5% a year."
+    "note": "The research's 10 years at Webull's real fee (Oct 2016 – Oct 2026): the same window as every other strategy. Research 34.7% adjusted by what Webull's real fee (0.11% per buy and per sell) change in the bot's own backtest over 10 years: 34.0% → 31.5% a year."
    },
    "research": {
     "source": "Research on single Stock Nasdaq · C2-7 Momentum, 50/50 gold & T-bill parking",
@@ -76,13 +76,13 @@
   },
   "c27_mom2x": {
    "doc": "strategy-c27",
-   "reviewed": "2026-10-26",
+   "reviewed": "2026-11-03",
    "expect": {
     "cagr": 56.6,
     "maxdd": -37.7,
-    "basis": "research, real fee",
+    "basis": "10 yr, real fee",
     "period": "Oct 2016 – Oct 2026",
-    "note": "Research 59.6% adjusted by what Webull's real fee (0.11% per buy and per sell) change in the bot's own backtest over 10 years: 56.8% → 53.8% a year."
+    "note": "The research's 10 years at Webull's real fee (Oct 2016 – Oct 2026): the same window as every other strategy. Research 59.6% adjusted by what Webull's real fee (0.11% per buy and per sell) change in the bot's own backtest over 10 years: 56.8% → 53.8% a year."
    },
    "research": {
     "source": "Research on single Stock Nasdaq · C2-7 Momentum 2x (model before 2022, real 2x ETFs after)",
@@ -95,13 +95,13 @@
   },
   "qld_ibs": {
    "doc": "strategy-qld-ibs",
-   "reviewed": "2026-10-26",
+   "reviewed": "2026-11-03",
    "expect": {
-    "cagr": 37.5,
-    "maxdd": -31.6,
-    "basis": "research, real fee",
+    "cagr": 34.6,
+    "maxdd": -27.2,
+    "basis": "10 yr, real fee",
     "period": "Oct 2016 – Oct 2026",
-    "note": "Research 37.7% adjusted by what Webull's real fee and the lower-cost settings (IBS < 0.15, T-bill half kept as cash) change in the bot's own backtest over 10 years: 34.5% → 34.4% a year."
+    "note": "The bot's rules rebuilt on TradingView daily prices at Webull's real fee (0.11% per buy and per sell), Oct 2016 – Oct 2026: the same prices, fee and 10 years for every Nasdaq / semis / ROM strategy (research \"2x ETF Strategy Challengers\", 2 Nov 2026)."
    },
    "research": {
     "source": "Research on single Stock Nasdaq · strategy 2 (QLD own-price + vol cap, 50/50 gold & T-bill parking)",
@@ -114,13 +114,13 @@
   },
   "usd_ibs": {
    "doc": "strategy-usd-ibs",
-   "reviewed": "2026-10-26",
+   "reviewed": "2026-11-03",
    "expect": {
-    "cagr": 62.9,
-    "maxdd": -38.1,
-    "basis": "research, real fee",
+    "cagr": 56.5,
+    "maxdd": -38.4,
+    "basis": "10 yr, real fee",
     "period": "Oct 2016 – Oct 2026",
-    "note": "Research 66.8% adjusted by what Webull's real fee and the lower-cost settings (T-bill half kept as cash) change in the bot's own backtest over 10 years: 62.5% → 58.7% a year."
+    "note": "The bot's rules rebuilt on TradingView daily prices at Webull's real fee (0.11% per buy and per sell), Oct 2016 – Oct 2026: the same prices, fee and 10 years for every Nasdaq / semis / ROM strategy (research \"2x ETF Strategy Challengers\", 2 Nov 2026)."
    },
    "research": {
     "source": "Research on single Stock Nasdaq · USD own-price strategy C (Trend + IBS-dip, aggressive), resized every day",
@@ -133,13 +133,13 @@
   },
   "gold_sta": {
    "doc": "strategy-gold1",
-   "reviewed": "2026-10-26",
+   "reviewed": "2026-11-03",
    "expect": {
-    "cagr": 7.7,
-    "maxdd": -24.0,
-    "basis": "research, real fee",
-    "period": "Apr 2016 – Oct 2026",
-    "note": "Research 10.3% adjusted by what Webull's real fee and keeping cash instead of SGOV while flat change in the bot's own backtest over its 2-year backtest: 29.5% → 26.4% a year."
+    "cagr": 14.6,
+    "maxdd": -25.2,
+    "basis": "10 yr, real fee",
+    "period": "Oct 2016 – Oct 2026",
+    "note": "OANDA spot prices built into the bot's 4-hour bars, the bot's order times and Webull's real fee, Oct 2016 – Oct 2026: the same prices, fee and 10 years for every gold and silver strategy (research \"Gold & Silver Challengers\", 3 Nov 2026)."
    },
    "research": {
     "source": "Gold & Silver research · 10-year ETF test",
@@ -150,13 +150,13 @@
   },
   "gold_st30": {
    "doc": "strategy-gold2",
-   "reviewed": "2026-10-26",
+   "reviewed": "2026-11-03",
    "expect": {
-    "cagr": 9.0,
-    "maxdd": -21.4,
-    "basis": "research, real fee",
-    "period": "Apr 2016 – Oct 2026",
-    "note": "Research 11.5% adjusted by what Webull's real fee and keeping cash instead of SGOV while flat change in the bot's own backtest over its 2-year backtest: 30.8% → 27.9% a year."
+    "cagr": 13.2,
+    "maxdd": -31.4,
+    "basis": "10 yr, real fee",
+    "period": "Oct 2016 – Oct 2026",
+    "note": "OANDA spot prices built into the bot's 4-hour bars, the bot's order times and Webull's real fee, Oct 2016 – Oct 2026: the same prices, fee and 10 years for every gold and silver strategy (research \"Gold & Silver Challengers\", 3 Nov 2026)."
    },
    "research": {
     "source": "Gold & Silver research · 10-year ETF test",
@@ -167,13 +167,13 @@
   },
   "silver_dc": {
    "doc": "strategy-silver1",
-   "reviewed": "2026-10-26",
+   "reviewed": "2026-11-03",
    "expect": {
     "cagr": 12.7,
-    "maxdd": -73.0,
-    "basis": "research, real fee",
-    "period": "Apr 2016 – Oct 2026",
-    "note": "Research 15.5% adjusted by what Webull's real fee and keeping cash instead of SGOV while flat change in the bot's own backtest over its 2-year backtest: 7.4% → 4.8% a year."
+    "maxdd": -60.7,
+    "basis": "10 yr, real fee",
+    "period": "Oct 2016 – Oct 2026",
+    "note": "OANDA spot prices built into the bot's 4-hour bars, the bot's order times and Webull's real fee, Oct 2016 – Oct 2026: the same prices, fee and 10 years for every gold and silver strategy (research \"Gold & Silver Challengers\", 3 Nov 2026)."
    },
    "research": {
     "source": "Gold & Silver research · 10-year ETF test",
@@ -184,13 +184,13 @@
   },
   "silver_st": {
    "doc": "strategy-silver2",
-   "reviewed": "2026-10-26",
+   "reviewed": "2026-11-03",
    "expect": {
-    "cagr": 14.4,
-    "maxdd": -59.9,
-    "basis": "research, real fee",
-    "period": "Apr 2016 – Oct 2026",
-    "note": "Research 17.2% adjusted by what Webull's real fee and keeping cash instead of SGOV while flat change in the bot's own backtest over its 2-year backtest: 25.6% → 22.7% a year."
+    "cagr": 12.0,
+    "maxdd": -69.7,
+    "basis": "10 yr, real fee",
+    "period": "Oct 2016 – Oct 2026",
+    "note": "OANDA spot prices built into the bot's 4-hour bars, the bot's order times and Webull's real fee, Oct 2016 – Oct 2026: the same prices, fee and 10 years for every gold and silver strategy (research \"Gold & Silver Challengers\", 3 Nov 2026)."
    },
    "research": {
     "source": "Gold & Silver research · 10-year ETF test",
@@ -201,13 +201,13 @@
   },
   "rom_tbd": {
    "doc": "strategy-rom-tbd",
-   "reviewed": "2026-10-26",
+   "reviewed": "2026-11-03",
    "expect": {
-    "cagr": 50.0,
-    "maxdd": -37.9,
-    "basis": "research, real fee",
+    "cagr": 49.7,
+    "maxdd": -37.6,
+    "basis": "10 yr, real fee",
     "period": "Oct 2016 – Oct 2026",
-    "note": "2x ETF research (26 Oct 2026) at Webull's real fee; the bot's own backtest code gave 50.0% (research engine 50.9%)."
+    "note": "The bot's rules rebuilt on TradingView daily prices at Webull's real fee (0.11% per buy and per sell), Oct 2016 – Oct 2026: the same prices, fee and 10 years for every Nasdaq / semis / ROM strategy (research \"2x ETF Strategy Challengers\", 2 Nov 2026)."
    },
    "research": {
     "source": "2x ETF Strategy Research · ROM Trend + RSI(2) (QLD + Trend + bear-dip rules on ROM, signal IYW)",
@@ -220,13 +220,13 @@
   },
   "qld_tbdv": {
    "doc": "strategy-qld-tbdv",
-   "reviewed": "2026-10-30",
+   "reviewed": "2026-11-03",
    "expect": {
-    "cagr": 34.9,
-    "maxdd": -34.4,
-    "basis": "bot backtest, real fee",
-    "period": "Oct 2007 – Oct 2026",
-    "note": "The bot's own backtest at Webull's real fee (0.11% per buy and per sell), not the research's 38.4%: the research picked these settings as the best of their neighbours (the median neighbour made about 32% a year), so the lower number is the safer one to plan with."
+    "cagr": 45.7,
+    "maxdd": -23.7,
+    "basis": "10 yr, real fee",
+    "period": "Oct 2016 – Oct 2026",
+    "note": "The bot's rules rebuilt on TradingView daily prices at Webull's real fee (0.11% per buy and per sell), Oct 2016 – Oct 2026: the same prices, fee and 10 years for every Nasdaq / semis / ROM strategy (research \"2x ETF Strategy Challengers\", 2 Nov 2026)."
    },
    "research": {
     "source": "ETF Strategy Lab v3, 30 Oct 2026 · Trend + bear-dip + Vol filter",
@@ -239,13 +239,13 @@
   },
   "usd_smh_ibs": {
    "doc": "strategy-usd-smh-ibs",
-   "reviewed": "2026-11-02",
+   "reviewed": "2026-11-03",
    "expect": {
-    "cagr": 49.6,
-    "maxdd": -47.0,
-    "basis": "bot backtest, real fee",
-    "period": "Jan 2008 – Oct 2026",
-    "note": "The bot's own code (trend_gate) on TradingView prices at Webull's real fee (0.11% per buy and per sell), since 2008 rather than the 10-year 74.5%: the settings were chosen on the same years, so the longer, lower number is the safer one to plan with."
+    "cagr": 74.5,
+    "maxdd": -37.6,
+    "basis": "10 yr, real fee",
+    "period": "Oct 2016 – Oct 2026",
+    "note": "The bot's rules rebuilt on TradingView daily prices at Webull's real fee (0.11% per buy and per sell), Oct 2016 – Oct 2026: the same prices, fee and 10 years for every Nasdaq / semis / ROM strategy (research \"2x ETF Strategy Challengers\", 2 Nov 2026)."
    },
    "research": {
     "source": "2x ETF Strategy Challengers, 2 Nov 2026 · U1 (SMH trend + SMH IBS-dip), stress-tested",
@@ -258,13 +258,13 @@
   },
   "rom_vol_ibs": {
    "doc": "strategy-rom-vol-ibs",
-   "reviewed": "2026-11-02",
+   "reviewed": "2026-11-03",
    "expect": {
-    "cagr": 42.0,
-    "maxdd": -35.4,
-    "basis": "bot backtest, real fee",
-    "period": "Jan 2008 – Oct 2026",
-    "note": "The bot's own code (trend_gate) on TradingView prices at Webull's real fee, since 2008 rather than the 10-year 60.0%: the settings were chosen on the same years, so the longer, lower number is the safer one to plan with."
+    "cagr": 59.9,
+    "maxdd": -34.3,
+    "basis": "10 yr, real fee",
+    "period": "Oct 2016 – Oct 2026",
+    "note": "The bot's rules rebuilt on TradingView daily prices at Webull's real fee (0.11% per buy and per sell), Oct 2016 – Oct 2026: the same prices, fee and 10 years for every Nasdaq / semis / ROM strategy (research \"2x ETF Strategy Challengers\", 2 Nov 2026)."
    },
    "research": {
     "source": "2x ETF Strategy Challengers, 2 Nov 2026 · R1 (IYW EMA150 + Vol + RSI & IBS dips), stress-tested",
@@ -279,11 +279,11 @@
    "doc": "strategy-gold-trend-calm",
    "reviewed": "2026-11-03",
    "expect": {
-    "cagr": 18.0,
-    "maxdd": -42.9,
-    "basis": "research, real fee",
-    "period": "Jan 2009 – Oct 2026",
-    "note": "The research engine at Webull's real fee (0.11% per buy and per sell), since 2009 rather than the 10-year 22.6%: the settings were chosen on the same years, so the longer number, which includes the 2011-2015 gold bear market, is the safer one to plan with. Settings picked on 2009-2016 only made 20.9% a year over 2016-2026."
+    "cagr": 22.6,
+    "maxdd": -22.0,
+    "basis": "10 yr, real fee",
+    "period": "Oct 2016 – Oct 2026",
+    "note": "OANDA spot prices built into the bot's 4-hour bars, the bot's order times and Webull's real fee, Oct 2016 – Oct 2026: the same prices, fee and 10 years for every gold and silver strategy (research \"Gold & Silver Challengers\", 3 Nov 2026)."
    },
    "research": {
     "source": "Gold & Silver Challengers, 3 Nov 2026 · G1 (slow trend + calm + RSI dips), full stress test",
@@ -298,11 +298,11 @@
    "doc": "strategy-silver-gold-ok",
    "reviewed": "2026-11-03",
    "expect": {
-    "cagr": 12.2,
-    "maxdd": -82.9,
-    "basis": "research, real fee",
-    "period": "Jan 2009 – Oct 2026",
-    "note": "The research engine at Webull's real fee, since 2009 rather than the 10-year 28.5%: the settings were chosen on the same years, and the longer number includes the 2011-2015 silver bear market (−82.9%). Settings picked on 2009-2016 only made 21.7% a year over 2016-2026."
+    "cagr": 28.5,
+    "maxdd": -50.2,
+    "basis": "10 yr, real fee",
+    "period": "Oct 2016 – Oct 2026",
+    "note": "OANDA spot prices built into the bot's 4-hour bars, the bot's order times and Webull's real fee, Oct 2016 – Oct 2026: the same prices, fee and 10 years for every gold and silver strategy (research \"Gold & Silver Challengers\", 3 Nov 2026)."
    },
    "research": {
     "source": "Gold & Silver Challengers, 3 Nov 2026 · S1 (trend with gold's OK + vol size), full stress test",
@@ -317,11 +317,11 @@
    "doc": "strategy-silver-lead-1x",
    "reviewed": "2026-11-03",
    "expect": {
-    "cagr": 10.2,
-    "maxdd": -64.8,
-    "basis": "research, real fee",
-    "period": "Jan 2009 – Oct 2026",
-    "note": "The research engine at Webull's real fee, since 2009 rather than the 10-year 13.4%: it includes the 2011-2015 silver bear market. Settings picked on 2009-2016 only made 6.4% a year over 2016-2026 (worst fall −39%), so plan on the low side."
+    "cagr": 13.4,
+    "maxdd": -28.7,
+    "basis": "10 yr, real fee",
+    "period": "Oct 2016 – Oct 2026",
+    "note": "OANDA spot prices built into the bot's 4-hour bars, the bot's order times and Webull's real fee, Oct 2016 – Oct 2026: the same prices, fee and 10 years for every gold and silver strategy (research \"Gold & Silver Challengers\", 3 Nov 2026)."
    },
    "research": {
     "source": "Gold & Silver Challengers, 3 Nov 2026 · S3 (trend + silver leading, else 1x), full stress test",
@@ -349,6 +349,10 @@
   {
    "date": "2026-10-30",
    "what": "Added QLD Trend + bear-dip + Vol (ETF Strategy Lab v3): the QLD + Trend + bear-dip rules plus a volatility filter. Expected 34.9% a year (the bot's own backtest at the real fee, below the research's 38.4%), worst fall −34.4%."
+  },
+  {
+   "date": "2026-11-03",
+   "what": "Every strategy now plans on the same 10 years (Oct 2016 – Oct 2026) at the real fee, from one price source per family (TradingView daily for the Nasdaq / semis / ROM strategies, OANDA 4-hour for gold and silver), so the Dashboard can rank them fairly. Before, the older strategies used their 10-year research and the newer ones the longer, lower history since 2008. qld_regime 38.9→36.6; semis_regime 55.9→55.7; qld_tbd 31.6→36.6; c27_mom 32.1→32.1; c27_mom2x 56.6→56.6; qld_ibs 37.5→34.6; usd_ibs 62.9→56.5; gold_sta 7.7→14.6; gold_st30 9.0→13.2; silver_dc 12.7→12.7; silver_st 14.4→12.0; rom_tbd 50.0→49.7; qld_tbdv 34.9→45.7; usd_smh_ibs 49.6→74.5; rom_vol_ibs 42.0→59.9; gold_trend_calm 18.0→22.6; silver_gold_ok 12.2→28.5; silver_lead_1x 10.2→13.4."
   }
  ]
 }

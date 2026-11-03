@@ -15,9 +15,10 @@
   const day = (iso) => { if (!iso) return '—'; const d = new Date(iso + 'T00:00:00Z'); return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }); };
   const mon = (iso) => { if (!iso) return '—'; const d = new Date(iso + 'T00:00:00Z'); return d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' }); };
   const pct0 = (v) => U.pct(v, Math.abs(v) >= 1 ? 0 : 1);
-  // table sort: the most profitable first by default (Plan a year, high → low); a click on a header sorts by it
-  const SORT_KEY = 'expSort';
-  let sort = { k: 'plan', dir: -1 };
+  // table sort: the best return per 1% of worst fall first by default (the plan's 10 years, the same window for every
+  // strategy); a click on a header sorts by it. New key: the old default (Plan a year) is not carried over.
+  const SORT_KEY = 'expSort2';
+  let sort = { k: 'rdd', dir: -1 };
   try { const x = JSON.parse(localStorage.getItem(SORT_KEY) || 'null'); if (x && x.k) sort = x; } catch (e) {}
   const COLS = [['name', 'Strategy', ''], ['money', 'Money', 'r'], ['plan', 'Plan a year', 'r'], ['y1', '1 year', 'r'], ['y3', '3 years', 'r'],
     ['dd', 'Worst fall', 'r'], ['rdd', 'Return ÷ fall', 'r'], ['yf', 'Fall in a year', 'r'], ['real', 'Real vs expected', ''], ['bt', 'Bot backtest now', 'r']];
@@ -144,6 +145,14 @@
         (${U.pct(t.real_ret)} real vs ${U.pct(t.exp_ret)} expected on ${U.usd(t.net_in, 0)} put in). ${U.esc(lab)}${t.status === 'early' ? ' — the first 3 months say little.' : '.'}</div>`;
     }
 
+    // return ÷ worst fall of the plan's basis (10 years for every default strategy); the bot backtest when there is no basis
+    function retDd(s) {
+      const b = s.basis, c = s.check || {};
+      if (b && b.cagr != null && b.maxdd) return { v: b.cagr / Math.abs(b.maxdd), cagr: b.cagr, dd: Math.abs(b.maxdd), period: b.period, src: 'plan' };
+      if (c.ok && c.ret_dd != null) return { v: c.ret_dd, cagr: c.cagr, dd: c.maxdd != null ? Math.abs(c.maxdd) : null, years: c.years, src: 'bt' };
+      return null;
+    }
+
     function sortValue(s, i, its) {
       const c = s.check || {}, tr = s.track;
       switch (sort.k) {
@@ -153,7 +162,7 @@
         case 'y1': return s.mu == null ? null : Math.pow(1 + s.mu, 1) - 1;
         case 'y3': return s.mu == null ? null : Math.pow(1 + s.mu, 3) - 1;
         case 'dd': return s.dd && s.dd.worst != null ? s.dd.worst : (s.basis && s.basis.maxdd != null ? -Math.abs(s.basis.maxdd) : (c.maxdd != null ? c.maxdd : null));   // high → low = mildest first
-        case 'rdd': return c.ok && c.ret_dd != null ? c.ret_dd : null;                 // high → low = most return per 1% of fall
+        case 'rdd': { const r = retDd(s); return r ? r.v : null; }                    // high → low = most return per 1% of fall
         case 'yf': return c.ok && c.year_fall != null ? c.year_fall : null;            // high → low = calmest years first
         case 'real': return tr && tr.real_ret != null ? tr.real_ret - (tr.exp_ret || 0) : null;
         case 'bt': return c.ok && c.cagr != null ? c.cagr : null;
@@ -212,8 +221,9 @@
             <div class="dn" style="font-weight:600">${wf != null ? wf.toFixed(0) + '%' : '—'}</div>
             ${s.dd && s.dd.longest_days != null ? `<div class="tiny muted">under ${U.durShort(s.dd.longest_days)}</div>` : ''}${c.maxdd != null && (wf == null || Math.abs(c.maxdd - wf) >= 1) ? `<div class="tiny muted">10 yr ${c.maxdd.toFixed(0)}%</div>` : ''}</td>`
           : '<td class="r muted">—</td>';
-        const rddc = c.ok && c.ret_dd != null ? `<td class="r num" title="Backtest return a year ÷ its worst fall${c.years ? ' (last ' + c.years + ' years)' : ''}: how much return each 1% of the deepest fall bought. Higher is better.">
-            <b>${c.ret_dd.toFixed(2)}</b><div class="tiny muted">${c.cagr != null ? c.cagr.toFixed(0) + '% ÷ ' : ''}${c.maxdd != null ? Math.abs(c.maxdd).toFixed(0) + '%' : ''}${c.years != null && c.years < 9.5 ? ' · ' + c.years + ' yr only' : ''}</div></td>` : '<td class="r muted">—</td>';
+        const rd = retDd(s);
+        const rddc = rd ? `<td class="r num" title="${rd.src === 'plan' ? `Return a year ÷ worst fall over ${U.esc(rd.period || 'the plan\'s years')}, before the planning haircut: the same 10 years for every strategy, so the ranking is fair` : `Bot backtest return a year ÷ its worst fall${rd.years ? ' (last ' + rd.years + ' years)' : ''}`}. How much return each 1% of the deepest fall bought: higher is better.">
+            <b>${rd.v.toFixed(2)}</b><div class="tiny muted">${rd.cagr != null ? rd.cagr.toFixed(0) + '% ÷ ' : ''}${rd.dd != null ? rd.dd.toFixed(0) + '%' : ''}${rd.src === 'plan' ? ' · 10 yr' : rd.years != null && rd.years < 9.5 ? ' · ' + rd.years + ' yr only' : ''}</div></td>` : '<td class="r muted">—</td>';
         const wy = c.worst_year;
         const yfc = c.ok && c.year_fall != null ? `<td class="r num" title="The fall inside a calendar year, from that year's high: average over ${c.years_n || ''} year(s) of the backtest. A dip this size during a year is normal.${wy ? ' Worst year ' + wy.year + ': ' + wy.ret.toFixed(0) + '% with a ' + wy.fall.toFixed(0) + '% fall inside it.' : ''}">
             <div class="dn">${c.year_fall.toFixed(0)}%</div><div class="tiny muted">${wy ? 'worst yr ' + wy.year + ' ' + (wy.ret > 0 ? '+' : '') + wy.ret.toFixed(0) + '%' : ''}</div></td>` : '<td class="r muted">—</td>';
@@ -350,7 +360,7 @@
             : `<button class="btn s" data-try>Plan a ratio</button><button class="btn s" data-check ${ck.running ? 'disabled' : ''}>${ck.running ? '<span class="spin"></span> Checking the backtests…' : 'Re-run the check'}</button>`}</div>
           <div class="muted tiny" style="text-align:right">${ck.at ? `Backtest check ${U.dt(ck.at)} (${U.esc(ck.by || '')})` : 'Backtest check not run yet — it gives the weak / good range'}
             · <a href="#/docs/expected-returns">How it is worked out →</a></div></div>
-        <div class="tiny muted">Typical = the middle case; about 1 period in 10 ends below the weak case and 1 in 10 above the good case. Backtests, not a promise: real results are usually lower.</div>
+        <div class="tiny muted">Ranked by <b>Return ÷ fall</b>: return a year ÷ worst fall over the same 10 years (Oct 2016 – Oct 2026, real fee) for every strategy. <b>1 year</b> and <b>3 years</b> are <i>Plan a year</i> compounded forward, not past results. Typical = the middle case; about 1 period in 10 ends below the weak case and 1 in 10 above the good case. Backtests, not a promise: real results are usually lower.</div>
       </section>`;
       bindSort();
       U.on(el, '[data-hc] button', 'click', async (e, b) => {

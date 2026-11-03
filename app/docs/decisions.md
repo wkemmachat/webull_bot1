@@ -231,3 +231,10 @@
   *RESIZE*), never a *BUY* for money waiting for the next buy; the metals backtest rebalances sized targets that drift more
   than the rebalance band, like the bot; the health check also recomputes the daily SMA and ratio checks the long way.
   LINE starts off. New installs: the paper account is now $200,000 (eighteen strategies).
+- **One 10-year window for every plan, ranked by return ÷ fall** (3 Nov 2026, your request to rank the strategies fairly):
+  every default strategy's expected return is now its Oct 2016 – Oct 2026 result at the real fee, from one price source per
+  family (TradingView daily for Nasdaq / semis / ROM, OANDA 4-hour for gold and silver). Before, the newer strategies planned
+  on the lower history since 2008 and the older ones on their best decade, so the old ROM and USD strategies looked better than
+  the new ones although the new ones beat them in every period on the same prices. The Dashboard's table now sorts by
+  *Return ÷ fall* from those same numbers by default (best first; any header still sorts), and says that *1 year* / *3 years*
+  are the plan compounded forward, not past results.
