@@ -140,6 +140,9 @@ def test_check_goes_stale_when_the_fee_or_settings_change(checked):
 def test_view_for_the_dashboard(checked):
     from app import moneyops
     moneyops.seed_paper()
+    # gold_trend_calm needs ~14 months of history before its first decision: the demo prices leave it under 20 weeks of
+    # backtest, so it has no volatility yet and would hide the portfolio's range. Keep it unfunded here.
+    db.run("UPDATE ledger SET cash=0, cap_in=0 WHERE mode='paper' AND strategy='gold_trend_calm'")
     v = E.view("paper")
     assert v["haircut_pct"] == 30 and v["horizons"] == [1, 2, 3]
     rows = {r["id"]: r for r in v["strategies"]}

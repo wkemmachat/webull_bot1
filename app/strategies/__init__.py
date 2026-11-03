@@ -51,6 +51,11 @@ DEFAULTS = [
      {"signal": "IYW", "trade": "ROM", "cash_symbol": "", "gold_share_pct": 0.0, "ma_type": "EMA", "ma_days": 150,
       "vol_gate_q": 90.0, "vol_days": 20, "vol_lookback": 252, "rsi_buy": 5.0, "rsi_len": 2, "exit_ma": 5, "dip_ibs_max": 0.15,
       "dip_ibs_symbol": "ROM", "jumpy_ibs_max": 0.0, "target_vol_pct": 0.0}, {}),
+    # 3 Nov 2026 gold challenger G1 ("Gold & Silver Challengers" + full stress test): added with no money; move the money
+    # from Gold #1 and Gold #2 yourself when you want it to trade.
+    ("gold_trend_calm", "metal_trend_calm", "Gold · Slow trend + calm + RSI dips", "#D4A017",
+     {"symbol": "GC", "atr": 150, "mult": 4.0, "daily_ma": 50, "vol_q": 80.0, "vol_days": 20, "vol_lookback": 252,
+      "rsi_len": 2, "rsi_buy": 5.0, "dip_ma": 200, "exit_ma": 5, "etf": "UGL", "cash_etf": ""}, {}),
 ]
 # Earlier defaults: a strategy still on exactly these settings is moved to the new ones once (lower-cost versions, 26 Oct 2026:
 # IBS-dip T-bill half as cash + QLD IBS < 0.15; metals flat in cash instead of SGOV).
@@ -78,7 +83,7 @@ UPGRADES = [
 ]
 UPGRADE_WHY = {"cash_parking_2026_10": "Parks in cash instead of BIL (each BIL round trip cost 0.22% in fees)"}
 # Added with LINE alerts off: they hold no money until you move some to them (turn LINE on in the strategy when you do).
-QUIET_DEFAULTS = {"usd_smh_ibs", "rom_vol_ibs"}
+QUIET_DEFAULTS = {"usd_smh_ibs", "rom_vol_ibs", "gold_trend_calm"}
 PALETTE = ["#3DC9C0", "#E8875A", "#E46AA8", "#9BCB4E", "#F2C14E", "#5B8DEF", "#B084F5"]
 
 

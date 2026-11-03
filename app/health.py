@@ -91,7 +91,7 @@ def indicator_table(s, now=None, rows=12):
     """Bot values vs an independent recompute (and room for TradingView values typed in the page)."""
     now = now or md.now_utc()
     out = {"strategy": s.id, "name": s.name, "rows": [], "cols": [], "max_diff": 0.0}
-    if s.family == "signal":
+    if s.family == "signal" and s.type in ("supertrend", "donchian"):
         se = metals.series(s.sym, now)
         adj4, raw4, f = se["adj4"], se["raw4"], se["factor4"].values
         res = s.compute(adj4)

@@ -274,6 +274,25 @@
     "sharpe": 1.32,
     "bench": "ROM Trend + RSI(2) on the same prices: 49.7% a year, worst fall −37.6%; beat it in 88% of 2,000 simulated decades"
    }
+  },
+  "gold_trend_calm": {
+   "doc": "strategy-gold-trend-calm",
+   "reviewed": "2026-11-03",
+   "expect": {
+    "cagr": 18.0,
+    "maxdd": -42.9,
+    "basis": "research, real fee",
+    "period": "Jan 2009 – Oct 2026",
+    "note": "The research engine at Webull's real fee (0.11% per buy and per sell), since 2009 rather than the 10-year 22.6%: the settings were chosen on the same years, so the longer number, which includes the 2011-2015 gold bear market, is the safer one to plan with. Settings picked on 2009-2016 only made 20.9% a year over 2016-2026."
+   },
+   "research": {
+    "source": "Gold & Silver Challengers, 3 Nov 2026 · G1 (slow trend + calm + RSI dips), full stress test",
+    "period": "Oct 2016 – Oct 2026",
+    "cagr": 22.6,
+    "maxdd": -22.0,
+    "sharpe": 1.19,
+    "bench": "Gold #1 on the same prices: 14.5% a year, worst fall −25.2%; beat it in 98% of 2,000 reshuffled decades"
+   }
   }
  },
  "log": [

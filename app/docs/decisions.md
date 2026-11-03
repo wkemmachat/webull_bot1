@@ -205,3 +205,13 @@
   either strategy has a plan or an order working. The move waits for a running check to finish (the web app stays
   responsive). Each side gets a done *move* plan with *inside the bot* fills, like opposite orders; the Go-live *plans*
   count leaves them out.
+- **Gold challenger added with no money** (3 Nov 2026, research *Gold & Silver Challengers*, its full stress test and the
+  2011–2020 test): a new metals type `metal_trend_calm` and the strategy **Gold · Slow trend + calm + RSI dips** (G1): UGL
+  while the 4H GC Supertrend(150, 4) is up, the daily close is above its 50-day average and gold is calm (20-day volatility
+  at or below its 80th percentile of the last 252 days), plus RSI(2) < 5 dip trades above the 200-day average, sold on a
+  close above the 5-day average; cash otherwise. Daily closes are the futures' 17:00 New York session closes built from the
+  same 4H bars, known when the 14:00 bar closes. It trades with the metals execution settings, like Gold #1 and #2, which
+  are not changed. Research (OANDA spot 4H since 2006, bot timing, real fee): 10 years 22.6% / −22.0% (Gold #1 14.5% /
+  −25.2%), since 2009 18.0% / −42.9%, 2011–2020 +7.2% a year (Gold #1 −1.2%); settings picked on 2009–2016 only made
+  20.9% / −22.9% over 2016–2026. The bot's own code gave the research position at 99.97% of order times over the last 10
+  years. LINE starts off. New installs: the paper account is now $180,000 (sixteen strategies).
