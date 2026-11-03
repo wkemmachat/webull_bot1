@@ -18,7 +18,9 @@ The gold/silver ratio is gold's daily close divided by silver's (17:00 New York 
 
 ## When it trades
 
-Decided on each 4-hour close, buys from 22:00 Bangkok, sells as soon as the US market is open. About **40 orders a year**. SLV is a plain 1x ETF; no extra permission.
+Decided on each 4-hour close, once gold's bar for the same 4 hours is in too (the check waits for it), buys from 22:00 Bangkok, sells as soon as the US market is open. About **40 orders a year**. SLV is a plain 1x ETF; no extra permission.
+
+LINE says **BUY** (from cash), **SELL** (to cash), **SWITCH** (AGQ ↔ SLV) or **RESIZE** (a new AGQ size). A switch or resize is not a *buy signal* for money waiting for the next buy. AGQ below 99% drifts as prices move; like every strategy it is topped up or trimmed when it drifts more than the rebalance band (10 points).
 
 ## Research results
 

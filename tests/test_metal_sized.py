@@ -131,3 +131,48 @@ def test_existing_metals_strategies_unchanged(clean):
         assert s.type == typ and not hasattr(s, "bar_targets")
         r = BT.run(sid, now=NOW)
         assert r["ok"], (sid, r.get("error"))
+
+
+def test_waits_for_gold_bar_of_the_same_four_hours(clean, monkeypatch):
+    s = S.get("silver_gold_ok")
+    full = s._gold(NOW)
+    monkeypatch.setattr(TrendSizedStrategy, "_gold", lambda self, now=None: full.iloc[:-1])
+    ev = s.evaluate(NOW)
+    assert not ev["ok"] and "Waiting for gold" in ev["error"]
+    monkeypatch.setattr(TrendSizedStrategy, "_gold", lambda self, now=None: full.iloc[:0])
+    ev = s.evaluate(NOW)
+    assert not ev["ok"] and "Waiting for gold" in ev["error"]
+    res = s.compute(series("SI"), full.iloc[:0])                  # no gold at all: gold's OK fails, nothing throws
+    assert not res["gold_ok"].any() and not (res["size"] > 0).any()
+
+
+def test_short_gold_history_does_not_trade_the_ratio(clean, monkeypatch):
+    s = S.get("silver_lead_1x")
+    full = s._gold(NOW)
+    monkeypatch.setattr(TrendSizedStrategy, "_gold", lambda self, now=None: full.iloc[-300:])   # about 50 days of gold
+    ev = s.evaluate(NOW)
+    assert not ev["ok"] and "gold history" in ev["error"]
+
+
+def test_switch_between_2x_and_1x_is_not_a_buy(clean):
+    s = S.get("silver_lead_1x")
+    h = {"kind": "SIZE", "from": "AGQ 55%", "to": "SLV 99%", "text": "x"}
+    assert s.signal_message(h).startswith("SWITCH")
+    assert s.signal_message({**h, "to": "AGQ 40%"}).startswith("RESIZE")
+    ev = s.evaluate(NOW)
+    for h in ev["history"]:
+        cash_from, cash_to = h["from"] == "cash", h["to"] == "cash"
+        assert h["kind"] == ("BUY" if cash_from else "SELL" if cash_to else "SIZE"), h
+
+
+def test_backtest_rebalances_drift_for_sized_targets_only(clean, monkeypatch):
+    from app.strategies.base import StrategyBase as Strategy
+    monkeypatch.setattr(Strategy, "rebalance_band", lambda self: 0.01)
+    BT._cache.clear()
+    r = BT.run("silver_lead_1x", now=NOW)                      # AGQ at about half: a 1% band drifts
+    assert r["ok"], r.get("error")
+    reb = [t for t in r["trades"] if t["kind"] == "REBALANCE"]
+    assert reb and all(t["why"].startswith("rebalance") for t in reb)
+    assert len(reb) < len(r["trades"])
+    r2 = BT.run("silver_st", now=NOW)                          # 99% targets: the old metals path is unchanged
+    assert r2["ok"] and not [t for t in r2["trades"] if t["kind"] == "REBALANCE"]

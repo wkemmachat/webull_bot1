@@ -226,4 +226,8 @@
   (other metals types unchanged). Research (OANDA spot 4H since 2006, bot timing, real fee), 10 years: S1 28.5% / −50.2%,
   S3 13.4% / −28.7%, half each 21.6% / −38.7% (Silver #1 12.8% / −60.7%); settings picked on 2009–2016 only made 21.7%
   (S1) and 6.4% (S3) over 2016–2026. The bot's own code gave the research position at 100% (S1) and 99.97% (S3) of order
-  times over the last 10 years. LINE starts off. New installs: the paper account is now $200,000 (eighteen strategies).
+  times over the last 10 years. Review fixes: a check waits until gold's 4H bar for the same 4 hours is complete (and, for the
+  ratio, until gold has enough history); moving between AGQ and SLV or resizing is history kind *SIZE* (LINE *SWITCH* /
+  *RESIZE*), never a *BUY* for money waiting for the next buy; the metals backtest rebalances sized targets that drift more
+  than the rebalance band, like the bot; the health check also recomputes the daily SMA and ratio checks the long way.
+  LINE starts off. New installs: the paper account is now $200,000 (eighteen strategies).

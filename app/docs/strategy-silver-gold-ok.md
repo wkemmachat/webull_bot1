@@ -18,7 +18,7 @@ Silver's volatility is the standard deviation of its last 40 daily log changes (
 
 ## When it trades
 
-Like the other metals strategies: decided on each 4-hour close, buys from 22:00 Bangkok, sells as soon as the US market is open, 10 lots 10 minutes apart. About **50 orders a year**.
+Like the other metals strategies: decided on each 4-hour close, buys from 22:00 Bangkok, sells as soon as the US market is open, 10 lots 10 minutes apart. About **50 orders a year**. The check waits until gold's 4-hour bar for the same 4 hours is in too, so a late gold price never decides on the previous bar (the strategy shows *Waiting for gold's 4H bar* meanwhile). LINE says **RESIZE** when only the AGQ size changes.
 
 ## Research results
 

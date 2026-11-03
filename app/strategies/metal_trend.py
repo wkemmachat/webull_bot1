@@ -369,11 +369,15 @@ class TrendSizedStrategy(MetalsSignal):
         days = max(p["daily_ma"], p["gsr_ma"], p["size_vol_days"] if p["target_vol_pct"] > 0 else 0) + 5
         return max(60, p["atr"] * 3, days * 6)
 
-    def _gold(self):
-        from .. import marketdata as md
-        return metals.series("GC", md.now_utc())["adj4"]
+    def _needs_gold(self):
+        p = self.params
+        return (p["gold_confirm"] or p["gsr_ma"] > 0) and self.sym != "GC"
 
-    def compute(self, bars):
+    def _gold(self, now=None):
+        from .. import marketdata as md
+        return metals.series("GC", now or md.now_utc())["adj4"]
+
+    def compute(self, bars, gold=None):
         p = self.params
         h, l, c = (bars[k].values.astype(float) for k in ("h", "l", "c"))
         n = len(c)
@@ -400,9 +404,12 @@ class TrendSizedStrategy(MetalsSignal):
         gsr_ok = np.ones(n, bool)
         out["gold_up"], out["d_gsr"], out["d_gsr_ma"] = np.nan, np.nan, np.nan
         if p["gold_confirm"] or p["gsr_ma"] > 0:
-            g = bars if self.sym == "GC" else self._gold()
-            j = _align(g["end"], bars["end"])
-            if p["gold_confirm"]:
+            g = bars if self.sym == "GC" else (gold if gold is not None else self._gold())
+            j = _align(g["end"], bars["end"]) if len(g) else np.full(n, -1)
+            if p["gold_confirm"] and not len(g):
+                gold_ok = np.zeros(n, bool)
+                out["gold_up"] = gold_ok
+            elif p["gold_confirm"]:
                 gs = ind.supertrend(g.h.values.astype(float), g.l.values.astype(float), g.c.values.astype(float), p["gold_atr"], p["gold_mult"])
                 gup = gs["up"] & ~np.isnan(gs["atr"])
                 gold_ok = np.where(j >= 0, gup[np.clip(j, 0, None)], False).astype(bool)
@@ -468,7 +475,16 @@ class TrendSizedStrategy(MetalsSignal):
         adj4, raw4, factor = se["adj4"], se["raw4"], se["factor4"]
         if len(adj4) < self.warmup():
             return {"ok": False, "error": f"Not enough 4H bars yet ({len(adj4)})"}
-        res = self.compute(adj4)
+        gold = None
+        if self._needs_gold():
+            # gold's bar for the same 4 hours must be complete too (a late or missing GC hour must not decide on old gold)
+            gold = self._gold(now)
+            if not len(gold) or gold.index[-1] < adj4.index[-1]:
+                last = pd.Timestamp(gold["end"].iloc[-1]).tz_convert("Asia/Bangkok").strftime("%d %b %H:%M") if len(gold) else "none"
+                return {"ok": False, "error": f"Waiting for gold's 4H bar (GC last complete bar ends {last} Bangkok)"}
+        res = self.compute(adj4, gold)
+        if self.params["gsr_ma"] > 0 and self.sym != "GC" and res["d_gsr_ma"].iloc[-1] != res["d_gsr_ma"].iloc[-1]:
+            return {"ok": False, "error": f"Not enough gold history yet for the gold/silver ratio's {self.params['gsr_ma']}-day average"}
         tg = self.bar_targets(res)
         n = len(tg)
         ends = pd.to_datetime(raw4["end"], utc=True)
@@ -483,9 +499,9 @@ class TrendSizedStrategy(MetalsSignal):
         for i in range(max(1, n - 400), n):
             if tg[i] != tg[i - 1]:
                 a, b = tg[i - 1], tg[i]
-                up_ = any(v > a.get(s2, 0.0) + 1e-9 for s2, v in b.items())
-                same_pos = res["want"].iloc[i] and res["want"].iloc[i - 1] and set(a) == set(b)
-                kind = "SIZE" if same_pos else ("BUY" if up_ else "SELL")
+                # BUY: from cash into a position · SELL: to cash · SIZE: resized, or switched between the 2x and 1x ETF
+                was_in, now_in = bool(res["want"].iloc[i - 1]), bool(res["want"].iloc[i])
+                kind = "SIZE" if (was_in and now_in) else ("BUY" if now_in else "SELL")
                 hist.append({"t": int(ends.iloc[i].timestamp()), "kind": kind, "from": self._state(res, i - 1), "to": self._state(res, i),
                              "price": float(raw4["c"].iloc[i]), "text": self.reason(res, i, float(factor.iloc[i]), raw4)})
         lab = self._state(res, n - 1)
@@ -496,6 +512,8 @@ class TrendSizedStrategy(MetalsSignal):
 
     def signal_message(self, h):
         word = {"SIZE": "RESIZE", "BUY": "BUY", "SELL": "SELL"}.get(h["kind"], h["kind"])
+        if h["kind"] == "SIZE" and h["from"].split(" ")[0] != h["to"].split(" ")[0]:
+            word = "SWITCH"
         return f"{word} · {self.name}\n{h['text']}\n{h['from']} → {h['to']}"
 
     def _fails(self, r):
@@ -593,7 +611,7 @@ class TrendSizedStrategy(MetalsSignal):
                 (f" · sized {p['target_vol_pct']:g}% vol" if p["target_vol_pct"] else "")}
 
     def check_table(self, now, rows=12):
-        """Supertrend (own and gold's) and the size's volatility recomputed the long way."""
+        """Supertrend (own and gold's), the daily checks (SMA, gold/silver ratio) and the size's volatility recomputed the long way."""
         from ..health import ref_supertrend
         p = self.params
         se = metals.series(self.sym, now)
@@ -607,9 +625,36 @@ class TrendSizedStrategy(MetalsSignal):
             _, gu = ref_supertrend(g.h.astype(float).tolist(), g.l.astype(float).tolist(), g.c.astype(float).tolist(), p["gold_atr"], p["gold_mult"])
             j = _align(g["end"], adj4["end"])
             gup = [bool(gu[x]) if x >= 0 else False for x in j]
-        dc, _, known = daily_from_4h(adj4)
+        dc, days, known = daily_from_4h(adj4)
+        dc = [float(x) for x in dc]
+        ratio = None
+        if p["gsr_ma"] > 0:
+            g2 = adj4 if self.sym == "GC" else self._gold(now)
+            gdc, gdays, _ = daily_from_4h(g2)
+            gmap = {int(d): float(x) for d, x in zip(gdays, gdc)}
+            ratio, last = [], float("nan")
+            for d, x in zip(days, dc):
+                v = gmap.get(int(d), float("nan")) / x
+                last = v if v == v else last
+                ratio.append(last)
+
+        def daily_ok(jx):
+            """the daily checks the long way: (close above its SMA, ratio below its SMA); an SMA not yet known passes"""
+            if jx < 0:                              # no daily close yet: an unused check passes, a used one fails
+                return p["daily_ma"] == 0, p["gsr_ma"] == 0
+            ma_ok = gsr_ok = True
+            m = p["daily_ma"]
+            if m > 0 and jx + 1 >= m:
+                ma_ok = dc[jx] > sum(dc[jx - m + 1:jx + 1]) / m
+            m = p["gsr_ma"]
+            if m > 0 and jx + 1 >= m:
+                win = ratio[jx - m + 1:jx + 1]
+                if all(x == x for x in win):
+                    gsr_ok = ratio[jx] < sum(win) / m
+            return ma_ok, gsr_ok
         vd = p["size_vol_days"]
-        cols = ["Close", "Supertrend · bot", "Supertrend · check", "Gold up · bot", "Gold up · check", "Volatility · bot", "Volatility · check"]
+        cols = ["Close", "Supertrend · bot", "Supertrend · check", "Gold up · bot", "Gold up · check", "Daily checks · bot",
+                "Daily checks · check", "Volatility · bot", "Volatility · check"]
         out, mx = [], 0.0
         ends = pd.to_datetime(raw4["end"], utc=True)
         for i in range(max(0, len(c) - rows), len(c)):
@@ -628,9 +673,15 @@ class TrendSizedStrategy(MetalsSignal):
             gc = gup[i] if gup is not None else None
             if gb is not None and gb != gc:
                 diff = max(diff, 1.0)
+            mc, rc = daily_ok(jx)
+            mb, rb = bool(res["ma_ok"].iloc[i]), bool(res["gsr_ok"].iloc[i])
+            if (mb, rb) != (mc, rc):
+                diff = max(diff, 1.0)
+            word = lambda m, r: ("pass" if m and r else ", ".join(x for x, y in (("below SMA", m), ("ratio high", r)) if not y))
             mx = max(mx, diff)
             out.append({"t": int(ends.iloc[i].timestamp()),
                         "vals": [float(raw4["c"].iloc[i]), a, b, "—" if gb is None else ("up" if gb else "down"),
-                                 "—" if gc is None else ("up" if gc else "down"), vb * 100 if vb == vb else None, vc * 100 if vc == vc else None],
+                                 "—" if gc is None else ("up" if gc else "down"), word(mb, rb), word(mc, rc),
+                                 vb * 100 if vb == vb else None, vc * 100 if vc == vc else None],
                         "ok": diff < 1e-6})
         return cols, out, mx

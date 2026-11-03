@@ -459,7 +459,14 @@ def _run_metals(strat, now, cost, cfg):
     eq, expo, st = [], [], []
     fi = 0
     cur = None
+    band = strat.rebalance_band()
+    drift = False
     for d in days:
+        # sized targets (below 99%) drift: like the bot, rebalance when a holding is more than the band off its target
+        if drift and cur is not None and not (fi < len(fills) and pd.Timestamp(fills[fi][0]).tz_convert(NY).date() <= d):
+            B.rebalance(tmap[cur], {s: P.open(s, d) for s in syms}, datetime.combine(d, datetime.min.time(), NY).replace(hour=9, minute=30),
+                        f"rebalance: a holding drifted more than {band * 100:g}% from its target", "REBALANCE")
+        drift = False
         while fi < len(fills) and pd.Timestamp(fills[fi][0]).tz_convert(NY).date() <= d:
             start, times, w, i, entry = fills[fi]
             fd = pd.Timestamp(start).tz_convert(NY).date()
@@ -477,6 +484,9 @@ def _run_metals(strat, now, cost, cfg):
             fi += 1
         pxc = {s: P.close(s, d) for s in syms}
         eq.append(B.value(pxc))
+        if tmap is not None and cur is not None:
+            wd, tg = B.weights(pxc), tmap[cur]
+            drift = bool(wd) and max(abs(wd.get(s2, 0.0) - tg.get(s2, 0.0)) for s2 in set(wd) | set(tg)) > band
         if tmap is None:
             expo.append(B.weights(pxc).get(etf, 0.0))
             st.append("long" if cur else "flat")
