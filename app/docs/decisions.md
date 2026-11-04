@@ -238,3 +238,9 @@
   the new ones although the new ones beat them in every period on the same prices. The Dashboard's table now sorts by
   *Return ÷ fall* from those same numbers by default (best first; any header still sorts), and says that *1 year* / *3 years*
   are the plan compounded forward, not past results.
+- **LINE follows the money** (4 Nov 2026, your request): new setting *Automatic* (LINE alerts page, on by default). A
+  strategy's LINE switch is on while it is not Stopped and holds money (≥ $1 cash or any shares) in Live (the modes that are
+  on when Live is off), and off when it is Stopped or empty. The switches are rewritten every scheduler tick and when the
+  LINE or Strategies page loads; a message still goes while the switch is on from before, so the last messages of a strategy
+  being emptied or stopped arrive. Critical alerts are unchanged. While Automatic is on the switches cannot be set by hand
+  (they are greyed); turning it off keeps the current switches as the manual setting.

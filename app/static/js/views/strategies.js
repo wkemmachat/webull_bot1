@@ -38,7 +38,7 @@
               <button data-c="active" class="${s.control === 'active' ? 'on' : ''}">Active</button>
               <button data-c="paused" class="gi ${s.control === 'paused' ? 'on' : ''}">Pause buys</button>
               <button data-c="stopping" class="live ${s.control === 'stopping' || s.control === 'stopped' ? 'on' : ''}">${s.control === 'stopped' ? 'Stopped' : 'Stop &amp; sell'}</button></div>
-            <span class="row muted small" style="gap:8px"><button class="sw ${s.line_on ? 'on' : ''}" role="switch" aria-checked="${s.line_on}" aria-label="LINE alerts for ${U.esc(s.name)}" data-line="${s.id}"></button>LINE</span>
+            <span class="row muted small" style="gap:8px"><button class="sw ${s.line_on ? 'on' : ''}" role="switch" aria-checked="${s.line_on}" aria-label="LINE alerts for ${U.esc(s.name)}" data-line="${s.id}" ${d.line_auto ? 'disabled title="Automatic (LINE alerts page): on while the strategy is not Stopped and holds money"' : ''}></button>LINE</span>
           </div>
         </div>`).join('')}
       </section>
@@ -66,6 +66,7 @@
         U.toast('Saved'); load();
       });
       U.on(el, '[data-line]', 'click', async (e, b) => {
+        if (b.disabled) return;
         const on = !b.classList.contains('on');
         await U.api('/api/strategies/' + b.dataset.line, { method: 'PATCH', body: { line_on: on } });
         b.classList.toggle('on', on); b.setAttribute('aria-checked', on);

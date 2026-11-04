@@ -25,7 +25,13 @@ everything or only the daily reports. The daily report per strategy shows its va
 connected, a new sign-in, a health-check problem. Critical alerts cannot be switched off.
 
 The page shows the monthly quota from LINE's API. Above 90% of the quota, non-critical instant alerts move to the digest.
-Every strategy also has its own LINE switch.
+Every strategy also has its own LINE switch. With **Automatic** on (LINE alerts page → *Strategies sending alerts*, on by
+default) the switches set themselves: a strategy's LINE is **on while it is not Stopped** (Active, Pause buys or Stop & sell)
+**and holds money** (at least $1 of cash or any shares) in Live, or in the modes that are on when Live is off; it turns
+**off** once the strategy is Stopped or empty. Giving money to a strategy is enough to start its alerts, and a strategy you
+empty or stop still sends its last messages (the move, the final sale, *stopped*) before it goes quiet. Each change is
+written to Logs (*LINE alerts turned on automatically*). Critical alerts (a failed lot, Webull disconnected, a health-check
+problem) always come. Turn Automatic off to set every switch by hand.
 
 ## Orders for the next US open
 

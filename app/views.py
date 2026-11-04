@@ -216,6 +216,8 @@ def _plan_text(p):
 
 
 def strategies_list(mode):
+    from . import notify
+    notify.sync_auto()
     strats = S.all_instances()
     syms = set()
     for s in strats:
@@ -223,7 +225,7 @@ def strategies_list(mode):
     prices = md.prices(syms)
     archived = [r for r in S.rows(include_archived=True) if r["archived"]]
     return {"strategies": [strategy_card(mode, s, prices) for s in strats],
-            "archived": [{"id": r["id"], "name": r["name"], "color": r["color"]} for r in archived]}
+            "archived": [{"id": r["id"], "name": r["name"], "color": r["color"]} for r in archived], "line_auto": notify.line_auto()}
 
 
 def strategy_detail(mode, sid):

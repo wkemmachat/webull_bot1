@@ -257,3 +257,16 @@ def test_plans_carry_estimates_and_badge_per_mode(client):
         assert "est" in p
     top = client.get("/api/topbar").json()
     assert "plans_by_mode" in top["issues"]
+
+
+def test_line_automatic_switches(client):
+    sign_in(client)
+    assert client.get("/api/strategies?mode=paper").json()["line_auto"] is True
+    r = client.patch("/api/strategies/gold_sta", json={"line_on": False})
+    assert r.status_code == 400 and "Automatic" in r.json()["detail"]
+    assert client.get("/api/line").json()["settings"]["auto"] is True
+    assert client.post("/api/line", json={"auto": False, "strategies": {"gold_sta": False}}).status_code == 200
+    assert db.one("SELECT line_on FROM strategies WHERE id='gold_sta'")["line_on"] == 0     # manual again: the switch holds
+    assert client.patch("/api/strategies/gold_sta", json={"line_on": True}).status_code == 200
+    assert client.post("/api/line", json={"auto": True}).status_code == 200
+    assert client.get("/api/strategies?mode=paper").json()["line_auto"] is True

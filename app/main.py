@@ -311,6 +311,8 @@ async def strategy_create(request: Request, u=Depends(user)):
 @app.patch("/api/strategies/{sid}")
 async def strategy_update(sid: str, request: Request, u=Depends(user)):
     b = await body(request)
+    if "line_on" in b and notify.line_auto():
+        _err(ValueError("LINE alerts are on Automatic (LINE alerts page): they follow the strategy's state and money"))
     try:
         S.update(sid, name=b.get("name"), color=b.get("color"), params=b.get("params"), exec=b.get("exec"),
                  line_on=(1 if b["line_on"] else 0) if "line_on" in b else None)
@@ -758,6 +760,7 @@ def events_log(days: int = 1, u=Depends(user)):
 # ---------------------------------------------------------------- LINE
 @app.get("/api/line")
 def line_get(u=Depends(user)):
+    notify.sync_auto()
     return {"settings": notify.settings_public(), "summary": notify.summary(), "recent": notify.recent(),
             "preview": notify.preview(), "strategies": [{"id": r["id"], "name": r["name"], "color": r["color"], "line_on": bool(r["line_on"])}
                                                         for r in S.rows()]}
@@ -768,8 +771,10 @@ async def line_save(request: Request, u=Depends(user)):
     b = await body(request)
     try:
         notify.save_settings(b)
-        for sid, on in (b.get("strategies") or {}).items():
-            S.update(sid, line_on=1 if on else 0)
+        if not notify.line_auto():                             # Automatic: the switches follow the money instead
+            for sid, on in (b.get("strategies") or {}).items():
+                S.update(sid, line_on=1 if on else 0)
+        notify.sync_auto()
     except (ValueError, KeyError) as e:
         _err(e)
     return {"ok": True}

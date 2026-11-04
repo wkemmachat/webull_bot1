@@ -113,6 +113,7 @@ DEFAULTS = {
     "line_token": "", "line_recipients": "[]", "line_digest_times": '["08:00","21:00"]', "line_quiet": "1",
     "line_quiet_from": "00:30", "line_quiet_to": "07:00", "line_lang": "en", "line_detail": "full", "line_per_strategy": "1",
     "line_events": "{}",
+    "line_auto": "1",                        # LINE per strategy follows the money: on while not Stopped and holding money (Live)
     # Webull
     "webull_region": "th", "webull_app_key": "", "webull_app_secret": "", "webull_account_id": "",
     "webull_test_app_key": "", "webull_test_app_secret": "", "webull_test_account_id": "", "webull_test_endpoint": "",

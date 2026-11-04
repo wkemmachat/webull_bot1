@@ -331,6 +331,10 @@ def tick(now=None):
         except Exception:
             log.exception("finish stops")
         try:
+            notify.sync_auto()                     # LINE follows the money (Automatic)
+        except Exception:
+            log.exception("line auto")
+        try:
             notify.dispatch()
         except Exception as e:
             log.exception("line dispatch")

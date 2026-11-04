@@ -10,6 +10,7 @@
     let rec = s.recipients.slice(), times = s.digest_times.slice();
     const strat = {};
     d.strategies.forEach((x) => (strat[x.id] = x.line_on));
+    let auto = s.auto !== false;
     const q = d.summary.quota || {};
     function render() {
       el.innerHTML = `<div class="page-head"><div><div class="eyebrow">LINE Messaging API</div><h1 class="h1">LINE alerts</h1>
@@ -48,14 +49,21 @@
         <div class="col" style="gap:20px">
           <section class="card col" style="gap:12px"><h2 class="h2">Preview</h2>${d.preview.map((p) => `<div class="row" style="align-items:flex-start;gap:10px;flex-wrap:nowrap"><img class="logo-img" src="/static/icons/favicon.svg?v=4" alt="" width="32" height="32">
             <div style="background:var(--seg);border-radius:4px 16px 16px 16px;padding:12px 14px;font-size:13px;white-space:pre-line">${U.esc(p)}</div></div>`).join('')}</section>
-          <section class="card"><h2 class="h2" style="margin-bottom:6px">Strategies sending alerts</h2>${d.strategies.map((x) => `<div class="kv" style="align-items:center"><span class="row" style="gap:8px">${U.dot(x.color)}${U.esc(x.name)}</span>
-            <button class="sw ${strat[x.id] ? 'on' : ''}" data-strat="${x.id}" role="switch" aria-label="LINE for ${U.esc(x.name)}"></button></div>`).join('')}</section>
+          <section class="card"><h2 class="h2" style="margin-bottom:6px">Strategies sending alerts</h2>
+            <div class="row" style="gap:12px;flex-wrap:nowrap;align-items:flex-start;padding:4px 0 10px;border-bottom:1px solid var(--line);margin-bottom:4px"><button class="sw ${auto ? 'on' : ''}" id="auto" role="switch" aria-checked="${auto}" aria-label="Automatic"></button>
+              <div><b style="font-weight:500">Automatic</b><div class="muted small">On while a strategy is not Stopped and holds money (cash or shares) in Live; off when it is Stopped or empty. Critical alerts always come.</div></div></div>
+            ${d.strategies.map((x) => `<div class="kv" style="align-items:center"><span class="row" style="gap:8px">${U.dot(x.color)}${U.esc(x.name)}</span>
+            <button class="sw ${strat[x.id] ? 'on' : ''}" data-strat="${x.id}" role="switch" aria-label="LINE for ${U.esc(x.name)}" ${auto ? 'disabled title="Automatic: follows the strategy\'s state and money"' : ''}></button></div>`).join('')}</section>
           <section class="card"><h2 class="h2" style="margin-bottom:6px">Recently sent</h2>${d.recent.slice(0, 8).map((r) => `<div class="kv small"><span class="num muted" style="width:96px">${U.dt(r.t)}</span>
             <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${U.esc(r.title)}</span>${U.pill(r.status === 'sent' ? 'ok' : r.status === 'failed' ? 'err' : r.status === 'skipped' ? '' : 'warn', r.status === 'held' ? 'held · quiet hours' : r.status === 'pending' && r.delivery === 'digest' ? 'in next digest' : r.status)}</div>`).join('') || '<div class="muted small">Nothing yet</div>'}</section>
         </div>
       </div>`;
       U.on(el, '[data-ev] button', 'click', (e, b) => { ev[b.parentElement.dataset.ev] = b.dataset.v; b.parentElement.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); });
-      U.on(el, '.sw', 'click', (e, b) => { b.classList.toggle('on'); if (b.dataset.strat) strat[b.dataset.strat] = b.classList.contains('on'); });
+      U.on(el, '.sw', 'click', (e, b) => {
+        if (b.disabled) return;
+        b.classList.toggle('on'); if (b.dataset.strat) strat[b.dataset.strat] = b.classList.contains('on');
+        if (b.id === 'auto') { auto = b.classList.contains('on'); el.querySelectorAll('[data-strat]').forEach((x) => { x.disabled = auto; }); }
+      });
       const readRec = () => { rec = rec.map((r, i) => ({ id: el.querySelector(`[data-rid="${i}"]`).value.trim(), name: el.querySelector(`[data-rname="${i}"]`).value.trim(),
         scope: el.querySelector(`[data-rscope="${i}"]`).value, enabled: el.querySelector(`[data-ren="${i}"]`).classList.contains('on') })); };
       el.querySelector('#addrec').onclick = () => { readRec(); rec.push({ id: '', name: rec.length ? '' : 'Me', enabled: true, scope: 'all' }); render(); };
@@ -67,7 +75,7 @@
         readRec();
         await U.api('/api/line', { body: { token: el.querySelector('#tok').value.trim() || undefined, recipients: rec.filter((r) => r.id), digest_times: times,
           quiet: el.querySelector('#quiet').classList.contains('on'), quiet_from: el.querySelector('#qf').value, quiet_to: el.querySelector('#qt').value,
-          per_strategy: el.querySelector('#per').classList.contains('on'), events: ev, strategies: strat } });
+          per_strategy: el.querySelector('#per').classList.contains('on'), auto, events: ev, strategies: strat } });
         U.toast('LINE settings saved'); V.line(el);
       });
       el.querySelector('#test').onclick = (e) => U.busy(e.target, async () => { await U.api('/api/line/test', { body: {} }); U.toast('Test message sent'); });

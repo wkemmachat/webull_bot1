@@ -56,9 +56,51 @@ def test_off_and_critical_cannot_be_off(line):
 
 
 def test_strategy_switch(line):
+    db.set_settings({"line_auto": "0"})                       # manual switches
     db.run("UPDATE strategies SET line_on=0 WHERE id='gold_sta'")
     assert notify.send("signal", "muted", strategy="gold_sta") is None
     assert notify.send("lot_failed", "still sent", strategy="gold_sta")
+
+
+def _money(sid, mode="paper", cash=0.0, shares=0.0):
+    from app import ledger
+    ledger.ensure(mode, sid)
+    db.run("UPDATE ledger SET cash=? WHERE mode=? AND strategy=?", (cash, mode, sid))
+    db.run("DELETE FROM holdings WHERE mode=? AND strategy=?", (mode, sid))
+    if shares:
+        db.run("INSERT INTO holdings(mode,strategy,symbol,qty,cost) VALUES(?,?,?,?,?)", (mode, sid, "UGL", shares, 40.0))
+
+
+def test_automatic_follows_state_and_money(line):
+    assert notify.line_auto()                                  # the default
+    db.run("UPDATE strategies SET line_on=0, control='active' WHERE id IN ('gold_sta','gold_st30','silver_dc')")
+    _money("gold_sta", cash=500)                               # active with cash → on
+    _money("gold_st30", shares=3)                              # active with shares only → on
+    _money("silver_dc", cash=0.4)                              # crumbs only → off
+    assert notify.send("signal", "sent before the sync", strategy="gold_sta")
+    changed = dict(notify.sync_auto())
+    assert changed.get("gold_sta") is True and changed.get("gold_st30") is True and "silver_dc" not in changed
+    on = {r["id"]: r["line_on"] for r in db.rows("SELECT id, line_on FROM strategies")}
+    assert on["gold_sta"] == 1 and on["gold_st30"] == 1 and on["silver_dc"] == 0
+    assert notify.send("signal", "muted", strategy="silver_dc") is None
+    assert db.one("SELECT COUNT(*) n FROM events WHERE title LIKE '%LINE alerts turned on automatically%'")["n"] >= 2
+    # stopped: the last message still goes (the switch is on until the next sync), then it turns off
+    db.run("UPDATE strategies SET control='stopped' WHERE id='gold_sta'")
+    assert notify.send("signal", "stopped · everything sold", strategy="gold_sta")
+    assert dict(notify.sync_auto()).get("gold_sta") is False
+    assert notify.send("signal", "muted now", strategy="gold_sta") is None
+    assert notify.send("lot_failed", "critical always comes", strategy="gold_sta")
+    assert notify.sync_auto() == []                            # nothing left to change
+
+
+def test_automatic_counts_live_money_once_live_is_on(line):
+    db.run("UPDATE strategies SET line_on=0, control='active' WHERE id='gold_sta'")
+    _money("gold_sta", "paper", cash=10000)
+    db.set_settings({"mode_live": "1"})
+    _money("gold_sta", "live", cash=0)
+    assert not notify.auto_on("gold_sta")                      # paper money does not count when Live is on
+    _money("gold_sta", "live", cash=250)
+    assert notify.auto_on("gold_sta")
 
 
 def test_reports_only_recipient(line):

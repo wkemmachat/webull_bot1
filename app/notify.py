@@ -77,6 +77,57 @@ def configured() -> bool:
     return bool(db.get_setting("line_token")) and any(x.get("enabled", True) for x in recipients())
 
 
+# ---------------------------------------------------------------- LINE follows the money
+# With "Automatic" on (the default), a strategy's LINE switch is on while the strategy is not Stopped (Active, Paused or
+# Stop & sell) and holds money: cash of at least $1 or any shares, in Live (or, when Live is off, in the modes that are on).
+# The switches are rewritten every scheduler tick and whenever the LINE or Strategies page loads. A message is still sent
+# while the switch is on from before, so the last messages of a strategy that is being emptied or stopped (the move, the
+# final sale, "stopped") still arrive; the next sync then turns it off.
+AUTO_MIN_CASH = 1.0
+
+
+def line_auto() -> bool:
+    return db.get_setting("line_auto", "1") == "1"
+
+
+def money_modes(settings=None) -> list:
+    from . import brokers
+    m = brokers.enabled_modes(settings)
+    return ["live"] if "live" in m else m
+
+
+def auto_on(sid: str, control: str | None = None, modes: list | None = None) -> bool:
+    if control is None:
+        r = db.one("SELECT control FROM strategies WHERE id=?", (sid,))
+        control = r["control"] if r else None
+    if not control or control == "stopped":
+        return False
+    for m in (money_modes() if modes is None else modes):
+        L = db.one("SELECT cash FROM ledger WHERE mode=? AND strategy=?", (m, sid))
+        if L and (L["cash"] or 0) >= AUTO_MIN_CASH:
+            return True
+        if db.one("SELECT 1 FROM holdings WHERE mode=? AND strategy=? AND qty>1e-9", (m, sid)):
+            return True
+    return False
+
+
+def sync_auto() -> list:
+    """Write every strategy's automatic LINE switch. Returns [(id, on)] for the ones that changed (each one logged)."""
+    if not line_auto():
+        return []
+    modes = money_modes()
+    changed = []
+    for r in db.rows("SELECT id, name, control, line_on FROM strategies WHERE archived=0"):
+        on = auto_on(r["id"], r["control"], modes)
+        if bool(r["line_on"]) != on:
+            db.run("UPDATE strategies SET line_on=? WHERE id=?", (1 if on else 0, r["id"]))
+            changed.append((r["id"], on))
+            why = "not Stopped and holds money" if on else ("Stopped" if r["control"] == "stopped" else "no money left")
+            db.add_event("info", "line", f"{r['name']}: LINE alerts turned {'on' if on else 'off'} automatically", why,
+                         strategy=r["id"])
+    return changed
+
+
 def send(event: str, text: str, strategy: str | None = None, title: str | None = None, critical: bool | None = None):
     """Queue an alert. Returns the queue id (or None when the strategy's LINE switch is off / event off)."""
     if event not in EVENTS:
@@ -84,7 +135,7 @@ def send(event: str, text: str, strategy: str | None = None, title: str | None =
     crit = EVENTS[event][3] if critical is None else critical
     if strategy:
         r = db.one("SELECT line_on FROM strategies WHERE id=?", (strategy,))
-        if r and not r["line_on"] and not crit:
+        if r and not r["line_on"] and not crit and not (line_auto() and auto_on(strategy)):
             return None
     mode = event_modes().get(event, "instant")
     status = "skipped" if mode == "off" else "pending"
@@ -313,7 +364,7 @@ def settings_public() -> dict:
     return {"token_set": bool(tok), "token_hint": ("…" + tok[-6:]) if tok else "", "recipients": recipients(),
             "digest_times": db.get_json_setting("line_digest_times", ["08:00", "21:00"]), "quiet": s.get("line_quiet") == "1",
             "quiet_from": s.get("line_quiet_from"), "quiet_to": s.get("line_quiet_to"), "lang": s.get("line_lang"),
-            "detail": s.get("line_detail"), "per_strategy": s.get("line_per_strategy") == "1",
+            "detail": s.get("line_detail"), "per_strategy": s.get("line_per_strategy") == "1", "auto": s.get("line_auto", "1") == "1",
             "events": [{"key": k, "label": v[0], "desc": v[1], "critical": v[3], "mode": event_modes()[k]} for k, v in EVENTS.items()]}
 
 
@@ -344,7 +395,7 @@ def save_settings(d: dict):
         if k in d:
             h, m = (int(x) for x in str(d[k]).split(":"))
             upd[f"line_{k}"] = f"{h:02d}:{m:02d}"
-    for k in ("quiet", "per_strategy"):
+    for k in ("quiet", "per_strategy", "auto"):
         if k in d:
             upd[f"line_{k}"] = "1" if d[k] else "0"
     for k in ("lang", "detail"):
