@@ -83,6 +83,7 @@
   V.strategy = async function (el, params) {
     const sid = params[0], mode = U.mode();
     let tab = 'overview', chartObj = null, spec = null, btClean = null, chartSym = null;
+    { const q = new URLSearchParams((location.hash.split('?')[1]) || ''); if (['backtest', 'pnl', 'params', 'exec', 'history'].includes(q.get('tab'))) tab = q.get('tab'); }
     const cs = { range: null, hideLines: [], hidePanes: [], hideMarkers: false };
     const d = await U.api(`/api/strategies/${sid}?mode=${mode}`);
     const c = d.card, st = d.state || {}, fam = c.family;

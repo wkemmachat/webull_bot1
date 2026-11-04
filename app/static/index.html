@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png?v=4">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/css/app.css?v=68">
+<link rel="stylesheet" href="/static/css/app.css?v=69">
 <script>try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : t; } catch (e) {}</script>
 </head>
 <body>
@@ -23,6 +23,7 @@
     <a class="nav" data-r="" href="#/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-4H3zM13 3v4h8V3z"/></svg>Dashboard</a>
     <div class="grp">Trade</div>
     <a class="nav" data-r="strategies" href="#/strategies"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 8l10 5 10-5-10-5zM2 16l10 5 10-5M2 12l10 5 10-5"/></svg>Strategies</a>
+    <a class="nav" data-r="backtest" href="#/backtest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>Backtest</a>
     <a class="nav" data-r="money" href="#/money"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 14h2"/></svg>Money</a>
     <a class="nav" data-r="portfolio" href="#/portfolio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Portfolio</a>
     <a class="nav" data-r="orders" href="#/orders"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h11M4 18h6"/></svg>Orders<span class="cnt hidden" id="cnt-plans"></span></a>
@@ -68,24 +69,25 @@
 </nav>
 <div class="toast" id="toast" aria-live="polite"></div>
 <script src="/static/vendor/lightweight-charts.standalone.production.js"></script>
-<script src="/static/js/ui.js?v=68"></script>
-<script src="/static/js/charts.js?v=68"></script>
-<script src="/static/js/views/alloc.js?v=68"></script>
-<script src="/static/js/views/expected.js?v=68"></script>
-<script src="/static/js/views/dashboard.js?v=68"></script>
-<script src="/static/js/views/strategies.js?v=68"></script>
-<script src="/static/js/views/money.js?v=68"></script>
-<script src="/static/js/views/orders.js?v=68"></script>
-<script src="/static/js/views/monitor.js?v=68"></script>
-<script src="/static/js/views/config.js?v=68"></script>
-<script src="/static/js/views/docs.js?v=68"></script>
-<script src="/static/js/views/golive.js?v=68"></script>
-<script src="/static/js/views/backtest.js?v=68"></script>
-<script src="/static/js/views/symcharts.js?v=68"></script>
-<script src="/static/js/views/etf2x.js?v=68"></script>
-<script src="/static/js/views/perf.js?v=68"></script>
-<script src="/static/js/views/nextorders.js?v=68"></script>
-<script src="/static/js/views/portfolio.js?v=68"></script>
-<script src="/static/js/app.js?v=68"></script>
+<script src="/static/js/ui.js?v=69"></script>
+<script src="/static/js/charts.js?v=69"></script>
+<script src="/static/js/views/alloc.js?v=69"></script>
+<script src="/static/js/views/expected.js?v=69"></script>
+<script src="/static/js/views/dashboard.js?v=69"></script>
+<script src="/static/js/views/strategies.js?v=69"></script>
+<script src="/static/js/views/money.js?v=69"></script>
+<script src="/static/js/views/orders.js?v=69"></script>
+<script src="/static/js/views/monitor.js?v=69"></script>
+<script src="/static/js/views/config.js?v=69"></script>
+<script src="/static/js/views/docs.js?v=69"></script>
+<script src="/static/js/views/golive.js?v=69"></script>
+<script src="/static/js/views/backtest.js?v=69"></script>
+<script src="/static/js/views/btpage.js?v=69"></script>
+<script src="/static/js/views/symcharts.js?v=69"></script>
+<script src="/static/js/views/etf2x.js?v=69"></script>
+<script src="/static/js/views/perf.js?v=69"></script>
+<script src="/static/js/views/nextorders.js?v=69"></script>
+<script src="/static/js/views/portfolio.js?v=69"></script>
+<script src="/static/js/app.js?v=69"></script>
 </body>
 </html>

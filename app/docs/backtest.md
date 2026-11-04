@@ -18,6 +18,32 @@ and shows what $10,000 would have become, next to simply holding the ETF (and th
 | Try other settings | Change the rules and run again. **Nothing is saved or traded** — the Parameters tab saves |
 | Stock charts (C2-7 only) | A separate tab: a candle chart of every stock or ETF the strategy traded, with each backtest buy and sell (and the bot's own fills) marked, to cross-check trades |
 
+## The Backtest page (every strategy at once)
+
+**Backtest** in the side menu puts every strategy side by side, from the last expected-returns check (no backtests run, so
+it opens at once). Gold and silver on their default settings use the research's 10 years (OANDA prices) because Yahoo keeps
+only about 2 years of hourly metals prices; the table marks those *research*.
+
+| Part | Meaning |
+|---|---|
+| Summary | Money in strategies; what you would lose if every strategy had its worst 10-year fall at once; money by holding, with a warning when one holding is more than half |
+| Table | 1, 3 and 10 years a year, worst fall, **return ÷ fall** (sorted best first by default), years up, share of weeks below the last peak, and **Now**: how far below its high it is and how that ranks in its own past (the same dip zone as Money). Click a column to sort, a strategy to open its own backtest |
+| Return against worst fall | A dot per strategy: higher = more return, further left = smaller fall. Size = your money in it |
+| Growth of $10,000 | Every strategy on one log chart (weekly closes, profit reinvested) |
+| Do they move together? | Correlation of weekly returns. Money split across strategies that move together (dark squares) is not really spread |
+| Try a mix | Sliders for each strategy's share; blue = your money as split now, green = your mix. Shows a year, worst fall, return ÷ fall, the dollar fall and the worst 12 months. Nothing moves money |
+
+## More on a strategy's Backtest tab (5 Nov 2026)
+
+| Part | Meaning |
+|---|---|
+| Compounding / Fixed $10,000 | Compounding keeps profit in (the position grows, like Auto contracts on the TFEX bot). Fixed $10,000 takes profit out and tops up losses, so every trade is the same size (like 1 contract); the line then is $10,000 + total profit, on a normal scale |
+| 12-month rolling return | The return over the 12 months up to each day. Long stretches below zero are the years that test your patience |
+| Month by month | Every month's return; a run of red is how a bad stretch feels from inside |
+| Range of outcomes | The last 10 years (or all there is) cut into 13-week pieces and shuffled 2,000 times: a bad case (1 in 10 worse), the middle case, the typical worst fall and the chance of a fall past −30/40/50%. Gold and silver on default settings use the research's 10 years |
+| What if trading goes worse than planned? | The same backtest with fees of 0.25% and 0.50% a side and, for daily strategies, every order one trading day late. A strategy whose return collapses here is fragile. Runs 3 extra backtests the first time (a few seconds per strategy), then cached |
+| Good markets and bad markets | Return a year while the strategy's index was above / below its 200-day average (the day before), next to holding the ETF. A good strategy keeps most of the up-trend and loses less in the down-trend |
+
 ## How it is simulated
 
 - **Daily strategies** (QLD regime, 2x Semis regime, QLD + Trend + bear-dip, QLD and USD Trend + IBS-dip): decided on each US close, traded at the **next

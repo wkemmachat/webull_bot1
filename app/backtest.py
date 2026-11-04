@@ -297,7 +297,7 @@ class Book:
 
 
 # ---------------------------------------------------------------- daily strategies
-def _run_daily(strat, now, cost):
+def _run_daily(strat, now, cost, delay=0):
     p = strat.params
     sig = p.get("signal") or p["trade"]                 # Trend + IBS-dip reads its signal from the traded ETF itself
     for s in (strat.history_symbols() if hasattr(strat, "history_symbols") else [sig]):
@@ -336,8 +336,9 @@ def _run_daily(strat, now, cost):
     B = Book(cost)
     eq, expo, held_state = [], [], []
     pending, last_state, last_target = None, None, None
+    due = 0                                          # stress test: `delay` extra days before an order fills (0 = the next open)
     for i, d in enumerate(days):
-        if pending is not None:
+        if pending is not None and i >= due:
             px = {s: P.open(s, d) for s in syms}
             B.rebalance(pending[0], px, datetime.combine(d, datetime.min.time(), NY).replace(hour=9, minute=30), pending[1], pending[2])
             pending = None
@@ -358,12 +359,14 @@ def _run_daily(strat, now, cost):
                 except Exception:
                     pass
             pending = (target, why, kind)
+            due = i + 1 + delay
             last_target = target
         last_state = st
         if pending is not None and pending[2] != "REBALANCE":
             continue
         if w and max(abs(w.get(k, 0.0) - target.get(k, 0.0)) for k in set(w) | set(target)) > band:
             pending = (target, f"rebalance: a holding drifted more than {band * 100:g}% from its target", "REBALANCE")
+            due = i + 1 + delay
     built = {s: real_from(s, daily[s]) for s in set(syms) | {sig}}
     built = {s: d for s, d in built.items() if d and d > str(days[0])}
     return {"days": days, "eq": eq, "expo": expo, "trades": B.trades, "fees": B.fees, "state": held_state,
@@ -741,13 +744,13 @@ def _series_on(days, df):
     return [None if x is None else x / first * START_CASH for x in out] if first else [None] * len(days)
 
 
-def _build(strat, now, cost):
+def _build(strat, now, cost, delay=0):
     from . import execution
     cfg = execution.exec_cfg(strat)
     if strat.type == "momentum_basket":
         r = _run_basket(strat, now, cost)
     elif strat.family == "regime":
-        r = _run_daily(strat, now, cost)
+        r = _run_daily(strat, now, cost, delay)
     else:
         r = _run_metals(strat, now, cost, cfg)
     days, eq = r["days"], r["eq"]
@@ -821,14 +824,14 @@ def _research(strat):
     return {**r, "same_settings": same}
 
 
-def _key(strat, cost):
+def _key(strat, cost, delay=0):
     from . import execution
     stamp = []
     for tf in ("1d", "1dtr", "1h"):
         x = db.one("SELECT COUNT(*) n, MAX(t) mx FROM bars WHERE tf=?", (tf,))
         stamp.append((tf, x["n"], x["mx"]))
     raw = json.dumps([strat.id, strat.row.get("type"), strat.params, execution.exec_cfg(strat), cost, stamp,
-                      int(time.time() // 3600)], sort_keys=True, default=str)
+                      int(time.time() // 3600)] + ([delay] if delay else []), sort_keys=True, default=str)
     return hashlib.sha1(raw.encode()).hexdigest()
 
 
@@ -841,9 +844,9 @@ def cost_setting() -> float:
     return min(max(v, 0.0), COST_MAX)
 
 
-def run(sid=None, params=None, now=None, cost=None, strat=None):
+def run(sid=None, params=None, now=None, cost=None, strat=None, delay=0):
     """Backtest a saved strategy, optionally with other settings (`params`, not saved). cost: fee per side (fraction);
-    None = the Settings value."""
+    None = the Settings value. delay: stress test only, extra days before each order of a daily strategy fills."""
     if cost is None:
         cost = cost_setting()
     if strat is None:
@@ -855,21 +858,23 @@ def run(sid=None, params=None, now=None, cost=None, strat=None):
             row["params"] = {**row["params"], **params}
         strat = S.instance(row)
     now = now or md.now_utc()
-    key = _key(strat, cost)
+    if delay and strat.family != "regime":
+        raise BacktestError("Late orders can only be tested for daily strategies")
+    key = _key(strat, cost, delay)
     with _lock:
         hit = _cache.get(key)
         if hit:
             return hit
     t0 = time.time()
     try:
-        out = _build(strat, now, cost)
+        out = _build(strat, now, cost, delay)
     except (BacktestError, md.DataError) as e:
         out = {"ok": False, "strategy": strat.id, "name": strat.name, "error": str(e)}
     out["research"] = _research(strat)
     out["custom"] = bool(params)
     out["ms"] = int((time.time() - t0) * 1000)
     with _lock:
-        if len(_cache) > 40:
+        if len(_cache) > 120:                             # 18 strategies × the normal run and its stress tests
             _cache.clear()
         _cache[key] = out
     return out

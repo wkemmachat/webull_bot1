@@ -1,6 +1,13 @@
 <!--{"title": "Design decisions", "group": "Help"}-->
 # Design decisions (October 2026)
 
+- **Backtest page and richer Backtest tab** (5 Nov 2026, modelled on the TFEX bot's Backtest tab): the page reads the
+  expected-returns check's weekly 10-year curves instead of running backtests, so it opens at once and matches the
+  Expected-returns ranking. Gold and silver on default settings use the research's OANDA 10-year curves (Yahoo keeps ~2 years
+  of hourly metals); changed settings fall back to the bot's own shorter backtest. "1 contract" became *Fixed $10,000*
+  (profit taken out) and "auto contracts" *Compounding*. The bootstrap uses 13-week blocks (keeps a quarter's streaks) and a
+  fixed seed per strategy so the numbers do not jump on refresh. The late-order test is daily strategies only: the 4-hour
+  metals already trade on the bot's real start time.
 - **Three money layers**: Webull account → allocated to the bot (strategies + bot unassigned) → strategies. Cash you do not
   allocate is never used. Withdrawals go back to bot unassigned; *Return to Webull* hands money back.
 - **Money per strategy**: each strategy has its own dollar capital you add or withdraw (as in the AI x Alpaca bot), not a

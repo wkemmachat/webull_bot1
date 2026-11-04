@@ -5,7 +5,7 @@
   let cleanup = null, top = null, timer = null, routeGen = 0;
 
   const routes = [
-    [/^\/?$/, 'dashboard'], [/^\/strategies\/new$/, 'strategyNew'], [/^\/strategies\/([\w-]+)$/, 'strategy'], [/^\/strategies$/, 'strategies'],
+    [/^\/?$/, 'dashboard'], [/^\/strategies\/new$/, 'strategyNew'], [/^\/strategies\/([\w-]+)$/, 'strategy'], [/^\/strategies$/, 'strategies'], [/^\/backtest$/, 'backtestAll'],
     [/^\/money$/, 'money'], [/^\/portfolio$/, 'portfolio'], [/^\/orders$/, 'orders'], [/^\/execution$/, 'execution'], [/^\/trades$/, 'trades'],
     [/^\/positions$/, 'positions'], [/^\/health$/, 'health'], [/^\/logs$/, 'logs'], [/^\/line$/, 'line'], [/^\/webull$/, 'webull'],
     [/^\/settings$/, 'settings'], [/^\/golive$/, 'golive'], [/^\/docs\/?([\w-]*)$/, 'docs'],

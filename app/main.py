@@ -18,7 +18,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import auth, backtest, etf2x, perf, preview, expected, symcharts, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views, idle, portfolio, weekly
+from . import auth, backtest, btview, etf2x, perf, preview, expected, symcharts, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views, idle, portfolio, weekly
 from . import strategies as S
 from .config import APP_NAME, BASE_DIR, COOKIE_SECURE, DISPLAY_TZ, PUBLIC_URL, SCHEDULER_ENABLED
 
@@ -600,6 +600,28 @@ async def backtest_symbol_chart(sid: str, sym: str = "", u=Depends(user)):
         return await asyncio.to_thread(symcharts.build, sid, sym or None)
     except symcharts.ChartError as e:
         return {"ok": False, "error": str(e)}
+
+
+@app.get("/api/backtest-overview")
+async def backtest_overview(mode: str = "paper", u=Depends(user)):
+    """Backtest page: every strategy side by side (from the expected-returns check; nothing is re-run)."""
+    return await asyncio.to_thread(btview.overview, mode_of(mode))
+
+
+@app.get("/api/backtest/{sid}/extra")
+async def backtest_extra(sid: str, u=Depends(user)):
+    """Range of outcomes (reshuffled decades) and good / bad markets, from the strategy's own backtest."""
+    if not S.row(sid):
+        raise HTTPException(404, "No such strategy")
+    return await asyncio.to_thread(btview.extra, sid)
+
+
+@app.get("/api/backtest/{sid}/stress")
+async def backtest_stress(sid: str, u=Depends(user)):
+    """The same backtest with higher fees and late orders (runs up to 3 more backtests the first time)."""
+    if not S.row(sid):
+        raise HTTPException(404, "No such strategy")
+    return await asyncio.to_thread(btview.stress, sid)
 
 
 @app.post("/api/backtest/{sid}")

@@ -20,8 +20,11 @@
       grid: { vertLines: { color: css('--chart-grid') }, horzLines: { color: css('--chart-grid') } },
       rightPriceScale: { borderColor: css('--line'), minimumWidth: 72 },
       timeScale: { borderColor: css('--line'), timeVisible: !daily, secondsVisible: false, visible: opts.timeVisible !== false,
-        rightOffset: 4, tickMarkFormatter: (t) => {
+        rightOffset: 4, tickMarkFormatter: (t, kind) => {
           const d = new Date(t * 1000);
+          // daily charts: a year tick shows the year and a month tick the month, so long histories read "2019 … 2020"
+          if (daily && kind === 0) return String(d.getUTCFullYear());
+          if (daily && kind === 1) return new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', month: 'short' }).format(d);
           return new Intl.DateTimeFormat('en-GB', daily ? { timeZone: 'UTC', day: 'numeric', month: 'short' } : { timeZone: TZ, day: 'numeric', month: 'short' }).format(d);
         } },
       crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
