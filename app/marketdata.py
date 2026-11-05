@@ -179,7 +179,7 @@ def quote(sym: str, max_age: int = 60) -> dict:
         q = {"price": float(r["c"]), "bid": None, "ask": None, "time": int(r["t"]), "source": "csv"}
     else:
         import yfinance as yf
-        h = yf.Ticker(yahoo_ticker(sym)).history(period="5d", interval="1m", prepost=True)
+        h = _minutes(sym, max_age)
         if h is None or h.empty:
             h = yf.Ticker(yahoo_ticker(sym)).history(period="5d", interval="1d")
         if h is None or h.empty:
@@ -188,6 +188,21 @@ def quote(sym: str, max_age: int = 60) -> dict:
              "source": "yahoo"}
     _qcache[sym] = (time.time(), q)
     return q
+
+
+_m1cache: dict = {}
+
+
+def _minutes(sym: str, max_age: int = 60):
+    """Yahoo 1-minute bars of the last days (pre/after market included), cached: one download per symbol per minute serves
+    both the price quote and today's chart bar."""
+    hit = _m1cache.get(sym)
+    if hit and time.time() - hit[0] < max_age:
+        return hit[1]
+    import yfinance as yf
+    h = yf.Ticker(yahoo_ticker(sym)).history(period="5d", interval="1m", prepost=True, auto_adjust=False)
+    _m1cache[sym] = (time.time(), h)
+    return h
 
 
 _tbcache: dict = {}
@@ -214,8 +229,7 @@ def today_bar(sym: str, max_age: int = 60) -> dict | None:
                 r = df.loc[day]
                 bar = {"open": float(r.o), "high": float(r.h), "low": float(r.l), "close": float(r.c)}
         else:
-            import yfinance as yf
-            h = yf.Ticker(yahoo_ticker(sym)).history(period="1d", interval="1m", prepost=False, auto_adjust=False)
+            h = _minutes(sym, max_age)
             if h is not None and not h.empty:
                 idx = h.index.tz_localize("America/New_York") if h.index.tz is None else h.index
                 h = h[(idx >= b[0]) & (idx <= b[1])]
@@ -234,11 +248,12 @@ def today_bar(sym: str, max_age: int = 60) -> dict | None:
 def add_today_bars(spec: dict) -> dict:
     """Strategy charts: put today's bar so far after the last closed daily bar of each daily chart ('SYM · 1D'), drawn
     lighter, so the chart shows where the price is now. It is not part of the signal until the close."""
-    for c in (spec or {}).get("charts") or []:
-        title, cs = c.get("title") or "", c.get("candles") or []
-        if not title.endswith(" · 1D") or not cs:
-            continue
-        bar = today_bar(title.split(" · ")[0])
+    daily = [c for c in (spec or {}).get("charts") or [] if (c.get("title") or "").endswith(" · 1D") and c.get("candles")]
+    syms = sorted({c["title"].split(" · ")[0] for c in daily})
+    bars = dict(zip(syms, _pool().map(today_bar, syms))) if len(syms) > 1 else {x: today_bar(x) for x in syms}
+    for c in daily:
+        cs = c["candles"]
+        bar = bars.get(c["title"].split(" · ")[0])
         if not bar or bar["time"] <= cs[-1]["time"]:
             continue
         up = bar["close"] >= bar["open"]
@@ -258,17 +273,32 @@ def clear_quotes():
     _qcache.clear()
 
 
+_pool_ = None
+
+
+def _pool():
+    global _pool_
+    if _pool_ is None:
+        from concurrent.futures import ThreadPoolExecutor
+        _pool_ = ThreadPoolExecutor(max_workers=8, thread_name_prefix="quotes")
+    return _pool_
+
+
+def _price(s):
+    try:
+        return quote(s)["price"]
+    except Exception as e:  # a missing price must never break a page
+        log.warning("quote %s: %s", s, e)
+        return None
+
+
 def prices(symbols) -> dict:
-    out = {}
-    for s in symbols:
-        if not s:
-            continue
-        try:
-            out[s] = quote(s)["price"]
-        except Exception as e:  # a missing price must never break a page
-            log.warning("quote %s: %s", s, e)
-            out[s] = None
-    return out
+    """Last prices. Symbols not in the 1-minute cache are downloaded at the same time, not one after another."""
+    syms = list(dict.fromkeys(s for s in symbols if s))
+    cold = [s for s in syms if not (_qcache.get(s) and time.time() - _qcache[s][0] < 60)]
+    if len(cold) > 1 and source() != "csv":
+        list(_pool().map(_price, cold))                   # fills the cache
+    return {s: _price(s) for s in syms}
 
 
 def usdthb() -> float | None:

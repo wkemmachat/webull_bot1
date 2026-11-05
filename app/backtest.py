@@ -828,12 +828,27 @@ def _research(strat):
 
 def _key(strat, cost, delay=0):
     from . import execution
+    # the result changes only when this strategy's own prices change (another symbol's new hourly bar no longer throws it
+    # away) or a New York day closes; it used to be thrown away every hour, so a strategy page often waited for a backtest
+    try:
+        syms = sorted({x for x, _ in strat.data_needs()} | {x for x in strat.trade_symbols() if x})
+    except Exception:
+        syms = []
+    ny = md.now_utc().astimezone(md.NY)
+    closed = ny.strftime("%H:%M") >= "16:05"                                     # today's daily bar counts after 16:05
+    day = f"{ny.date()}{'c' if closed else 'o'}"
+    cut = int(datetime(ny.year, ny.month, ny.day, tzinfo=timezone.utc).timestamp()) + (86400 if closed else 0)
     stamp = []
     for tf in ("1d", "1dtr", "1h"):
-        x = db.one("SELECT COUNT(*) n, MAX(t) mx FROM bars WHERE tf=?", (tf,))
-        stamp.append((tf, x["n"], x["mx"]))
-    raw = json.dumps([strat.id, strat.row.get("type"), strat.params, execution.exec_cfg(strat), cost, stamp,
-                      int(time.time() // 3600)] + ([delay] if delay else []), sort_keys=True, default=str)
+        lim = cut if tf != "1h" else 2 ** 40               # daily: only closed bars (today's moving bar must not reset it)
+        if syms:
+            q = "SELECT COUNT(*) n, MAX(t) mx, ROUND(SUM(c), 4) sc FROM bars WHERE tf=? AND t<? AND symbol IN (%s)" % ",".join("?" * len(syms))
+            x = db.one(q, (tf, lim, *syms))
+        else:
+            x = db.one("SELECT COUNT(*) n, MAX(t) mx, ROUND(SUM(c), 4) sc FROM bars WHERE tf=? AND t<?", (tf, lim))
+        stamp.append((tf, x["n"], x["mx"], x["sc"]))
+    raw = json.dumps([strat.id, strat.row.get("type"), strat.params, execution.exec_cfg(strat), cost, stamp, syms, day]
+                     + ([delay] if delay else []), sort_keys=True, default=str)
     return hashlib.sha1(raw.encode()).hexdigest()
 
 
