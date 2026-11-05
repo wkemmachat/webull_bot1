@@ -191,6 +191,11 @@ def daily_jobs(now):
                 dip.refresh_all(now)
             except Exception as e:
                 log.warning("dip zones: %s", e)
+        # Backtest tab extras (range of outcomes, stress test): worked out once a day after the close and saved, in the
+        # background (a few minutes) so the tab opens at once; also once on start when none is saved yet
+        from . import btview
+        if (mh.is_trading_day(ny.date()) and hh >= "17:00" and _once("btwarm", day)) or (btview.missing() and _once("btwarm_first", day)):
+            btview.start_warm()
     local = now.astimezone(TZ)
     # Webull login reminders (5, 3, 1 days before the token ends, and when it has ended): checked every 30 minutes
     if _once("tokenwatch", local.strftime("%Y-%m-%d %H:") + str(local.minute // 30)):

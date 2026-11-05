@@ -27,7 +27,7 @@ only about 2 years of hourly metals prices; the table marks those *research*.
 | Part | Meaning |
 |---|---|
 | Summary | Money in strategies; what you would lose if every strategy had its worst 10-year fall at once; money by holding, with a warning when one holding is more than half |
-| Table | 1, 3 and 10 years a year, worst fall, **return ÷ fall** (sorted best first by default), years up, share of weeks below the last peak, and **Now**: how far below its high it is and how that ranks in its own past (the same dip zone as Money). Click a column to sort, a strategy to open its own backtest |
+| Table | Your money (and in red under it what you would lose if the 10-year worst fall came back), 1, 3 and 10 years a year, worst fall, **return ÷ fall** (sorted best first by default), years up, share of weeks below the last peak, and **Now**: how far below its high it is and how that ranks in its own past (the same dip zone as Money). Click a column to sort, a strategy to open its own backtest |
 | Return against worst fall | A dot per strategy: higher = more return, further left = smaller fall. Size = your money in it |
 | Growth of $10,000 | Every strategy on one log chart (weekly closes, profit reinvested) |
 | Do they move together? | Correlation of weekly returns. Money split across strategies that move together (dark squares) is not really spread |
@@ -41,8 +41,13 @@ only about 2 years of hourly metals prices; the table marks those *research*.
 | 12-month rolling return | The return over the 12 months up to each day. Long stretches below zero are the years that test your patience |
 | Month by month | Every month's return; a run of red is how a bad stretch feels from inside |
 | Range of outcomes | The last 10 years (or all there is) cut into 13-week pieces and shuffled 2,000 times: a bad case (1 in 10 worse), the middle case, the typical worst fall and the chance of a fall past −30/40/50%. Gold and silver on default settings use the research's 10 years |
-| What if trading goes worse than planned? | The same backtest with fees of 0.25% and 0.50% a side and, for daily strategies, every order one trading day late. A strategy whose return collapses here is fragile. Runs 3 extra backtests the first time (a few seconds per strategy), then cached |
+| What if trading goes worse than planned? | The same backtest with fees of 0.25% and 0.50% a side and every order late: one trading day for daily strategies and C2-7, one 4-hour bar for gold and silver (often no change for them: an entry waits for the 22:00 start and an exit for the US open anyway). A strategy whose return collapses here depends on the bot trading on time. Gold and silver: only the ~2 years of hourly prices Yahoo keeps, marked on the box — compare the rows with each other, not with the 10-year numbers |
 | Good markets and bad markets | Return a year while the strategy's index was above / below its 200-day average (the day before), next to holding the ETF. A good strategy keeps most of the up-trend and loses less in the down-trend |
+
+The range of outcomes and the stress test are worked out **once a day after the US close** (about 17:00 New York, in the
+background) and saved, so the tab opens at once, also after a restart. If you change a strategy's settings, the execution
+settings or the fee, that strategy's are worked out again the next time you open its tab (a few seconds). The box says when
+they were worked out.
 
 ## How it is simulated
 

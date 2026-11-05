@@ -7,7 +7,11 @@
   of hourly metals); changed settings fall back to the bot's own shorter backtest. "1 contract" became *Fixed $10,000*
   (profit taken out) and "auto contracts" *Compounding*. The bootstrap uses 13-week blocks (keeps a quarter's streaks) and a
   fixed seed per strategy so the numbers do not jump on refresh. The late-order test is daily strategies only: the 4-hour
-  metals already trade on the bot's real start time.
+  metals already trade on the bot's real start time. Since 5 Nov (later the same day): gold and silver get a *one 4H bar
+  late* test as well, C2-7's late test now really delays its orders (it was ignored before), and a late rebalance keeps
+  its day instead of being pushed back each day the drift lasts (normal backtests unchanged: checked on all 18). The range
+  of outcomes and stress test are saved once a day after the close (state `btx:<id>`) instead of kept in memory for an
+  hour, so the tab opens at once.
 - **Three money layers**: Webull account → allocated to the bot (strategies + bot unassigned) → strategies. Cash you do not
   allocate is never used. Withdrawals go back to bot unassigned; *Return to Webull* hands money back.
 - **Money per strategy**: each strategy has its own dollar capital you add or withdraw (as in the AI x Alpaca bot), not a

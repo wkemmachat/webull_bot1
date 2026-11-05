@@ -33,8 +33,36 @@ def test_late_orders_shift_every_fill_by_one_day(clean):
     i = [pd.Timestamp(t, unit="s").date() for t in days]
     assert i.index(db_) == i.index(da) + 1                    # the first order fills one trading day later
     assert BT.run("usd_ibs", now=NOW, delay=0) is a          # the normal run is untouched (same cached result)
-    with pytest.raises(BT.BacktestError):
-        BT.run("gold_sta", now=NOW, delay=1)
+
+
+def test_late_orders_metals_and_basket(clean):
+    """4H metals: each signal one 4H bar later; C2-7 (weekly list, daily signal): every order one trading day later."""
+    a = BT.run("gold_sta", now=NOW)
+    b = BT.run("gold_sta", now=NOW, delay=1)
+    assert a["ok"] and b["ok"]
+    ta = {x["why"]: x["t"] for x in a["trades"] if x["kind"] != "START"}
+    tb = {x["why"]: x["t"] for x in b["trades"] if x["kind"] != "START"}
+    both = [w for w in ta if w in tb]
+    assert both and all(tb[w] >= ta[w] for w in both)               # the same signal is never traded earlier,
+    assert any(tb[w] >= ta[w] + 4 * 3600 - 60 for w in both)        # often 4 hours later (or more, past the session)
+    # …but often at the same time: an entry waits for the 22:00 start and an exit for the US open anyway
+    assert a["series"]["strategy"] != b["series"]["strategy"]
+    c = BT.run("c27_mom", now=NOW)
+    d = BT.run("c27_mom", now=NOW, delay=1)
+    if c["ok"]:
+        tc = [x["t"] for x in c["trades"] if x["kind"] != "START"]
+        td = [x["t"] for x in d["trades"] if x["kind"] != "START"]
+        assert tc and td and td[0] > tc[0]                         # the delay is not ignored any more
+        assert c["series"]["strategy"] != d["series"]["strategy"]
+
+
+def test_late_rebalance_still_fills(clean):
+    """A rebalance waiting one extra day keeps its day: it is not pushed back every day the drift lasts."""
+    a = BT.run("qld_ibs", now=NOW)
+    b = BT.run("qld_ibs", now=NOW, delay=1)
+    ra = [x for x in a["trades"] if x["kind"] == "REBALANCE"]
+    rb = [x for x in b["trades"] if x["kind"] == "REBALANCE"]
+    assert not ra or rb                                            # rebalances still happen when orders are late
 
 
 def test_overview_every_strategy(clean, checked):
@@ -92,7 +120,10 @@ def test_extra_and_stress(clean):
     assert x["ok"] and x["boot"] and x["boot"]["paths"] == btview.BOOT_PATHS
     rg = x["regime"]
     assert rg is None or (rg["etf"] == "USD" and 0 < rg["bad_share"] < 100)
-    assert btview.extra("usd_ibs") is x                        # cached for the same backtest
+    saved = db.get_state(btview.SAVED + "usd_ibs")
+    assert saved and saved["extra"]["boot"] == x["boot"]          # saved: the tab opens at once, also after a restart
+    BT._cache.clear()
+    assert btview.extra("usd_ibs")["boot"] == x["boot"]
     g = btview.extra("gold_sta")                               # ~2 years of Yahoo hourly gold: the research's 10 years
     assert g["ok"] and g["src"] == "research" and g["boot"]["years"] >= 9.5
     st = btview.stress("usd_ibs")
@@ -100,8 +131,38 @@ def test_extra_and_stress(clean):
     assert len(st["rows"]) == 4 and all(r.get("cagr") is not None for r in st["rows"])
     base, f25, f50, late = st["rows"]
     assert f50["cagr"] <= f25["cagr"] <= base["cagr"]          # higher fees never help
+    assert late["t"] == "every order 1 day late"
     m = btview.stress("gold_sta")
-    assert m["rows"][-1].get("na") and m["rows"][-1]["cagr"] is None
+    assert m["rows"][-1]["t"] == "every signal one 4H bar late" and m["rows"][-1]["cagr"] is not None
+    assert m["short"] and m["years"] < 9.5 and m["from"]            # gold: only the hourly prices Yahoo keeps
+
+
+def test_saved_results_follow_settings(clean):
+    st = btview.stress("qld_tbdv")
+    fp = db.get_state(btview.SAVED + "qld_tbdv")["fp"]
+    db.set_state(btview.SAVED + "qld_tbdv", {**db.get_state(btview.SAVED + "qld_tbdv"), "stress": {**st, "rows": [], "marker": 1}})
+    assert btview.stress("qld_tbdv").get("marker") == 1           # the saved copy is used while nothing changed
+    s = S.get("qld_tbdv")
+    p = dict(s.params); k = next(k for k, v in p.items() if isinstance(v, int) and not isinstance(v, bool) and v > 2)
+    p[k] = p[k] + 1
+    S.update("qld_tbdv", params=p)
+    try:
+        again = btview.stress("qld_tbdv")
+        assert "marker" not in again and again["rows"]             # other settings: worked out again
+        assert db.get_state(btview.SAVED + "qld_tbdv")["fp"] != fp
+    finally:
+        S.update("qld_tbdv", params=s.params)
+
+
+def test_warm_all_saves_every_strategy(clean):
+    for s in S.all_instances():
+        db.run("DELETE FROM state WHERE k=?", (btview.SAVED + s.id,))
+    assert btview.missing()
+    out = btview.warm_all()
+    assert out["done"] == len(S.all_instances()) and not out["failed"]
+    assert not btview.missing()
+    again = btview.warm_all()                                       # fresh copies are kept, not worked out again
+    assert again["done"] == out["done"] and again["s"] <= out["s"]
 
 
 def test_api(clean, checked):

@@ -364,9 +364,9 @@ def _run_daily(strat, now, cost, delay=0):
         last_state = st
         if pending is not None and pending[2] != "REBALANCE":
             continue
-        if w and max(abs(w.get(k, 0.0) - target.get(k, 0.0)) for k in set(w) | set(target)) > band:
+        if pending is None and w and max(abs(w.get(k, 0.0) - target.get(k, 0.0)) for k in set(w) | set(target)) > band:
             pending = (target, f"rebalance: a holding drifted more than {band * 100:g}% from its target", "REBALANCE")
-            due = i + 1 + delay
+            due = i + 1 + delay                      # a rebalance already waiting keeps its day (matters only when late)
     built = {s: real_from(s, daily[s]) for s in set(syms) | {sig}}
     built = {s: d for s, d in built.items() if d and d > str(days[0])}
     return {"days": days, "eq": eq, "expo": expo, "trades": B.trades, "fees": B.fees, "state": held_state,
@@ -389,7 +389,7 @@ def _exec_start(want, avail, cfg):
     return mh.start_time(avail, cfg["start_mode"], cfg["start_time"], sess)
 
 
-def _run_metals(strat, now, cost, cfg):
+def _run_metals(strat, now, cost, cfg, late=0):
     p = strat.params
     se = metals.series(strat.sym, now)
     adj4, raw4 = se["adj4"], se["raw4"]
@@ -398,7 +398,7 @@ def _run_metals(strat, now, cost, cfg):
     res = strat.compute(adj4)
     want = res["want"].values
     ends = pd.to_datetime(raw4["end"], utc=True)
-    delay = timedelta(minutes=metals.delay_min() + 2)
+    delay = timedelta(minutes=metals.delay_min() + 2, hours=4 * late)   # stress test: `late` 4H bars later
     etf, cash = p["etf"], p["cash_etf"]
     syms = [s for s in (etf, cash) if s]
     tmap = None
@@ -515,7 +515,7 @@ def _oc(df):
     return {pd.Timestamp(t).date(): (float(r.o), float(r.c)) for t, r in df.iterrows()}
 
 
-def _run_basket(strat, now, cost):
+def _run_basket(strat, now, cost, delay=0):
     from . import basket
     p = strat.params
     sig = p["signal"]
@@ -591,6 +591,7 @@ def _run_basket(strat, now, cost):
     pos, cash, fees, trades = {}, START_CASH, 0.0, []
     eq, expo, sts = [], [], []
     pending, last_on, held_list = None, None, None
+    due = 0                                                 # stress test: `delay` extra days before an order fills
     buf = strat.buffer()
     hold = max(1, p["hold"])
     for i, d in enumerate(days):
@@ -603,7 +604,7 @@ def _run_basket(strat, now, cost):
                         cash += pos.pop(s)
                     continue                                # a missing day (holiday, data gap): held unchanged
                 pos[s] *= 1 + r
-        if pending is not None:
+        if pending is not None and i >= due:
             before = {name(k) if k not in park else k: v for k, v in pos.items()}
             E = cash + sum(pos.values())
             on, lst, why, kind = pending
@@ -666,10 +667,11 @@ def _run_basket(strat, now, cost):
                 why = strat.why(fr, fr.index.get_loc(pd.Timestamp(d).tz_localize("UTC"))) if last_on is not None else f"start · signal {stt}"
             except Exception:
                 why = f"signal {stt}"
-            pending = (on, lst, why, kind)
-        elif on and set(lst) != held_stocks:
+            pending, due = (on, lst, why, kind), i + 1 + delay
+        elif on and set(lst) != held_stocks and (pending is None or (pending[0], list(pending[1])) != (on, list(lst))):
             gone, new = sorted(held_stocks - set(lst)), sorted(set(lst) - held_stocks)
             pending = (on, lst, f"list change: out {', '.join(name(x) for x in gone) or '—'} · in {', '.join(name(x) for x in new) or '—'}", "LIST")
+            due = i + 1 + delay                             # the same list already waiting keeps its day
         last_on = on
         held_list = lst
     bench = {sig: daily[sig]}
@@ -748,11 +750,11 @@ def _build(strat, now, cost, delay=0):
     from . import execution
     cfg = execution.exec_cfg(strat)
     if strat.type == "momentum_basket":
-        r = _run_basket(strat, now, cost)
+        r = _run_basket(strat, now, cost, delay)
     elif strat.family == "regime":
         r = _run_daily(strat, now, cost, delay)
     else:
-        r = _run_metals(strat, now, cost, cfg)
+        r = _run_metals(strat, now, cost, cfg, late=delay)
     days, eq = r["days"], r["eq"]
     t = [int(datetime.combine(d, datetime.min.time(), timezone.utc).timestamp()) for d in days]
     strat_v = [x / eq[0] * START_CASH for x in eq]
@@ -846,7 +848,8 @@ def cost_setting() -> float:
 
 def run(sid=None, params=None, now=None, cost=None, strat=None, delay=0):
     """Backtest a saved strategy, optionally with other settings (`params`, not saved). cost: fee per side (fraction);
-    None = the Settings value. delay: stress test only, extra days before each order of a daily strategy fills."""
+    None = the Settings value. delay: stress test only — every order this much later: trading days for daily and weekly
+    strategies, 4H bars for the 4-hour metals."""
     if cost is None:
         cost = cost_setting()
     if strat is None:
@@ -858,8 +861,6 @@ def run(sid=None, params=None, now=None, cost=None, strat=None, delay=0):
             row["params"] = {**row["params"], **params}
         strat = S.instance(row)
     now = now or md.now_utc()
-    if delay and strat.family != "regime":
-        raise BacktestError("Late orders can only be tested for daily strategies")
     key = _key(strat, cost, delay)
     with _lock:
         hit = _cache.get(key)

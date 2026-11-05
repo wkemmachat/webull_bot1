@@ -16,7 +16,8 @@
   const money = (v) => v >= 1e6 ? '$' + (v / 1e6).toFixed(2) + 'M' : U.usd(v, 0);
 
   const COLS = [
-    { k: 'value', l: 'Your money', f: (r) => r.value > 0.5 ? U.usd(r.value, 0) : '<span class="muted">$0</span>' },
+    // your money, and under it what you would lose if the 10-year worst fall came back (folded in so the table fits a laptop)
+    { k: 'value', l: 'Your money', s: 'worst fall in $', f: (r) => r.value > 0.5 ? `${U.usd(r.value, 0)}${r.worst_usd ? `<div class="tiny dn" title="If the 10-year worst fall came back: ${U.usd(r.value, 0)} → ${U.usd(r.value - r.worst_usd, 0)}">−${U.usd(r.worst_usd, 0)}</div>` : ''}` : '<span class="muted">$0</span>' },
     { k: 'r1', l: '1 year', f: (r) => `<span class="${U.cls(r.r1)}">${P(r.r1)}</span>` },
     { k: 'r3', l: '3 years', s: 'a year', f: (r) => `<span class="${U.cls(r.r3)}">${P(r.r3)}</span>` },
     { k: 'r10', l: '10 years', s: 'a year', f: (r) => `<b class="${U.cls(r.r10)}">${P(r.r10)}</b><div class="tiny muted">${r.src === 'research' ? 'research' : r.r10 == null ? (r.years ? r.years + ' yr only' : '') : 'bot backtest'}</div>` },
@@ -24,9 +25,15 @@
     { k: 'ret_dd', l: 'Return ÷ fall', f: (r) => `<b>${r.ret_dd == null ? '—' : r.ret_dd.toFixed(2)}</b>` },
     { k: 'up', l: 'Years up', f: (r) => r.of ? `${r.up} of ${r.of}` : '—', get: (r) => r.of ? r.up / r.of : null },
     { k: 'below', l: 'Below a high', s: '% of weeks', f: (r) => r.below == null ? '—' : r.below + '%', lowGood: true },
-    { k: 'now', l: 'Now', f: (r) => r.now == null ? '—' : `<span class="dn">${PP(r.now)}</span>${r.pct != null ? `<div style="margin-top:3px">${U.dipPill(r.dip) || `<span class="tiny muted">${U.ordinal(r.pct)} pct</span>`}</div>` : ''}`, neg: true },
-    { k: 'worst_usd', l: 'If the worst fall', s: 'came back', f: (r) => r.worst_usd ? `<span class="dn">−${U.usd(r.worst_usd, 0)}</span><div class="tiny muted">→ ${U.usd(r.value - r.worst_usd, 0)}</div>` : '<span class="muted">—</span>', lowGood: true },
+    { k: 'now', l: 'Now', s: 'below its high', f: (r) => r.now == null ? '—' : `<span class="dn">${PP(r.now)}</span>${r.pct != null ? `<div style="margin-top:3px">${zonePill(r) }</div>` : ''}`, neg: true },
   ];
+  // the dip zone, short (the depth is already on the line above): "▲▲ Strong buy", the percentile under it; full text on hover
+  function zonePill(r) {
+    const d = r.dip;
+    if (!d || !d.zone) return `<span class="tiny muted">${U.ordinal(r.pct)} pct</span>`;
+    const full = U.dipPill(d), tip = (full.match(/title="([^"]*)"/) || [])[1] || '';
+    return `<span class="pill ${d.zone === 'deep' ? 'dip2' : 'dip1'}" title="${tip}">${d.zone === 'deep' ? '▲▲ Strong buy' : '▲ Buy zone'}</span><div class="tiny muted" style="margin-top:2px">${U.ordinal(d.pct)} pct</div>`;
+  }
 
   V.backtestAll = async function (el) {
     const mode = U.mode();
@@ -73,17 +80,17 @@
     function table() {
       const rows = shown(), nIdle = d.rows.filter((r) => r.idle).length;
       const counts = (k) => visibleAll().filter((r) => k === 'all' || (k === 'money' ? r.value > 0.5 : r.group === k)).length;
-      const th = (c) => `<th class="r" style="cursor:pointer;white-space:nowrap" data-sort="${c.k}" aria-sort="${st.sort.k === c.k ? (st.sort.dir < 0 ? 'descending' : 'ascending') : 'none'}">${c.l}${st.sort.k === c.k ? (st.sort.dir < 0 ? ' ▼' : ' ▲') : ''}${c.s ? `<div class="tiny muted" style="font-weight:400">${c.s}</div>` : ''}</th>`;
+      const th = (c) => `<th class="r" style="cursor:pointer" data-sort="${c.k}" aria-sort="${st.sort.k === c.k ? (st.sort.dir < 0 ? 'descending' : 'ascending') : 'none'}">${c.l}${st.sort.k === c.k ? (st.sort.dir < 0 ? ' ▼' : ' ▲') : ''}${c.s ? `<div class="tiny muted" style="font-weight:400">${c.s}</div>` : ''}</th>`;
       return `<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">
           <div class="seg" id="bt-f">${GROUPS.filter(([k]) => k === 'all' || k === 'money' || counts(k)).map(([k, l]) => `<button data-f="${k}" class="${st.f === k ? 'on' : ''}">${l} · ${counts(k)}</button>`).join('')}</div>
           <span style="flex:1"></span>${nIdle ? U.idleToggle(nIdle, st.idle) : ''}</div>
         <section class="card" style="padding:4px 0">
-          <div class="tw"><table class="t" style="min-width:1080px"><thead><tr><th>Strategy</th>${COLS.map(th).join('')}</tr></thead><tbody>
-          ${rows.map((r) => `<tr><td><a href="#/strategies/${encodeURIComponent(r.id)}?tab=backtest" style="display:flex;gap:9px;align-items:flex-start;color:var(--text)">${U.dot(r.color)}<span><span style="font-weight:500">${U.esc(r.name)}</span>
+          <div class="tw"><table class="t bt-t"><thead><tr><th>Strategy</th>${COLS.map(th).join('')}</tr></thead><tbody>
+          ${rows.map((r) => `<tr><td><a href="#/strategies/${encodeURIComponent(r.id)}?tab=backtest" style="display:flex;gap:9px;align-items:flex-start;color:var(--text);white-space:normal;min-width:150px;max-width:230px">${U.dot(r.color)}<span><span style="font-weight:500">${U.esc(r.name)}</span>
               <span class="tiny muted" style="display:block">${U.esc(r.etf)} · ${r.timeframe === '1d' ? 'daily' : U.esc(r.timeframe || '')}${r.control === 'stopped' ? ' · stopped' : ''}</span></span></a></td>
               ${COLS.map((c) => `<td class="r num">${c.f(r)}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${COLS.length + 1}" class="muted">No strategy in this filter.</td></tr>`}
           </tbody></table></div>
-          <div class="muted small" style="padding:8px 16px 12px">How to read: <b>Return ÷ fall</b> = 10-year return a year ÷ 10-year worst fall: more return for each 1% you had to sit through is better. <b>Below a high</b> = share of weeks under the last peak. <b>Now</b> = how far below its high today, and where that ranks among all past days (Buy zone from the 70th, Strong buy from the 90th).
+          <div class="muted small" style="padding:8px 16px 12px">How to read: <b>Return ÷ fall</b> = 10-year return a year ÷ 10-year worst fall: more return for each 1% you had to sit through is better. <b>Your money</b>: the red line under it is what you would lose if the 10-year worst fall came back. <b>Below a high</b> = share of weeks under the last peak. <b>Now</b> = how far below its high today, and where that ranks among all past days (Buy zone from the 70th, Strong buy from the 90th).
             Gold and silver: Yahoo keeps only about 2 years of hourly futures, so their 10 years come from the research on OANDA prices (<i>research</i>). Click a column to sort, a strategy for its own backtest.</div>
         </section>`;
     }

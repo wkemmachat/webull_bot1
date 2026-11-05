@@ -6,7 +6,11 @@ overview(mode)  — the table, the charts' weekly series, correlations and your 
                   Yahoo keeps only about 2 years of hourly metals prices.
 extra(sid)      — from the strategy's own backtest: 2,000 reshuffled decades (range of outcomes) and its return in good and
                   bad markets (the index above / below its 200-day average).
-stress(sid)     — the same backtest with higher fees and, for daily strategies, every order one day late.
+stress(sid)     — the same backtest with higher fees and every order late (daily and weekly strategies: one trading
+                  day; 4-hour metals: one 4H bar).
+Both are worked out once a day after the US close (warm_all, from the engine's daily jobs) and saved, so a strategy's
+Backtest tab opens at once, also after a restart. A saved copy is used while the strategy's settings, the execution
+settings and the fee are unchanged; otherwise it is worked out on the spot (a few seconds) and saved.
 """
 import hashlib
 import json
@@ -24,10 +28,10 @@ from . import strategies as S
 RESEARCH_WEEKLY = Path(__file__).parent / "research" / "weekly_research.json"
 FULL_YEARS = 9.5              # a series this long counts as "10 years"
 BOOT_PATHS, BOOT_BLOCK = 2000, 13
-STRESS = [("fee 0.25% a side", {"cost": 0.0025}), ("fee 0.50% a side", {"cost": 0.0050}), ("every order 1 day late", {"delay": 1})]
+STRESS = [("fee 0.25% a side", {"cost": 0.0025}), ("fee 0.50% a side", {"cost": 0.0050}), ("late", {"delay": 1})]
+SAVED = "btx:"                # db state key prefix: btx:<sid> = {fp, at, extra, stress}
 _lock = threading.Lock()
-_extra_cache: dict = {}
-_stress_cache: dict = {}
+_warm = {"running": False}
 _research = None
 
 
@@ -201,7 +205,7 @@ def regimes(r) -> dict | None:
         return None
     ix = pd.Series(s["bench"][idx_sym], index=t, dtype=float)
     held = pd.Series(s["bench"][r["main"]], index=t, dtype=float) if r.get("main") in s["bench"] else None
-    up = (ix > ix.rolling(200).mean()).shift(1)
+    up = (ix > ix.rolling(200).mean()).astype(float).shift(1)    # 1 = up-trend, 0 = down-trend (yesterday's state)
     ok = up.notna() & ix.rolling(200).mean().shift(1).notna()
     if ok.sum() < 250:
         return None
@@ -213,20 +217,16 @@ def regimes(r) -> dict | None:
         if len(x) < 40:
             return None
         return round((float(np.prod(1 + x.values)) ** (252 / len(x)) - 1) * 100, 1)
-    good, bad = up.fillna(False).astype(bool), (~up.fillna(True).astype(bool))
+    good, bad = up == 1, up == 0
     return {"index": idx_sym, "etf": r["main"], "from": str(t[ok.values.argmax()].date()),
             "good": ann(rs, good), "bad": ann(rs, bad), "hgood": ann(rh, good) if rh is not None else None,
             "hbad": ann(rh, bad) if rh is not None else None, "bad_share": round(float((bad & ok).sum() / ok.sum()) * 100, 1)}
 
 
-def extra(sid: str) -> dict:
+def _extra_calc(sid: str) -> dict:
     r = BT.run(sid)
     if not r.get("ok"):
         return {"ok": False, "error": r.get("error")}
-    key = (sid, r.get("generated_at"))
-    with _lock:
-        if key in _extra_cache:
-            return _extra_cache[key]
     ser, src = _window(r), "bot"
     # gold/silver: Yahoo has ~2 years of hourly prices; on default settings shuffle the research's 10 years instead
     res = research_weekly()["strategies"].get(sid)
@@ -234,13 +234,8 @@ def extra(sid: str) -> dict:
     if res and s and (ser.index[-1] - ser.index[0]).days / 365.25 < FULL_YEARS and expected._same_settings(s):
         ser, src = _weekly(res["w0"], res["wv"]), "research"
     seed = int(hashlib.sha1(sid.encode()).hexdigest()[:8], 16)
-    out = {"ok": True, "from": str(ser.index[0].date()), "to": str(ser.index[-1].date()), "src": src,
-           "boot": bootstrap(ser, seed), "regime": regimes(r)}
-    with _lock:
-        if len(_extra_cache) > 60:
-            _extra_cache.clear()
-        _extra_cache[key] = out
-    return out
+    return {"ok": True, "from": str(ser.index[0].date()), "to": str(ser.index[-1].date()), "src": src,
+            "boot": bootstrap(ser, seed), "regime": regimes(r)}
 
 
 def _headline(r):
@@ -250,21 +245,22 @@ def _headline(r):
     return k, x.get("cagr"), x.get("maxdd")
 
 
-def stress(sid: str) -> dict:
+def _late_label(s) -> str:
+    return "every order 1 day late" if s.family == "regime" else "every signal one 4H bar late"
+
+
+def _stress_calc(sid: str) -> dict:
     base = BT.run(sid)
     if not base.get("ok"):
         return {"ok": False, "error": base.get("error")}
-    key = (sid, base.get("generated_at"))
-    with _lock:
-        if key in _stress_cache:
-            return _stress_cache[key]
     k, c0, d0 = _headline(base)
+    st = (base.get("stats") or {}).get(k) or {}
+    st = st.get("strategy") or {}
     rows = [{"t": f"as tested · fee {base.get('cost_pct', 0.11):.2f}% a side", "cagr": c0, "maxdd": d0, "base": True}]
     s = S.get(sid)
     for label, kw in STRESS:
-        if kw.get("delay") and s.family != "regime":
-            rows.append({"t": label, "cagr": None, "maxdd": None, "na": "4-hour and weekly strategies: not tested here"})
-            continue
+        if kw.get("delay"):
+            label = _late_label(s)
         try:
             r = BT.run(sid, **kw)
             _, c, d = _headline(r) if r.get("ok") else (k, None, None)
@@ -272,9 +268,96 @@ def stress(sid: str) -> dict:
             c = d = None
             label = f"{label} (failed: {str(e)[:80]})"
         rows.append({"t": label, "cagr": c, "maxdd": d})
-    out = {"ok": True, "window": k, "rows": rows, "at": int(time.time())}
+    # the window: 10 years, or all the bot has (gold and silver: about 2 years of hourly prices)
+    return {"ok": True, "window": k, "from": st.get("from"), "to": st.get("to"), "years": st.get("years"),
+            "short": k != "10Y", "rows": rows}
+
+
+def _fp(sid: str):
+    """What the saved results depend on besides the prices: the strategy's settings, the execution settings and the fee."""
+    from . import execution
+    s = S.get(sid)
+    if not s:
+        return None
+    raw = json.dumps([s.row.get("type"), s.params, execution.exec_cfg(s), BT.cost_setting(), sorted(STRESS_KEYS)],
+                     sort_keys=True, default=str)
+    return hashlib.sha1(raw.encode()).hexdigest()[:16]
+
+
+STRESS_KEYS = [lab for lab, _ in STRESS] + ["v2"]
+
+
+def _saved(sid: str, part: str, fp: str):
+    x = db.get_state(SAVED + sid) or {}
+    if x.get("fp") == fp and x.get(part):
+        return {**x[part], "at": x.get("at")}
+    return None
+
+
+def _save(sid: str, fp: str, **parts):
     with _lock:
-        if len(_stress_cache) > 60:
-            _stress_cache.clear()
-        _stress_cache[key] = out
-    return out
+        x = db.get_state(SAVED + sid) or {}
+        if x.get("fp") != fp:
+            x = {"fp": fp}
+        x.update(parts)
+        x["at"] = int(time.time())
+        db.set_state(SAVED + sid, x)
+
+
+def _get(sid: str, part: str, calc) -> dict:
+    fp = _fp(sid)
+    hit = _saved(sid, part, fp) if fp else None
+    if hit:
+        return hit
+    out = calc(sid)
+    if fp and out.get("ok"):
+        _save(sid, fp, **{part: out})
+    return {**out, "at": int(time.time())}
+
+
+def extra(sid: str) -> dict:
+    return _get(sid, "extra", _extra_calc)
+
+
+def stress(sid: str) -> dict:
+    return _get(sid, "stress", _stress_calc)
+
+
+def warm_all(force: bool = False) -> dict:
+    """Work out and save every strategy's range of outcomes and stress test (the daily job after the US close)."""
+    with _lock:
+        if _warm["running"]:
+            return {"busy": True}
+        _warm["running"] = True
+    done, failed, t0 = [], [], time.time()
+    try:
+        for s in S.all_instances():
+            fp = _fp(s.id)
+            try:
+                parts = {}
+                if force or not _saved(s.id, "extra", fp) or _stale(s.id):
+                    parts["extra"] = _extra_calc(s.id)
+                if force or not _saved(s.id, "stress", fp) or _stale(s.id):
+                    parts["stress"] = _stress_calc(s.id)
+                parts = {k: v for k, v in parts.items() if v.get("ok")}
+                if parts:
+                    _save(s.id, fp, **parts)
+                done.append(s.id)
+            except Exception as e:
+                failed.append(f"{s.id}: {str(e)[:80]}")
+    finally:
+        _warm["running"] = False
+    return {"done": len(done), "failed": failed, "s": round(time.time() - t0, 1)}
+
+
+def _stale(sid: str, hours: float = 20) -> bool:
+    x = db.get_state(SAVED + sid) or {}
+    return time.time() - (x.get("at") or 0) > hours * 3600
+
+
+def missing() -> bool:
+    return any(not db.get_state(SAVED + s.id) for s in S.all_instances())
+
+
+def start_warm(force: bool = False):
+    threading.Thread(target=warm_all, kwargs={"force": force}, name="backtest-extras", daemon=True).start()

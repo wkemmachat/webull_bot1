@@ -163,6 +163,7 @@ table.t { width: 100%; border-collapse: collapse; }
 .t tfoot td { border-top: 1px solid var(--border); font-weight: 600; }
 .t .r, .r { text-align: right; }
 .t td.wrap { white-space: normal; min-width: 220px; }
+.bt-t th { padding: 9px 8px; white-space: normal; vertical-align: bottom; line-height: 1.25; } .bt-t td { padding: 9px 8px; } .bt-t th:first-child, .bt-t td:first-child { padding-left: 16px; }
 .t tr.click { cursor: pointer; } .t tr.click:hover td { background: var(--hover); }
 
 .g2 { display: grid; gap: 20px; grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr); align-items: start; }

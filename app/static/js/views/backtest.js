@@ -285,7 +285,7 @@
       const box = (id, title, sub) => `<section class="card col" style="gap:10px" id="${id}"><div><h2 class="h2">${title}</h2><div class="muted small" style="margin-top:2px;max-width:900px">${sub}</div></div>
         <div class="empty small" data-slot><span class="spin"></span> Working it out…</div></section>`;
       return box('bt-boot', 'Range of outcomes · 2,000 shuffled decades', 'The strategy\'s own last 10 years (or all it has) cut into 3-month pieces and put back together in random order, 2,000 times. The band holds the middle 80% of those paths, the dashed line is the middle one, the solid line is what really happened: it shows how much luck was in the real line. It cannot invent a market unlike these years, so a crash worse than any in them is not inside.')
-        + box('bt-stress', 'What if trading goes worse than planned?', 'The same backtest with higher fees and, for daily strategies, every order one day late. A strategy whose return collapses when orders are late depends on the bot trading on time: keep the server healthy and do not pause it on signal days.')
+        + box('bt-stress', 'What if trading goes worse than planned?', 'The same backtest with higher fees and with every order late: one trading day for daily and weekly strategies, one 4-hour bar for gold and silver. A strategy whose return collapses when orders are late depends on the bot trading on time: keep the server healthy and do not pause it on signal days.')
         + box('bt-reg', 'Good markets and bad markets', 'Return a year while its index was above its 200-day average (an up-trend) and below it (a down-trend), next to simply holding the ETF. A good strategy keeps most of the up-trend and loses far less than the ETF in the down-trend.');
     }
     function fanSvg(b) {
@@ -343,7 +343,8 @@
           return `<div style="display:grid;grid-template-columns:minmax(0,260px) minmax(0,1fr) 200px;gap:12px;align-items:center"><span class="small">${U.esc(r.t)}</span>
             <div style="height:18px;background:var(--panel2);border-radius:4px;overflow:hidden"><div style="height:100%;border-radius:4px;width:${Math.max(2, Math.abs(r.cagr) / mx * 100)}%;background:${col}"></div></div>
             <span class="num r"><b style="color:${col}">${P(r.cagr)}</b> <span class="muted tiny">${r.base ? 'a year' : P(r.cagr - base) + ' vs tested'}</span><span class="tiny dn" style="display:block">worst fall ${PP(r.maxdd)}</span></span></div>`; }).join('')}</div>
-          <div class="muted small">${x.window === '10Y' ? 'Last 10 years' : 'All the history the bot has'}, return a year. Green: keeps at least 80% of the tested return · amber: less · red: loses money.</div>`);
+          ${x.short ? `<div class="note warn"><span><b>Only the last ${x.years != null ? x.years.toFixed(1) : '~2'} years</b> (${dayTxt(x.from)} – ${dayTxt(x.to)}): all the hourly prices Yahoo keeps for this strategy. Compare the rows with each other, not with the 10-year numbers above or in Expected returns — a short stretch (such as gold's 2025–26 run) can make every row look much better, or worse, than 10 years would.</span></div>` : ''}
+          <div class="muted small">${x.short ? 'Return a year over those years' : 'Last 10 years, return a year'}. Green: keeps at least 80% of the tested return · amber: less · red: loses money.${x.at ? ' Worked out ' + U.ago(x.at) + ' (once a day after the US close).' : ''}</div>`);
       } catch (e) { put('bt-stress', `<div class="muted small">${U.esc(e.message)}</div>`); }
     }
 
