@@ -172,7 +172,8 @@ def pnl_breakdown(mode, period="all", points=160):
         if no_money and (pnl is None or abs(pnl) < 0.005):
             rows.append({"id": s.id, "name": s.name, "color": s.color, "empty": True})
             continue
-        rows.append({"id": s.id, "name": s.name, "color": s.color, "control": s.row.get("control"), "value": val, "net_in": net, "_pnl": pnl,
+        rows.append({"id": s.id, "name": s.name, "color": s.color, "control": s.row.get("control"),
+                     "value": round(val, 2) + 0.0, "net_in": round(net, 2) + 0.0, "_pnl": pnl,               # + 0.0: no "−$0.00"
                      "cap_in": v["cap_in"] or 0.0, "pnl": round(pnl, 2) if pnl is not None else None,
                      "pct": (pnl / base) if pnl is not None and base > 0.5 else None,
                      "open": round(open_, 2) if held else 0.0, "no_money": no_money, "empty": False})
