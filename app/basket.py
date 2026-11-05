@@ -6,6 +6,7 @@ Prices: the research's daily total-return prices for the names that were ever in
 """
 from __future__ import annotations
 
+import bisect
 import logging
 import threading
 import time
@@ -66,20 +67,32 @@ def ranks() -> pd.DataFrame:
     return _cached(f"ranks:{stamp['n']}:{stamp['w']}", build, ttl=6 * 3600)
 
 
+def _week_index():
+    """{Friday: [(symbol, mcap), …] largest first} and the sorted Fridays, built once per rankings table."""
+    r = ranks()
+    hit = _mem.get("_week_index")
+    if hit and hit[1] is r:
+        return hit[2], hit[3]
+    by = {w: list(zip(g["symbol"], g["mcap"].astype(float))) for w, g in r.sort_values(["week", "rank"], kind="stable").groupby("week", sort=True)}
+    ws = sorted(by)
+    with _lock:
+        _mem["_week_index"] = (time.time(), r, by, ws)
+    return by, ws
+
+
 def weeks() -> list:
-    return sorted(ranks()["week"].unique())
+    return list(_week_index()[1])
 
 
 def ranking_for(day) -> tuple:
     """(Friday, [(symbol, mcap), …] largest first) in force for a decision made after the close of `day`:
     the last ranking Friday on or before that day."""
-    r = ranks()
-    ws = [w for w in weeks() if w <= day]
-    if not ws:
+    by, ws = _week_index()
+    i = bisect.bisect_right(ws, day)
+    if not i:
         return None, []
-    w = ws[-1]
-    sub = r[r["week"] == w].sort_values("rank")
-    return w, list(zip(sub["symbol"], sub["mcap"].astype(float)))
+    w = ws[i - 1]
+    return w, list(by[w])
 
 
 def update_live(now=None) -> int:
@@ -149,6 +162,22 @@ def prices(sym) -> pd.DataFrame:
     return _cached(f"px:{sym}:{md.source()}", build, ttl=3 * 3600)
 
 
+def _closes(sym):
+    """(sorted days, closes) of prices(sym), kept while prices(sym) is the same table."""
+    px = prices(sym)
+    key = f"_closes:{sym}"
+    hit = _mem.get(key)
+    if hit and hit[1] is px:
+        return hit[2], hit[3]
+    if px is None or px.empty:
+        days, closes = [], np.array([])
+    else:
+        days, closes = list(px.index), px["c"].to_numpy(float)
+    with _lock:
+        _mem[key] = (time.time(), px, days, closes)
+    return days, closes
+
+
 def momentum_list(day, pool=12, hold=7, lookback=126, ranking=None):
     """The buy list for decisions after the close of `day`: the `hold` strongest (total return over `lookback` trading days,
     measured at the ranking Friday's close) of the `pool` largest. Returns (friday, picks, table rows)."""
@@ -158,12 +187,11 @@ def momentum_list(day, pool=12, hold=7, lookback=126, ranking=None):
     top = rk[:pool]
     rows = []
     for i, (s, mc) in enumerate(top):
-        px = prices(s)
+        days, closes = _closes(s)
         mom = None
-        if px is not None and not px.empty:
-            c = px["c"][px.index <= w]
-            if len(c) > lookback:
-                mom = float(c.iloc[-1] / c.iloc[-1 - lookback] - 1)
+        n = bisect.bisect_right(days, w)                                  # closes up to the ranking Friday
+        if n > lookback:
+            mom = float(closes[n - 1] / closes[n - 1 - lookback] - 1)
         rows.append({"rank": i + 1, "symbol": s, "mcap": mc, "mom": mom})
     ok = [r for r in rows if r["mom"] is not None]
     best = sorted(ok, key=lambda r: -r["mom"])[:hold]

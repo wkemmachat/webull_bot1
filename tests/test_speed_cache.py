@@ -13,3 +13,28 @@ def test_backtest_key_ignores_other_symbols_and_todays_moving_bar(clean, clock):
     r = db.one("SELECT t FROM bars WHERE symbol='QQQ' AND tf='1d' ORDER BY t DESC LIMIT 1")
     db.run("UPDATE bars SET c=c+1 WHERE symbol='QQQ' AND tf='1d' AND t=?", (r["t"],))
     assert backtest._key(s, 0.0011, 0) != k0             # its own closed prices do
+
+
+def test_fast_open_close_reader_matches_the_row_loop():
+    """backtest._oc reads the columns directly; it must give exactly what the old per-row loop gave."""
+    from datetime import date
+    import pandas as pd
+    from app import backtest
+    idx = pd.date_range("2026-01-02 14:30", periods=40, freq="D", tz="UTC")
+    df = pd.DataFrame({"o": [100 + i * 0.5 for i in range(40)], "c": [101 + i * 0.25 for i in range(40)]}, index=idx)
+    old = {pd.Timestamp(t).date(): (float(r.o), float(r.c)) for t, r in df.iterrows()}
+    assert backtest._oc(df) == old
+    d2 = df.copy(); d2.index = [t.date() for t in idx]                     # basket prices: plain dates
+    assert backtest._oc(d2) == old
+    assert backtest._oc(None) == {} and backtest._oc(df.iloc[:0]) == {}
+
+
+def test_ranking_lookup_matches_a_scan():
+    from app import basket
+    r = basket.ranks()
+    ws = sorted(r["week"].unique())
+    for day in (ws[0], ws[len(ws) // 2], ws[-1]):
+        w, rk = basket.ranking_for(day)
+        sub = r[r["week"] == max(x for x in ws if x <= day)].sort_values("rank")
+        assert w == day and rk == list(zip(sub["symbol"], sub["mcap"].astype(float)))
+    assert basket.ranking_for(ws[0].replace(year=ws[0].year - 1)) == (None, [])

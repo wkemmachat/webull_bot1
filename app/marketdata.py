@@ -98,7 +98,8 @@ def update(sym: str, tf: str) -> int:
     with db.tx() as c:
         c.executemany("INSERT INTO bars(symbol,tf,t,o,h,l,c,v) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(symbol,tf,t) DO UPDATE "
                       "SET o=excluded.o,h=excluded.h,l=excluded.l,c=excluded.c,v=excluded.v",
-                      [(sym, tf, int(t.timestamp()), r.o, r.h, r.l, r.c, r.v) for t, r in df.iterrows()])
+                      [(sym, tf, int(t.timestamp()), float(o), float(h), float(l), float(c), float(v))
+                       for t, o, h, l, c, v in zip(df.index, df["o"].values, df["h"].values, df["l"].values, df["c"].values, df["v"].values)])
     db.set_state(f"data_updated:{sym}:{tf}", int(time.time()))
     return len(df)
 

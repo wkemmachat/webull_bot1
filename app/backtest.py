@@ -63,7 +63,8 @@ def _yf():
 
 
 def _store(sym, tf, df, replace):
-    rows = [(sym, tf, int(t.timestamp()), float(r.o), float(r.h), float(r.l), float(r.c), float(r.v or 0)) for t, r in df.iterrows()]
+    rows = [(sym, tf, int(t.timestamp()), float(o), float(h), float(l), float(c), float(v or 0))
+            for t, o, h, l, c, v in zip(df.index, df["o"].values, df["h"].values, df["l"].values, df["c"].values, df["v"].values)]
     with db.tx() as c:
         if replace:
             c.execute("DELETE FROM bars WHERE symbol=? AND tf=?", (sym, tf))
@@ -221,7 +222,7 @@ class Prices:
         for s, df in daily.items():
             if df is None or df.empty:
                 continue
-            self.d[s] = {pd.Timestamp(t).date(): (float(r.o), float(r.c)) for t, r in df.iterrows()}
+            self.d[s] = _oc(df)
         self.h = {}
         for s, df in (hourly or {}).items():
             if df is None or df.empty:
@@ -510,9 +511,17 @@ COST_2X_SPREAD, COST_2X_MODEL_Y = 0.0005, 0.069   # single-stock 2x ETFs: wider 
 
 
 def _oc(df):
+    """{day: (open, close)}, read straight from the columns (a per-row pandas loop was most of a backtest's time)."""
     if df is None or df.empty:
         return {}
-    return {pd.Timestamp(t).date(): (float(r.o), float(r.c)) for t, r in df.iterrows()}
+    idx = df.index
+    if isinstance(idx, pd.DatetimeIndex):
+        days = idx.date.tolist()
+    elif type(idx[0]) is date:
+        days = list(idx)
+    else:
+        days = [pd.Timestamp(t).date() for t in idx]
+    return dict(zip(days, zip(df["o"].to_numpy(float).tolist(), df["c"].to_numpy(float).tolist())))
 
 
 def _run_basket(strat, now, cost, delay=0):
