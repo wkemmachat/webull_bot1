@@ -267,7 +267,7 @@ def strategy_chart(sid: str, range: str = "1M", u=Depends(user)):
     if not s:
         raise HTTPException(404, "No such strategy")
     try:
-        return s.chart(md.now_utc(), range)
+        return md.add_today_bars(s.chart(md.now_utc(), range))
     except Exception as e:
         return {"charts": [], "error": str(e)}
 

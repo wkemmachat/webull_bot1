@@ -190,6 +190,64 @@ def quote(sym: str, max_age: int = 60) -> dict:
     return q
 
 
+_tbcache: dict = {}
+
+
+def today_bar(sym: str, max_age: int = 60) -> dict | None:
+    """Today's regular-session bar so far (09:30 New York → now): {time, open, high, low, close}, or None before the open,
+    on a market holiday or with no data. Charts only: the bot's decisions still use closed daily bars."""
+    now = now_utc()
+    ny = now.astimezone(NY)
+    from . import markethours as mh
+    b = mh.session_bounds(ny.date())
+    if not b or now < b[0]:
+        return None
+    day = pd.Timestamp(ny.date()).tz_localize("UTC")
+    hit = _tbcache.get(sym)
+    if hit and time.time() - hit[0] < max_age and hit[1] == day:
+        return hit[2]
+    bar = None
+    try:
+        if source() == "csv":
+            df = _csv(sym, "1d")
+            if day in df.index:
+                r = df.loc[day]
+                bar = {"open": float(r.o), "high": float(r.h), "low": float(r.l), "close": float(r.c)}
+        else:
+            import yfinance as yf
+            h = yf.Ticker(yahoo_ticker(sym)).history(period="1d", interval="1m", prepost=False, auto_adjust=False)
+            if h is not None and not h.empty:
+                idx = h.index.tz_localize("America/New_York") if h.index.tz is None else h.index
+                h = h[(idx >= b[0]) & (idx <= b[1])]
+                if not h.empty:
+                    bar = {"open": float(h["Open"].iloc[0]), "high": float(h["High"].max()), "low": float(h["Low"].min()),
+                           "close": float(h["Close"].iloc[-1])}
+    except Exception as e:  # a chart must never break on this
+        log.warning("today bar %s: %s", sym, e)
+    if bar:
+        bar = {"time": int(day.timestamp()), **{k: round(v, 4) for k, v in bar.items()},
+               "closed": now >= b[1]}
+    _tbcache[sym] = (time.time(), day, bar)
+    return bar
+
+
+def add_today_bars(spec: dict) -> dict:
+    """Strategy charts: put today's bar so far after the last closed daily bar of each daily chart ('SYM · 1D'), drawn
+    lighter, so the chart shows where the price is now. It is not part of the signal until the close."""
+    for c in (spec or {}).get("charts") or []:
+        title, cs = c.get("title") or "", c.get("candles") or []
+        if not title.endswith(" · 1D") or not cs:
+            continue
+        bar = today_bar(title.split(" · ")[0])
+        if not bar or bar["time"] <= cs[-1]["time"]:
+            continue
+        up = bar["close"] >= bar["open"]
+        col = "rgba(38,166,154,.45)" if up else "rgba(239,83,80,.45)"
+        cs.append({**{k: bar[k] for k in ("time", "open", "high", "low", "close")}, "color": col, "wickColor": col,
+                   "borderColor": "#26A69A" if up else "#EF5350", "today": "closed" if bar["closed"] else "live"})
+    return spec
+
+
 def set_quote(sym: str, price: float):
     """Tests: force a price."""
     _qcache[sym] = (time.time() + 10 ** 9, {"price": float(price), "bid": None, "ask": None, "time": int(time.time()),

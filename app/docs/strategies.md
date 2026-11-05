@@ -16,6 +16,10 @@ At the top, **Money in strategies** shows the same donut as the dashboard: each 
 
 - **Overview**: value, holding, current signal, next check, the TradingView-style chart with the strategy's own indicators, the
   signal check (the numbers behind today's decision), holdings vs target, and every signal.
+  - On the daily charts (US strategies), **today's bar so far** is drawn after the last closed bar, lighter with an outline,
+    from the US open (21:30 Bangkok in winter, 20:30 in summer) until the bot stores the closed bar. The legend says *today so far
+    (live)*; reload the page to update it (prices refresh every minute). The bot does not use it: signals, indicators and panes
+    are worked out on closed daily bars only, so lines like the EMA end at yesterday's close.
 - **Next US open** (top of Overview): this strategy's orders waiting for the next open (same table as the Dashboard), or
   "no order waiting" when it already holds its target.
 - **Growth of $10,000** (on Overview, above Falls to expect): the same backtest and the same dates as Falls to expect, after

@@ -65,7 +65,8 @@
       const panes = (c.panes || []).filter((p) => !opts.hidePanes || !opts.hidePanes.includes(p.id));
       const chart = base(mainEl, { daily, timeVisible: panes.length === 0 });
       charts.push(chart);
-      const candle = chart.addCandlestickSeries({ upColor: '#26A69A', downColor: '#EF5350', borderVisible: false, wickUpColor: '#26A69A', wickDownColor: '#EF5350' });
+      const candle = chart.addCandlestickSeries({ upColor: '#26A69A', downColor: '#EF5350', borderVisible: true, borderUpColor: '#26A69A',
+        borderDownColor: '#EF5350', wickUpColor: '#26A69A', wickDownColor: '#EF5350' });
       candle.setData(c.candles);
       const lineSeries = [];
       (c.lines || []).forEach((l) => {
@@ -89,9 +90,11 @@
         const items = [{ label: c.title }];
         if (bar) items.push({ label: 'O', value: fmtV(bar.open), color: col }, { label: 'H', value: fmtV(bar.high), color: col },
           { label: 'L', value: fmtV(bar.low), color: col }, { label: 'C', value: fmtV(bar.close), color: col });
+        if (bar && bar.today) items.push({ label: bar.today === 'live' ? '· today so far (live) — the bot decides on the close'
+          : '· today, closed — the bot decides at its next check', color: 'var(--muted)' });
         lineSeries.forEach(({ l }) => {
           if (l.legend === false) return;
-          const pt = l.data.find((d) => d.time === t) || {};
+          const pt = l.data.find((d) => d.time === t) || (bar && bar.today ? l.data[l.data.length - 1] : null) || {};   // today: last close's value
           let v = pt.value;
           if (v == null) {
             const sib = lineSeries.find((x) => x.l !== l && x.l.legend === false && x.l.name.split(' (')[0] === l.name.split(' (')[0]);
