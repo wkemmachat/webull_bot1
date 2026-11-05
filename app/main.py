@@ -205,6 +205,11 @@ def dashboard(mode: str = "paper", u=Depends(user)):
     return views.dashboard(mode_of(mode))
 
 
+@app.get("/api/pnl")
+def pnl(mode: str = "paper", period: str = "all", u=Depends(user)):
+    return views.pnl_breakdown(mode_of(mode), period)
+
+
 @app.get("/api/strategies")
 def strategies(mode: str = "paper", u=Depends(user)):
     return views.strategies_list(mode_of(mode))

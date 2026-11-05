@@ -1,0 +1,60 @@
+"""Dashboard: profit & loss by strategy. The rows must add up to the Dashboard's Today and Since start numbers."""
+import pytest
+
+from app import db, execution, views
+from app import strategies as S
+
+
+def _ids():
+    return [s.id for s in S.all_instances()]
+
+
+def test_rows_add_up_to_the_dashboard(clean, clock):
+    ids = _ids()
+    a, b, c = ids[0], ids[1], ids[2]
+    execution.record_equity("paper", force=True)                     # yesterday's snapshot
+    clock.advance(hours=20)
+    # a gains $120, b loses $45.50, c gets $1,000 more money (a flow, not a profit)
+    db.run("UPDATE ledger SET cash=cash+120 WHERE mode='paper' AND strategy=?", (a,))
+    db.run("UPDATE ledger SET cash=cash-45.5 WHERE mode='paper' AND strategy=?", (b,))
+    db.run("UPDATE ledger SET cash=cash+1000, cap_in=cap_in+1000 WHERE mode='paper' AND strategy=?", (c,))
+    d = views.dashboard("paper")["bot"]
+
+    t = views.pnl_breakdown("paper", "today")
+    rows = {r["id"]: r for r in t["rows"]}
+    assert rows[a]["pnl"] == pytest.approx(120) and rows[b]["pnl"] == pytest.approx(-45.5)
+    assert rows[c]["pnl"] == pytest.approx(0)                         # money added today is not a profit
+    assert t["total"] == pytest.approx(d["today"], abs=0.01) and t["pct"] == pytest.approx(d["today_pct"])
+    assert sum(r["pts"] for r in t["rows"]) == pytest.approx(t["pct"])  # the points add up to the total %
+
+    s = views.pnl_breakdown("paper", "all")
+    assert s["total"] == pytest.approx(d["pnl"], abs=0.01) and s["pct"] == pytest.approx(d["ret"])
+    assert sum(r["pnl"] for r in s["rows"]) == pytest.approx(d["pnl"], abs=0.01)
+    r = {x["id"]: x for x in s["rows"]}[a]
+    assert r["realised"] + r["open"] == pytest.approx(r["pnl"]) and r["pct"] == pytest.approx(r["pnl"] / r["cap_in"])
+    # the running P&L ends at today's numbers, one point per snapshot plus now
+    assert len(s["series"]["t"]) == len(s["series"]["lines"][a]) and s["series"]["lines"][a][-1] == pytest.approx(r["pnl"])
+    w = views.pnl_breakdown("paper", "1w")
+    assert w["series"]["lines"][a][0] == 0 and w["series"]["lines"][a][-1] == pytest.approx(120)
+
+
+def test_strategy_with_no_money_keeps_its_loss(clean, clock):
+    a = _ids()[0]
+    db.run("UPDATE ledger SET cash=0, cap_out=cap_in-250 WHERE mode='paper' AND strategy=?", (a,))   # lost $250, rest taken out
+    s = views.pnl_breakdown("paper", "all")
+    r = {x["id"]: x for x in s["rows"]}[a]
+    assert r["no_money"] and r["pnl"] == pytest.approx(-250)
+    assert s["total"] == pytest.approx(views.dashboard("paper")["bot"]["pnl"], abs=0.01)
+
+
+def test_api_and_bad_period(clean, clock):
+    from fastapi.testclient import TestClient
+    from app.main import app
+    for t in ("users", "sessions", "login_attempts"):
+        db.run(f"DELETE FROM {t}")
+    with TestClient(app) as cl:
+        assert cl.get("/api/pnl?mode=paper").status_code == 401
+        assert cl.post("/api/setup", json={"username": "kemmachat", "password": "testpassword123"}).status_code == 200
+        j = cl.get("/api/pnl?mode=paper&period=nonsense").json()
+        assert j["period"] == "all" and "rows" in j and "series" in j
+        assert cl.get("/api/pnl?mode=paper&period=today").status_code == 200

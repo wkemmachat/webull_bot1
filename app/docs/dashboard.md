@@ -11,6 +11,21 @@
     is what goes out at the open.
 - **Bot equity**: the value of all strategies in the mode you are looking at, with today's change (money added today is left out), the return on net money in,
   and the difference to **buy & hold** (each strategy's money held in its main ETF since it was added).
+- **Profit & loss by strategy** (under Bot equity; click **Today** or **Since start** in Bot equity to jump to it): each
+  strategy's part of those numbers, worked out exactly like Bot equity (value change minus money moved in or out), so the rows
+  always add up to the Dashboard number.
+  - Periods: **Today** (the same window as Bot equity's Today), **1W**, **1M**, **3M**, **Since start**.
+  - **Bars**: one bar per strategy, green right of $0, red left, best first; the last row is the total. Show them in **$**,
+    **% of its money** (each strategy on its own: P&L ÷ all the money it was given, or ÷ its value at the start of the period;
+    these do not add up) or **pts of total** (its share of the total %; these add up to the Bot equity %). Hover a bar for money
+    put in, value now, P&L, its share, and for Since start how much is **booked** (sold) and **still open** (on shares it holds).
+    Click it to open the strategy's Daily P&L.
+  - **Over time**: each strategy's running P&L as a coloured band (gains stacked above $0, losses below) and the total as a dark
+    line, from the 30-minute value snapshots. Hover for each strategy's part at that time; click a name to hide it.
+  - Strategies that hold no money now but made or lost money earlier (sold or stopped) stay in the list, marked
+    *no money now*: their result is still part of the total. Strategies that never had money are listed underneath.
+  - The table under the chart has the numbers; click a column header to sort. The period, units and view are remembered on this
+    device.
 - **Account split**: how the broker account is divided between the strategies (most money first), bot unassigned and *not for the bot* (always last).
 - **Money in strategies**: a donut of how the money in the strategies is split — the total is all strategies combined; bot unassigned money is not counted. Switch between **Value now** and **Money put in**. Hover or tap a slice for its share; tap a name to open the strategy.
 - **Expected return**: what the money could be worth in 1, 2 and 3 years if it stays split like the donut. Each period shows the

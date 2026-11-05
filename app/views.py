@@ -127,6 +127,89 @@ def strategy_card(mode, s, prices=None):
                        if s.params.get("leverage") == "2x" and mode != "paper" and execution.single_stock_refused(mode) else None)}
 
 
+# ---------------------------------------------------------------- profit & loss by strategy (Dashboard)
+PNL_DAYS = {"today": 1.2, "1w": 7, "1m": 30, "3m": 90, "all": None}
+
+
+def pnl_breakdown(mode, period="all", points=160):
+    """Each strategy's part of the Dashboard's Today / Since start numbers (and of 1W / 1M / 3M), worked out exactly like the
+    Dashboard: P&L = value change minus money moved in or out. The rows add up to the total, and the total is the Dashboard
+    number. Also the running P&L of each strategy over the period, for the stacked chart."""
+    period = period if period in PNL_DAYS else "all"
+    days = PNL_DAYS[period]
+    strats = S.all_instances()
+    syms = set()
+    for s in strats:
+        syms |= set(ledger.get(mode, s.id)["holdings"])
+    prices = md.prices(syms)
+    vals = {s.id: ledger.value(mode, s.id, prices) for s in strats}
+    now = int(time.time())
+    t0, start = None, {}
+    if days:
+        r = db.one("SELECT MIN(t) t FROM equity WHERE mode=? AND strategy='*' AND t>=?", (mode, now - int(days * 86400)))
+        t0 = r["t"] if r else None
+        if t0 is not None:
+            start = {x["strategy"]: x for x in db.rows("SELECT strategy, value, capital FROM equity WHERE mode=? AND t=?", (mode, t0))}
+    rows, base_tot = [], 0.0
+    for s in strats:
+        v = vals[s.id]
+        val, net = v["value"] or 0.0, v["net_in"] or 0.0
+        if days:
+            if t0 is None:
+                pnl, base = None, 0.0
+            else:
+                r0 = start.get(s.id) or {"value": 0.0, "capital": 0.0}
+                flow = net - (r0["capital"] or 0.0)
+                pnl = (val - (r0["value"] or 0.0)) - flow
+                base = (r0["value"] or 0.0) + max(flow, 0.0)
+                base_tot += (r0["value"] or 0.0) + flow
+        else:
+            pnl, base = val - net, (v["cap_in"] or 0.0)
+            base_tot += net
+        held = [p for p in v["positions"].values() if p.get("qty")]
+        open_ = sum(p["value"] - p["cost"] for p in held if p.get("cost") is not None)
+        no_money = abs(val) < 0.5 and not held
+        if no_money and (pnl is None or abs(pnl) < 0.005):
+            rows.append({"id": s.id, "name": s.name, "color": s.color, "empty": True})
+            continue
+        rows.append({"id": s.id, "name": s.name, "color": s.color, "control": s.row.get("control"), "value": val, "net_in": net, "_pnl": pnl,
+                     "cap_in": v["cap_in"] or 0.0, "pnl": round(pnl, 2) if pnl is not None else None,
+                     "pct": (pnl / base) if pnl is not None and base > 0.5 else None,
+                     "open": round(open_, 2) if held else 0.0, "no_money": no_money, "empty": False})
+    live = [r for r in rows if not r["empty"]]
+    total = sum(r.pop("_pnl") or 0.0 for r in live) if (days is None or t0 is not None) else None    # unrounded, = the Dashboard
+    for r in live:
+        r["pts"] = (r["pnl"] / base_tot) if r["pnl"] is not None and base_tot > 0.5 else None
+        if days is None:
+            r["realised"] = round(r["pnl"] - r["open"], 2)
+    # running P&L per strategy over the period, on the snapshot times (every 30 minutes), thinned to `points`
+    since = t0 if days else 0
+    snap = db.rows("SELECT t, strategy, value, capital FROM equity WHERE mode=? AND strategy!='*' AND t>=? ORDER BY t", (mode, since))
+    by_t = {}
+    for x in snap:
+        by_t.setdefault(x["t"], {})[x["strategy"]] = (x["value"] or 0.0) - (x["capital"] or 0.0)
+    ts = sorted(by_t)
+    step = max(1, -(-len(ts) // points))
+    keep = ts[::step]
+    if ts and keep[-1] != ts[-1]:
+        keep.append(ts[-1])
+    ids = [r["id"] for r in live]
+    base0 = {sid: (by_t[ts[0]].get(sid, 0.0) if (days and ts) else 0.0) for sid in ids}
+    series = {"t": keep + [now], "lines": {}}
+    for sid in ids:
+        last = 0.0
+        line = []
+        for t in keep:
+            if sid in by_t[t]:
+                last = by_t[t][sid] - base0[sid]
+            line.append(round(last, 2))
+        line.append(next(r["pnl"] for r in live if r["id"] == sid) or 0.0)          # now, from live prices
+        series["lines"][sid] = line
+    return {"mode": mode, "period": period, "since": t0 if days else None, "total": round(total, 2) if total is not None else None,
+            "pct": (total / base_tot) if total is not None and base_tot > 0.5 else None, "rows": live,
+            "empty": [r["name"] for r in rows if r["empty"]], "series": series}
+
+
 def dashboard(mode):
     acct, err = account(mode)
     strats = S.all_instances()

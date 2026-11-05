@@ -54,7 +54,8 @@
       const today = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' }).format(new Date());
       const h = d.health;
       const oldExp = el.querySelector('#expect');
-      const oldNo = el.querySelector('#nextorders') ? el.querySelector('#nextorders').innerHTML : '';   // no flicker on refresh          // keep the expected-return panel (and a split being tried) across refreshes
+      const oldNo = el.querySelector('#nextorders') ? el.querySelector('#nextorders').innerHTML : '';
+      const oldPnl = el.querySelector('#pnlx');                                       // keep the P&L card (and its choices) across refreshes   // no flicker on refresh          // keep the expected-return panel (and a split being tried) across refreshes
       el.innerHTML = `
       <div class="page-head"><div><div class="eyebrow">${U.esc(today)} · ${U.modeLabel[mode]} account</div><h1 class="h1">Dashboard</h1></div>
         <div class="row"><a class="btn" href="#/health">Run cross-check</a><button class="btn p" type="button" id="add">Add money</button></div></div>
@@ -68,8 +69,8 @@
             <div><div class="eyebrow">Bot equity · ${d.strategies.length - idleN} strategies</div>
               <div class="num huge" style="margin-top:6px">${U.usd(b.value)}</div>
               <div class="row" style="gap:18px;margin-top:8px">
-                <span>Today <b class="num ${U.cls(b.today)}">${b.today == null ? '—' : U.sgnUsd(b.today) + ' (' + U.pct(b.today_pct, 2) + ')'}</b></span>
-                <span>Since start <b class="num ${U.cls(b.pnl)}">${U.sgnUsd(b.pnl)} (${U.pct(b.ret, 2)})</b></span>
+                <span>Today <b class="num pnlclk ${U.cls(b.today)}" data-pnl="today" title="Each strategy's part">${b.today == null ? '—' : U.sgnUsd(b.today) + ' (' + U.pct(b.today_pct, 2) + ')'}</b></span>
+                <span>Since start <b class="num pnlclk ${U.cls(b.pnl)}" data-pnl="all" title="Each strategy's part">${U.sgnUsd(b.pnl)} (${U.pct(b.ret, 2)})</b></span>
                 <span>vs buy &amp; hold <b class="num ${U.cls((b.ret || 0) - (b.bench_ret || 0))}">${b.bench_ret == null ? '—' : ((((b.ret || 0) - b.bench_ret) * 100 >= 0 ? '+' : '') + (((b.ret || 0) - b.bench_ret) * 100).toFixed(1) + ' pts')}</b></span>
               </div></div>
             <div class="seg" id="rng"><button data-d="7">1W</button><button data-d="30">1M</button><button data-d="90" class="on">3M</button></div>
@@ -87,6 +88,7 @@
           <a href="#/money" class="small" style="font-weight:500">Manage money →</a>
         </section>
       </div>
+      <div id="pnlx"></div>
       <div id="alloc"></div>
       <div id="expect"></div>
       <div class="grid" style="--min:230px">
@@ -123,6 +125,8 @@
       </div>`;
       if (chart) chart.remove();
       V.renderAlloc(el.querySelector('#alloc'), shown);
+      if (oldPnl && oldPnl.firstChild) { el.querySelector('#pnlx').replaceWith(oldPnl); V.renderPnl(oldPnl); } else V.renderPnl(el.querySelector('#pnlx'));
+      U.on(el, '[data-pnl]', 'click', (e, x) => { const box = el.querySelector('#pnlx'); V.renderPnl(box, { period: x.dataset.pnl }).then(() => box.scrollIntoView({ behavior: 'smooth', block: 'start' })); });
       U.on(el, '[data-idle]', 'click', () => { U.showIdle(!showIdle); if (V.expectedForget) V.expectedForget(); load(); });
       el.querySelector('#nextorders').innerHTML = oldNo;
       V.renderNextOrders(el.querySelector('#nextorders'));
