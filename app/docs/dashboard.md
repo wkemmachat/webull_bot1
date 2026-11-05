@@ -21,7 +21,8 @@
     put in, value now, P&L, its share, and for Since start how much is **booked** (sold) and **still open** (on shares it holds).
     Click it to open the strategy's Daily P&L.
   - **Over time**: each strategy's running P&L as a coloured band (gains stacked above $0, losses below) and the total as a dark
-    line, from the 30-minute value snapshots. Hover for each strategy's part at that time; click a name to hide it.
+    line, from the 30-minute value snapshots taken during the regular US session (pre-market and after-hours prices are thin and
+    made spikes, so they are left out; the last point is now). Hover for each strategy's part at that time; click a name to hide it.
   - Strategies that hold no money now but made or lost money earlier (sold or stopped) stay in the list, marked
     *no money now*: their result is still part of the total. Strategies that never had money are listed underneath.
   - The table under the chart has the numbers; click a column header to sort. The period, units and view are remembered on this

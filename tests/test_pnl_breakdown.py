@@ -58,3 +58,16 @@ def test_api_and_bad_period(clean, clock):
         j = cl.get("/api/pnl?mode=paper&period=nonsense").json()
         assert j["period"] == "all" and "rows" in j and "series" in j
         assert cl.get("/api/pnl?mode=paper&period=today").status_code == 200
+
+
+def test_over_time_keeps_regular_session_only(clean, clock):
+    from datetime import datetime, timezone
+    a = _ids()[0]
+    for hhmm in ((13, 0), (15, 0), (21, 0), (23, 30)):            # 09:00, 11:00, 17:00 and 19:30 New York on Wed 21 Oct
+        clock.set(datetime(2026, 10, 21, *hhmm, tzinfo=timezone.utc))
+        execution.record_equity("paper", force=True)
+    clock.set(datetime(2026, 10, 22, 1, 0, tzinfo=timezone.utc))
+    s = views.pnl_breakdown("paper", "all")
+    hours = [datetime.fromtimestamp(t, timezone.utc).hour for t in s["series"]["t"][:-1]]
+    assert hours == [13, 15]                                      # the first snapshot, then only the regular session
+    assert len(s["series"]["lines"][a]) == len(s["series"]["t"])

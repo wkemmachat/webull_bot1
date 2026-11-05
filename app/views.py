@@ -190,6 +190,13 @@ def pnl_breakdown(mode, period="all", points=160):
     for x in snap:
         by_t.setdefault(x["t"], {})[x["strategy"]] = (x["value"] or 0.0) - (x["capital"] or 0.0)
     ts = sorted(by_t)
+    # every holding is a US-listed ETF: values taken outside the regular session use thin pre-market / after-hours prices and
+    # make spikes, so the chart keeps the start of the period and regular-session snapshots (plus 15 minutes for the close)
+    def regular(t):
+        dt = datetime.fromtimestamp(t, timezone.utc)
+        b = mh.session_bounds(dt.astimezone(NY).date())
+        return bool(b) and b[0] <= dt <= b[1] + timedelta(minutes=15)
+    ts = ts[:1] + [t for t in ts[1:] if regular(t)]
     step = max(1, -(-len(ts) // points))
     keep = ts[::step]
     if ts and keep[-1] != ts[-1]:
