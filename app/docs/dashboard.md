@@ -29,6 +29,12 @@
     device.
 - **Account split**: how the broker account is divided between the strategies (most money first), bot unassigned and *not for the bot* (always last).
 - **Money in strategies**: a donut of how the money in the strategies is split — the total is all strategies combined; bot unassigned money is not counted. Switch between **Value now** and **Money put in**. Hover or tap a slice for its share; tap a name to open the strategy.
+- **What your money is in** (under the donut): all strategies' holdings together, grouped by what each ETF follows:
+  Nasdaq-100 (QQQ, QLD), US tech (IYW, ROM), semiconductors (SMH, USD), Nasdaq-100 stocks (C2-7), S&P 500, gold, silver,
+  T-bills and cash. **Acts like** counts a 2x ETF twice: $1,000 in ROM acts like $2,000 in US tech. The top line adds up the
+  groups marked with a green edge, because they fall together on a bad tech day (5 Nov 2026: IYW −6.9%, QQQ −5.8%, SMH −8.6%),
+  and says what a 10% fall in US tech would cost. That is a rough guide: semiconductors usually move more than the
+  Nasdaq-100. It is amber when the US tech part acts like more than 100% of the money.
 - **Expected return**: what the money could be worth in 1, 2 and 3 years if it stays split like the donut. Each period shows the
   typical case (research return lowered for Webull's real fee, minus the planning haircut, 30% by default; change it with the
   *Haircut* buttons) and a weak / good case (about 1 in 10 worse / better), plus the worst fall of your split in the backtest.
@@ -41,6 +47,7 @@
   *Re-run the check* re-runs
   every backtest for the ranges. Details: [Expected returns](#/docs/expected-returns).
 - **Cards**: bot unassigned, active order plans, the last health check, LINE in the last 24 hours.
+- **⚠ Near / past its worst fall** on a strategy card: see *Fall from its high* in [Strategies](#/docs/strategies).
 - **Strategies**: value, return, today's profit or loss (since the last US close; the last session when the market is
   closed), a 30-day line, the worst fall and longest time underwater from its backtest, the current state and the next check.
 - **Look**: light green by default (Settings → Theme for dark or follow the device). The mode switch shows **Live** in green.

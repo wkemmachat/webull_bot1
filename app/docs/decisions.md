@@ -1,6 +1,20 @@
 <!--{"title": "Design decisions", "group": "Help"}-->
 # Design decisions (October 2026)
 
+- **No crash brake** (6 Nov 2026, after ROM's fall): every strategy was tested with an extra "sell to cash" rule on top of its
+  own rules, 2006/2008 to 5 Nov 2026, with the bot's own backtest code, Webull's fee and real timing (decide after the
+  close, sell at the next open). 112 settings in four families: a trailing stop on the strategy's own value (10–35% below
+  its high, back in above its 5/10/20-day average), a fast-fall stop (8–20% in 3/5/10 days, out for 5/10/20 days), an
+  equity-curve filter (hold only above its 20–200-day average) and a market stop (QQQ, IYW, SMH, GLD or SLV 8–15% below its
+  20-day high). Gold and silver were run on OANDA hourly spot 2006–2026, so they had 18 years too. Over all 18 strategies
+  the middle setting of every family cut the return (trailing stop −2.3 points a year over 10 years, fast-fall −1.6, market
+  −4.6, equity-curve −14.5) and did not make the worst fall smaller (since 2006: −1.1, −0.2, −2.2, −2.4 points deeper).
+  No family improved return-per-fall in both periods for even 5% of its settings. Out of sample, the brake that looked best
+  on 2006–2016 cost a median 4 points a year in 2016–2026 with the same worst fall. Why: the strategies already step aside
+  on their own (trend, volatility and dip-exit rules), and a brake sells after the big drop, then misses the sharp rebounds
+  the RSI(2) and IBS dip trades live on; in 2008 the stops sold, bought back on bounces and sold again (ROM Trend + RSI(2)
+  with a 20% stop: worst fall −81% instead of −66%). What the bot does instead: the *Deep fall* warning and *What your money
+  is in* (6 Nov), so the size of the bet is your decision, not an automatic sale.
 - **Backtest page and richer Backtest tab** (5 Nov 2026, modelled on the TFEX bot's Backtest tab): the page reads the
   expected-returns check's weekly 10-year curves instead of running backtests, so it opens at once and matches the
   Expected-returns ranking. Gold and silver on default settings use the research's OANDA 10-year curves (Yahoo keeps ~2 years

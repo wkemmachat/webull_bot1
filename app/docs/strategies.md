@@ -24,6 +24,18 @@ At the top, **Money in strategies** shows the same donut as the dashboard: each 
     strategy that sizes by volatility changes its size, and *→ dip* / *→ trend* when the reason for holding changes but the
     position stays the same. For example, on 2 Nov 2026 IYW closed below its 150-day average on a day with RSI(2) below 5, so the
     ROM strategies went from the trend straight into a dip trade and kept holding ROM: no arrow, just *→ dip*.
+- **Fall from its high** (the fifth card in Overview): how far the strategy is below its backtest high today, next to
+  its **worst fall in the last 10 years before this one** (the current fall is left out, so a new record shows as deeper
+  than the worst). The bar fills toward the worst (the line); it turns amber at 75% of the way and red past it. Below:
+  **your money**, how far your own money in this strategy is below its high since you started (money added or taken out is
+  left out). The two differ when you started in the middle of a run: on 5 Nov 2026 ROM Trend + RSI(2) was about 37% below
+  its June high, while money that started in October was about 34% below its October high.
+  - **LINE** (*Deep fall* in LINE alerts): once a day after the US close, one message when a strategy reaches 75% of its
+    worst 10-year fall and one more when it goes past it, with each mode's own money. Once per fall: armed again only after
+    a new high. It is a warning only; nothing is sold. An extra stop on top of the strategies' own exits was tested on
+    6 Nov 2026 and made things worse ([Design decisions](#/docs/decisions)): to take less risk, hold less in the strategy.
+  - Backtests shorter than 5 years (the 4-hour gold and silver strategies have about 2 years of hourly data) show the fall
+    but get no warning: there is too little history to call anything the worst.
 - **Next US open** (top of Overview): this strategy's orders waiting for the next open (same table as the Dashboard), or
   "no order waiting" when it already holds its target.
 - **Growth of $10,000** (on Overview, above Falls to expect): the same backtest and the same dates as Falls to expect, after

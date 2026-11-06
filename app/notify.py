@@ -50,6 +50,9 @@ EVENTS = {
     "dip": ("Strong buy zone: a strategy reached its 80th percentile", "Once a day after the US close: a strategy fell deeper below its "
             "backtest high than on 80% of its days in the last 10 years (a buy-the-dip zone in the research). Once per dip.",
             "instant", False),
+    "drawdown": ("Deep fall: a strategy near or past its worst backtest fall", "Once a day after the US close: a strategy fell to 75% "
+                 "of its worst fall in the last 10 years of its backtest, and again when it goes past it. Once per fall; with your own "
+                 "money's fall in each mode. A warning only: nothing is sold.", "instant", False),
     "weekly": ("Weekly report (Saturday morning)", "Each strategy's real week next to its backtest over the same days, fees, and the "
                "real cost of trading (fills vs the day's open, where the daily backtests fill).", "instant", False),
     "review": ("Expected returns: yearly check", "The yearly backtest check of every strategy's expected return, and a monthly "

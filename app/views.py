@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -9,6 +10,8 @@ from zoneinfo import ZoneInfo
 from . import brokers, db, dip, execution, health, ledger, marketdata as md, markethours as mh, metals, notify, perf, testtrade, idle, moneyops
 from . import strategies as S
 from .config import APP_NAME, DISPLAY_TZ, SCHEDULER_ENABLED
+
+log = logging.getLogger("views")
 
 TZ = ZoneInfo(DISPLAY_TZ)
 NY = ZoneInfo("America/New_York")
@@ -240,7 +243,13 @@ def dashboard(mode):
     rep = health.latest()
     events = db.rows("SELECT * FROM events WHERE level IN ('info','warn','error') AND source NOT IN ('login') ORDER BY id DESC LIMIT 7")
     bench = series[-1]["bench"] if series else None
-    return {"mode": mode, "account": acct, "account_error": err, "strategies": cards,
+    from . import exposure
+    try:
+        expo = exposure.of_cards(cards)
+    except Exception as e:                                 # never breaks the Dashboard
+        log.warning("exposure: %s", e)
+        expo = None
+    return {"mode": mode, "account": acct, "account_error": err, "strategies": cards, "exposure": expo,
             "bot": {"value": bot_v, "net_in": bot_in, "pnl": bot_v - bot_in, "ret": (bot_v / bot_in - 1) if bot_in else None,
                     "today": today, "today_pct": (today / base_today) if today is not None and base_today else None,
                     "bench_ret": (bench / series[-1]["capital"] - 1) if bench and series and series[-1]["capital"] else None},
@@ -339,8 +348,16 @@ def strategy_detail(mode, sid):
     return {"mode": mode, "card": card, "row": {**s.row, "params": s.params}, "describe": s.describe(), "state": st,
             "signals": sig, "holdings": hold, "exec": cfg, "exec_text": execution.describe_cfg(cfg),
             "type": next((t for t in S.types_public() if t["type"] == s.type), None),
-            "idle": idle.view(mode, s, st), "dip": dip.get(sid),
+            "idle": idle.view(mode, s, st), "dip": dip.get(sid), "money_fall": _money_fall(mode, sid),
             "plans": execution.plans_view(mode, sid=sid, limit=5), "money": [m for m in ledger.moves(mode, 200) if m["strategy"] == sid or m["other"] == sid][:10]}
+
+
+def _money_fall(mode, sid):
+    try:
+        return dip.money_fall(mode, sid)
+    except Exception as e:                                 # never breaks the strategy page
+        log.warning("money fall %s: %s", sid, e)
+        return None
 
 
 def money(mode):

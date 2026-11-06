@@ -111,6 +111,12 @@
     const tip = `${d.depth}% below its backtest high: deeper than ${d.pct}% of its days in the last ${d.years} years (70th = ${d.p70}%, 80th = ${d.p80}%, 90th = ${d.p90}%). As of ${d.day}. In the backtests, money added in this zone was more often up a year later — a statistic, not a promise.`;
     return `<span class="pill ${deep ? 'dip2' : 'dip1'}" title="${U.esc(tip)}">${deep ? '▲▲ Strong buy zone' : '▲ Buy zone'} · ${U.ordinal(d.pct)} pct · ${d.depth.toFixed(0)}%</span>`;
   };
+  /* Deep-fall warning: the strategy's fall from its high reached 75% of its worst 10-year fall (amber) or went past it (red) */
+  U.fallPill = function (d) {
+    if (!d || d.warn == null || d.warn < 75) return '';
+    const tip = `${Math.abs(d.depth).toFixed(1)}% below its backtest high; worst fall in the last ${d.worst10_years} years before this one: ${d.worst10}%. A warning only: the rules do not change.`;
+    return `<span class="pill ${d.warn >= 100 ? 'err' : 'warn'}" title="${U.esc(tip)}">⚠ ${d.warn >= 100 ? 'Past its worst fall' : d.of_worst + '% of its worst fall'}</span>`;
+  };
   U.ddLine = function (s) {
     if (!s.dd) return '';
     return `<span class="muted small" title="From the backtest since ${U.esc(s.dd.from || '')}: the deepest fall below a previous high, and the longest time before a new high">Worst fall <b class="dn">${s.dd.worst.toFixed(0)}%</b>${s.dd.longest_days != null ? ' · underwater up to ' + U.durShort(s.dd.longest_days) : ''}</span>`;

@@ -107,7 +107,7 @@
 
     function kpis() {
       const pos = Object.entries(c.positions || {});
-      return `<div class="grid" style="--min:210px">
+      return `<div class="grid" style="--min:${d.dip && d.dip.worst10 != null ? 180 : 210}px">
         <div class="card"><div class="eyebrow">Value · ${U.modeLabel[mode]}</div><div class="num big" style="margin-top:6px">${U.usd(c.value)}</div>
           <div class="num small ${U.cls(c.pnl)}">${U.sgnUsd(c.pnl)} · ${U.pct(c.ret)} on ${U.usd(c.net_in, 0)}</div>${c.today ? '<div>' + U.todayLine(c) + '</div>' : ''}</div>
         <div class="card"><div class="eyebrow">Holding</div><div class="num big" style="margin-top:6px">${pos.length ? pos.map(([k, p]) => `${U.qty(p.qty)} ${k}`).join(' · ') : 'Cash'}</div>
@@ -115,7 +115,27 @@
         <div class="card"><div class="eyebrow">Signal now</div><div style="margin-top:8px">${U.pill(c.state_cls + ' big', st.ok ? (fam === 'regime' ? st.state : (st.state || '').toUpperCase()) : 'ERROR')}</div>
           <div class="muted small" style="margin-top:6px">${st.ok ? U.esc(st.label) + (st.signal_time ? ' · since ' + U.dt(st.signal_time) : '') : U.esc(st.error || 'not evaluated yet')}</div></div>
         <div class="card"><div class="eyebrow">Next check</div><div class="num big" style="margin-top:6px">${c.next_check ? U.dt(c.next_check) : '—'}</div>
-          <div class="muted small">${U.esc(d.exec_text)}</div></div></div>`;
+          <div class="muted small">${U.esc(d.exec_text)}</div></div>${fallCard()}</div>`;
+    }
+
+    /* Fall from its high: the strategy (backtest, the same for everyone running it) next to its worst fall in 10 years,
+       and your own money since you started. Amber from 75% of the worst, red past it. */
+    function fallCard() {
+      const x = d.dip, m = d.money_fall;
+      if (!x || x.worst10 == null) return '';
+      const ymd = (s) => { if (!s) return '—'; const [y, mo, da] = s.split('-').map(Number); return new Date(Date.UTC(y, mo - 1, da)).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }); };
+      const short = x.warn == null, of = Math.max(0, Math.min(130, x.of_worst || 0));
+      const cls = short ? '' : x.warn >= 100 ? 'err' : x.warn >= 75 ? 'warn' : '';
+      const col = cls === 'err' ? 'var(--down, #D9534F)' : cls === 'warn' ? '#E0A100' : 'var(--accent, #2E7D32)';
+      const tip = `The strategy's own backtest (the same for anyone running it): ${Math.abs(x.depth).toFixed(1)}% below its high of ${ymd(x.peak_day)}. ` +
+        `Worst fall in the last ${x.worst10_years} years before this one: ${x.worst10}% (${ymd(x.worst10_from)} – ${ymd(x.worst10_to)}); whole backtest ${x.worst_all}% (${ymd(x.worst_all_from)} – ${ymd(x.worst_all_to)}). ` +
+        'LINE warns at 75% of the worst and again past it.';
+      return `<div class="card fallcard ${cls}" title="${U.esc(tip)}"><div class="eyebrow">Fall from its high</div>
+        <div class="num big ${x.depth < -0.05 ? 'dn' : ''}" style="margin-top:6px">${x.depth < -0.05 ? x.depth.toFixed(1) + '%' : 'At its high'}</div>
+        <div class="muted small">${short ? `Backtest only ${x.worst10_years} years: too short to compare` : `Worst in ${x.worst10_years} years <b class="num">${x.worst10.toFixed(1)}%</b> (${ymd(x.worst10_from).slice(-8)})${x.worst_all < x.worst10 - 0.05 ? ` · all <b class="num">${x.worst_all.toFixed(0)}%</b> (${(x.worst_all_to || '').slice(0, 4)})` : ''}`}</div>
+        ${short ? '' : `<div class="fallbar" aria-label="${of}% of its worst fall"><i style="width:${Math.min(100, of / 1.3)}%;background:${col}"></i><b style="left:${100 / 1.3}%"></b></div>
+        <div class="small" style="color:${col}">${x.warn >= 100 ? '⚠ Deeper than its worst in ' + x.worst10_years + ' years' : x.warn >= 75 ? '⚠ ' + of + '% of the way to its worst' : of + '% of its worst'}</div>`}
+        ${m ? `<div class="muted small num" style="margin-top:2px">Your money: <span class="${m.fall < -0.05 ? 'dn' : ''}">${m.fall.toFixed(1)}%</span>${m.high_day ? ' from its high of ' + U.esc(ymd(m.high_day)) : ''}</div>` : ''}</div>`;
     }
 
     function regimeTiles() {

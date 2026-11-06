@@ -90,6 +90,7 @@
       </div>
       <div id="pnlx"></div>
       <div id="alloc"></div>
+      <div id="expo"></div>
       <div id="expect"></div>
       <div class="grid" style="--min:230px">
         <a class="card" href="#/money" style="color:var(--text)"><div class="eyebrow">Bot unassigned</div><div class="num big" style="margin-top:6px">${U.usd(d.unassigned)}</div><div class="muted small">Given to the bot, not yet to a strategy${d.not_bot != null ? ' · ' + U.usd(d.not_bot, 0) + ' not for the bot' : ''}</div></a>
@@ -105,7 +106,7 @@
       <div class="grid" style="--min:300px">${shown.map((s) => `
         <a class="card scard ${U.dipCls(s.dip)}" href="#/strategies/${s.id}">
           <div class="row" style="gap:10px">${U.dot(s.color, 10)}<b style="font-size:15px">${U.esc(s.name)}</b><span class="pill" style="margin-left:auto">${s.type === 'momentum_basket' ? 'Stock basket' : s.family === 'regime' ? 'Daily regime' : '4H signal'}</span></div>
-          ${U.dipPill(s.dip) ? `<div>${U.dipPill(s.dip)}</div>` : ''}
+          ${U.dipPill(s.dip) || U.fallPill(s.dip) ? `<div class="row" style="gap:6px">${U.dipPill(s.dip)}${U.fallPill(s.dip)}</div>` : ''}
           <div class="row sb" style="align-items:flex-end">
             <div><div class="num big" style="font-size:22px">${U.usd(s.value, 0)}</div><div class="num small ${U.cls(s.pnl)}">${U.sgnUsd(s.pnl, 0)} · ${U.pct(s.ret)}</div>${U.todayLine(s) ? '<div>' + U.todayLine(s) + '</div>' : ''}</div>
             ${U.spark(s.spark, s.color)}</div>
@@ -125,6 +126,7 @@
       </div>`;
       if (chart) chart.remove();
       V.renderAlloc(el.querySelector('#alloc'), shown);
+      if (V.renderExposure) V.renderExposure(el.querySelector('#expo'), d.exposure);
       if (oldPnl && oldPnl.firstChild) { el.querySelector('#pnlx').replaceWith(oldPnl); V.renderPnl(oldPnl); } else V.renderPnl(el.querySelector('#pnlx'));
       U.on(el, '[data-pnl]', 'click', (e, x) => { const box = el.querySelector('#pnlx'); V.renderPnl(box, { period: x.dataset.pnl }).then(() => box.scrollIntoView({ behavior: 'smooth', block: 'start' })); });
       U.on(el, '[data-idle]', 'click', () => { U.showIdle(!showIdle); if (V.expectedForget) V.expectedForget(); load(); });

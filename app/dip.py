@@ -10,6 +10,10 @@ later). It is a statistic, not a promise: in 2008 deep dips kept falling.
            "deep" for pct ≥ 80          ("Strong buy zone", solid dark green; LINE alert + Home banner on entry)
 Refreshed once a day after the US close (and on start when missing). LINE fires when a strategy enters ≥ 80 and is armed
 again only after it climbs back above the 70th percentile.
+
+Deep-fall warning (6 Nov 2026): the same backtest also gives today's fall below the strategy's high next to its worst fall in
+the last 10 years BEFORE this one (the current fall is left out, so a new record shows as more than 100%). LINE warns once
+when the fall reaches 75% of that worst, and once more when it goes past it (100%); armed again after a new high.
 """
 from __future__ import annotations
 
@@ -24,8 +28,16 @@ from . import strategies as S
 
 log = logging.getLogger("dip")
 DIP, DEEP = 70.0, 80.0
+WARN_LEVELS = (75, 100)          # % of the worst 10-year fall: "near its worst", "deeper than its worst"
+WORST_YEARS = 10
+WORST_MIN_YEARS = 5              # shorter backtests (the 4-hour metals: about 2 years of hourly data) get no warning
 WINDOW_YEARS = 20
 MAX_AGE_S = 5 * 86400          # older than this (bot off for days): not shown
+
+
+def ordinal(n) -> str:
+    n = int(round(n))
+    return f"{n}{'th' if 11 <= n % 100 <= 13 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')}"
 
 
 def zone_of(pct):
@@ -49,7 +61,74 @@ def from_series(t, v) -> dict | None:
     return {"depth": round(-cur * 100, 1), "pct": pct, "zone": zone_of(pct),
             "p70": round(-q[70] * 100, 1), "p80": round(-q[80] * 100, 1), "p90": round(-q[90] * 100, 1),
             "day": str(s.index[-1].date()), "from": str(win.index[0].date()),
-            "years": round((win.index[-1] - win.index[0]).days / 365.25, 1)}
+            "years": round((win.index[-1] - win.index[0]).days / 365.25, 1), **worst_before(s)}
+
+
+def _worst(v):
+    """(worst fall as a fraction ≤ 0, its peak date, its trough date) of a value series."""
+    if len(v) < 2:
+        return 0.0, None, None
+    dd = v / v.cummax() - 1.0
+    k = dd.idxmin()
+    if dd[k] >= 0:
+        return 0.0, None, None
+    return float(dd[k]), str(v[:k].idxmax().date()), str(k.date())
+
+
+def worst_before(s) -> dict:
+    """Today's fall next to the worst fall before it: in the last WORST_YEARS years and in the whole backtest. Only days up
+    to the current high count, so today's fall is never compared with itself."""
+    pk = s.cummax()
+    peak = s.index[np.where(s.values >= pk.values[-1] - 1e-12)[0][-1]]          # the last day at the high
+    before = s[s.index <= peak]
+    w10, a10, b10 = _worst(before[before.index >= s.index[-1] - pd.DateOffset(years=WORST_YEARS)])
+    wall, aall, ball = _worst(before)
+    cur = float(s.iloc[-1] / s.max() - 1.0)
+    yrs10 = round(min(WORST_YEARS, (s.index[-1] - s.index[0]).days / 365.25), 1)
+    return {"peak_day": str(peak.date()), "worst10": round(w10 * 100, 1), "worst10_from": a10, "worst10_to": b10,
+            "worst10_years": yrs10, "worst_all": round(wall * 100, 1), "worst_all_from": aall, "worst_all_to": ball,
+            "of_worst": round(cur / w10 * 100) if w10 < -1e-9 else None}
+
+
+def warn_level(of_worst, years=None):
+    """The highest warning level reached (75 or 100), or 0. None when the backtest is too short to say."""
+    if years is not None and years < WORST_MIN_YEARS:
+        return None
+    return max([lv for lv in WARN_LEVELS if of_worst is not None and of_worst >= lv] or [0])
+
+
+def money_fall(mode, sid) -> dict | None:
+    """Your own money in the strategy: how far it is below its high since you started, with money added or taken out
+    left out (each day's change is (value − money moved) / yesterday's value). Uses the last regular-session snapshot of each
+    New York day, plus the value now."""
+    from datetime import datetime, timedelta, timezone
+    from . import ledger, markethours as mh, marketdata as md
+    rows = db.rows("SELECT t, value, capital FROM equity WHERE mode=? AND strategy=? ORDER BY t", (mode, sid))
+    if not rows:
+        return None
+    by_day = {}
+    for x in rows:
+        dt = datetime.fromtimestamp(x["t"], timezone.utc)
+        nyd = dt.astimezone(md.NY).date()
+        b = mh.session_bounds(nyd)
+        if b and b[0] <= dt <= b[1] + timedelta(minutes=15):
+            by_day[nyd] = x                                   # the last one of the day wins
+    pts = [(str(d), x["value"] or 0.0, x["capital"] or 0.0) for d, x in sorted(by_day.items())]
+    v = ledger.value(mode, sid)
+    pts.append(("now", v["value"] or 0.0, v["net_in"] or 0.0))
+    idx, hi, hi_day, cur = 1.0, 1.0, None, 1.0
+    for i in range(1, len(pts)):
+        d0, v0, c0 = pts[i - 1]
+        d1, v1, c1 = pts[i]
+        if v0 > 0.5:
+            idx *= (v1 - (c1 - c0)) / v0
+        if idx >= hi:
+            hi, hi_day = idx, d1
+        cur = idx
+    if len(pts) < 2 or (v["value"] or 0) < 0.5:
+        return None
+    return {"fall": round((cur / hi - 1) * 100, 1), "high_day": hi_day if hi_day != "now" else None,
+            "since": pts[0][0] if pts[0][0] != "now" else None}
 
 
 def compute(s, now=None) -> dict | None:
@@ -62,11 +141,38 @@ def compute(s, now=None) -> dict | None:
     return from_series(t, ser["strategy"])
 
 
+KEYS = ("depth", "pct", "zone", "p70", "p80", "p90", "day", "from", "years", "peak_day", "worst10", "worst10_from", "worst10_to",
+        "worst10_years", "worst_all", "worst_all_from", "worst_all_to", "of_worst")
+
+
 def get(sid) -> dict | None:
     x = db.get_state(f"dip:{sid}")
     if not x or time.time() - (x.get("at") or 0) > MAX_AGE_S:
         return None
-    return {k: x.get(k) for k in ("depth", "pct", "zone", "p70", "p80", "p90", "day", "from", "years")}
+    out = {k: x.get(k) for k in KEYS}
+    out["warn"] = warn_level(out.get("of_worst"), out.get("worst10_years"))
+    return out
+
+
+def fall_text(s, d, mode_money=None) -> str:
+    """The deep-fall warning message (LINE and the event log)."""
+    def mon(day):
+        return pd.Timestamp(day).strftime("%-d %b %Y") if day else "?"
+    from .brokers import MODE_LABEL
+    lv = warn_level(d.get("of_worst"))
+    head = (f"deeper than its worst fall in the last {d['worst10_years']:g} years" if lv >= 100
+            else f"{d['of_worst']}% of the way to its worst fall in the last {d['worst10_years']:g} years")
+    t = (f"{s.name} is {abs(d['depth']):.1f}% below its backtest high of {mon(d['peak_day'])}: {head}. "
+         f"Worst fall in those years: {d['worst10']:.1f}% ({mon(d['worst10_from'])} – {mon(d['worst10_to'])})")
+    if d.get("worst_all") is not None and d["worst_all"] < d["worst10"] - 0.05:
+        t += f"; whole backtest {d['worst_all']:.1f}% ({mon(d['worst_all_from'])} – {mon(d['worst_all_to'])})"
+    t += "."
+    for mode, m in (mode_money or {}).items():
+        t += f" Your money ({MODE_LABEL.get(mode, mode)}): {m['fall']:.1f}% below its high" + (f" of {mon(m['high_day'])}" if m.get("high_day") else "") + "."
+    t += (" The rules do not change on their own; this is a warning to check you are still comfortable holding it. "
+          "There is no stop on top of the strategy's own exit (a stop was tested on 6 Nov 2026 and cut returns without "
+          "making the worst falls smaller: Help → Design decisions). The way to take less risk is to hold less in it.")
+    return t
 
 
 def refresh_all(now=None, send=True) -> dict:
@@ -89,12 +195,31 @@ def refresh_all(now=None, send=True) -> dict:
             txt = (f"{s.name} is {d['depth']:.0f}% below its backtest high: deeper than {d['pct']:.0f}% of its days in the last "
                    f"{d['years']:g} years (80th percentile = {d['p80']:.0f}%, 90th = {d['p90']:.0f}%). In the backtests, money added "
                    "in this zone was more often up a year later — not a promise; dips can go deeper first.")
-            db.add_event("info", "strategy", f"{s.name}: strong buy zone ({d['pct']:.0f}th percentile, {d['depth']:.0f}%)", txt, strategy=s.id)
+            db.add_event("info", "strategy", f"{s.name}: strong buy zone ({ordinal(d['pct'])} percentile, {d['depth']:.0f}%)", txt, strategy=s.id)
             if send:
                 notify.send("dip", f"Strong buy zone · {s.name}\n{txt}", strategy=s.id)
         elif new_deep:
             alerted = True                                # stopped: no message, but do not fire later for the same dip
-        db.set_state(f"dip:{s.id}", {**d, "at": int(time.time()), "alerted": alerted, "win": WINDOW_YEARS})
+        # deep-fall warning: once at 75% of the worst 10-year fall and once past it, per fall (armed again at a new high)
+        lv = warn_level(d.get("of_worst"), d.get("worst10_years")) or 0
+        warned = old.get("warned", 0) if old.get("warned_peak") == d.get("peak_day") else 0
+        if lv > warned:
+            money = {}
+            for mode in ("live", "test", "paper"):
+                try:
+                    m = money_fall(mode, s.id)
+                except Exception:
+                    m = None
+                if m:
+                    money[mode] = m
+            txt = fall_text(s, d, money)
+            title = "Deeper than its worst fall" if lv >= 100 else "Near its worst fall"
+            db.add_event("warn", "strategy", f"{s.name}: {title.lower()} ({d['depth']:.0f}% vs worst {d['worst10']:.0f}%)", txt, strategy=s.id)
+            if send and (s.row or {}).get("control") != "stopped":
+                notify.send("drawdown", f"⚠ {title} · {s.name}\n{txt}", strategy=s.id)
+            warned = lv
+        db.set_state(f"dip:{s.id}", {**d, "at": int(time.time()), "alerted": alerted, "win": WINDOW_YEARS,
+                                     "warned": warned, "warned_peak": d.get("peak_day")})
         out[s.id] = d
     return out
 
@@ -102,4 +227,4 @@ def refresh_all(now=None, send=True) -> dict:
 def missing() -> bool:
     """Nothing stored yet, or stored with another window (the window changed: recompute on start, not at the next close)."""
     st = [db.get_state(f"dip:{s.id}") for s in S.all_instances()]
-    return not any(st) or any(x and x.get("win", 10) != WINDOW_YEARS for x in st)
+    return not any(st) or any(x and (x.get("win", 10) != WINDOW_YEARS or "worst10" not in x) for x in st)

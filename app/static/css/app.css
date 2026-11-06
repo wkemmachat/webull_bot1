@@ -336,3 +336,19 @@ tr.dipz1, tr.dipz2 { box-shadow: none; }
 .pnlleg { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text2); }
 .pnlleg.off { opacity: .4; text-decoration: line-through; }
 .pnlclk { cursor: pointer; border-bottom: 1px dashed currentColor; }
+
+/* strategy page: fall from its high (vs its worst 10-year fall) */
+.fallcard.warn { border-color: #E0A100; }
+.fallcard.err { border-color: var(--down, #D9534F); }
+.fallbar { position: relative; height: 6px; border-radius: 3px; background: var(--panel2, #EEF1EE); margin: 8px 0 4px; }
+.fallbar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; }
+.fallbar b { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--text, #222); opacity: .55; }
+
+/* Dashboard: what your money is in */
+.exbar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--panel2, #EEF1EE); }
+.exbar i { display: block; height: 100%; }
+.exrow { display: grid; grid-template-columns: minmax(0, 1fr) 96px 80px; gap: 10px; align-items: center; padding: 8px 0 8px 8px;
+  border-top: 1px solid var(--line, #E4E8E4); border-left: 3px solid transparent; }
+.exrow.tech { border-left-color: #20C997; }
+.exrow.total { border-left-color: transparent; border-top-width: 2px; }
+@media (max-width: 520px) { .exrow { grid-template-columns: minmax(0, 1fr) 78px 62px; gap: 6px; } }
