@@ -84,3 +84,25 @@ def test_new_default_added_to_an_existing_install():
     db.run("UPDATE strategies SET archived=1 WHERE id='qld_tbd'")
     assert S.seed() == []                             # archived stays archived
     db.run("UPDATE strategies SET archived=0 WHERE id='qld_tbd'")
+
+
+def test_switch_from_trend_to_dip_without_a_trade_gets_a_dot():
+    """The trend ends on a day RSI(2) < 5 opens a dip trade: still held, so no arrow, only a '→ dip' dot."""
+    from app.strategies.base import switch_dot
+    d = switch_dot(1793577600, "dip", {"dip": "#F5C76B"})
+    assert d["shape"] == "circle" and d["text"] == "→ dip" and d["color"] == "#F5C76B"
+    from conftest import NOW
+    n = 0
+    for sid in ("rom_tbd", "qld_tbd", "rom_vol_ibs"):
+        s = S.get(sid)
+        fr = s.frame(NOW)
+        st = fr["state"].values
+        col = "size" if "size" in fr.columns else "weight"
+        w = fr[col].values
+        want = {int(fr.index[i].timestamp()) for i in range(1, len(fr))
+                if st[i - 1] and st[i] != st[i - 1] and w[i] == w[i - 1] and w[i] > 0}
+        got = {m["time"] for c in s.chart(NOW, "All")["charts"][:1] for m in c["markers"] if m["text"].startswith("→ ")}
+        shown = {int(x["time"]) for x in s.chart(NOW, "All")["charts"][0]["candles"]}
+        assert got == want & shown
+        n += len(got)
+    assert n > 0                                        # the demo data really has such days

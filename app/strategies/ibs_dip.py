@@ -315,8 +315,13 @@ class IbsDipStrategy(RegimeStrategy):
         up = fr["st_up"].values.astype(bool)
         sz, stv = fr["size"].values, fr["state"].values
         markers = []
+        from .base import switch_dot
         for i in range(1, len(fr)):
-            if not stv[i - 1] or sz[i] == sz[i - 1]:
+            if not stv[i - 1]:
+                continue
+            if sz[i] == sz[i - 1]:
+                if sz[i] > 0 and stv[i] != stv[i - 1]:                  # trend ↔ dip with no trade: still held
+                    markers.append(switch_dot(t[i], stv[i], STATE_COLOR))
                 continue
             if sz[i - 1] == 0 or sz[i] == 0:
                 b = sz[i] > sz[i - 1]
@@ -324,8 +329,9 @@ class IbsDipStrategy(RegimeStrategy):
                                 "shape": "arrowUp" if b else "arrowDown",
                                 "text": ("Dip" if stv[i] == "dip" else f"Buy {sz[i] * 100:.0f}%") if b else "Sell"})
             else:
+                sw = f"→ {stv[i]} · " if stv[i] != stv[i - 1] else ""
                 markers.append({"time": t[i], "position": "belowBar", "color": "#F5C76B", "shape": "circle",
-                                "text": f"Size {sz[i] * 100:.0f}%"})
+                                "text": f"{sw}Size {sz[i] * 100:.0f}%"})
         sig = {"id": "signal", "title": f"{p['trade']} · 1D", "subtitle": "Signal and trade — the bot reads and buys this chart",
                "candles": [{"time": t[i], "open": round(float(fr["o"].iloc[i]), 4), "high": round(float(fr["h"].iloc[i]), 4),
                             "low": round(float(fr["l"].iloc[i]), 4), "close": round(float(fr["c"].iloc[i]), 4)} for i in range(len(fr))],

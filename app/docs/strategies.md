@@ -20,6 +20,10 @@ At the top, **Money in strategies** shows the same donut as the dashboard: each 
     from the US open (21:30 Bangkok in winter, 20:30 in summer) until the bot stores the closed bar. The legend says *today so far
     (live)*; reload the page to update it (prices refresh every minute). The bot does not use it: signals, indicators and panes
     are worked out on closed daily bars only, so lines like the EMA end at yesterday's close.
+  - **Arrows** are trades: *Buy* below the bar, *Sell* above it. A **dot** marks a change with no trade: *Size 60%* when a
+    strategy that sizes by volatility changes its size, and *→ dip* / *→ trend* when the reason for holding changes but the
+    position stays the same. For example, on 2 Nov 2026 IYW closed below its 150-day average on a day with RSI(2) below 5, so the
+    ROM strategies went from the trend straight into a dip trade and kept holding ROM: no arrow, just *→ dip*.
 - **Next US open** (top of Overview): this strategy's orders waiting for the next open (same table as the Dashboard), or
   "no order waiting" when it already holds its target.
 - **Growth of $10,000** (on Overview, above Falls to expect): the same backtest and the same dates as Falls to expect, after

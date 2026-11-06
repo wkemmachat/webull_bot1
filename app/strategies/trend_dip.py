@@ -269,6 +269,7 @@ class TrendDipStrategy(RegimeStrategy):
             return [{"time": t[i], "value": round(float(v), digits)} if not np.isnan(v) else {"time": t[i]}
                     for i, v in enumerate(fr[col].values)]
 
+        from .base import switch_dot
         w, stv = fr["weight"].values, fr["state"].values
         markers = []
         for i in range(1, len(fr)):
@@ -277,6 +278,8 @@ class TrendDipStrategy(RegimeStrategy):
                 markers.append({"time": t[i], "position": "belowBar" if up else "aboveBar", "color": "#2962FF" if up else "#E040FB",
                                 "shape": "arrowUp" if up else "arrowDown",
                                 "text": ("Buy · dip" if stv[i] == "dip" else "Buy · trend") if up else "Sell"})
+            elif stv[i - 1] and w[i] > 0 and stv[i] != stv[i - 1]:      # trend ↔ dip with no trade: still held
+                markers.append(switch_dot(t[i], stv[i], STATE_COLOR))
         sig = {"id": "signal", "title": f"{p['signal']} · 1D", "subtitle": "Signal — trend and dips are read from this chart",
                "candles": [{"time": t[i], "open": round(float(fr["o"].iloc[i]), 4), "high": round(float(fr["h"].iloc[i]), 4),
                             "low": round(float(fr["l"].iloc[i]), 4), "close": round(float(fr["c"].iloc[i]), 4)} for i in range(len(fr))],

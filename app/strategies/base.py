@@ -99,3 +99,8 @@ class StrategyBase:
 
     def rebalance_band(self) -> float:
         return float(self.params.get("rebalance_band_pct", 10)) / 100.0
+
+
+def switch_dot(t, state, colors):
+    """Chart dot for a change of reason with no trade (e.g. the trend ends but an RSI dip trade keeps the position)."""
+    return {"time": t, "position": "belowBar", "color": colors.get(state, "#F5C76B"), "shape": "circle", "text": f"→ {state}"}
