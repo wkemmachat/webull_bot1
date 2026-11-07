@@ -41,6 +41,10 @@ Webull account               $100
     current signal, so for those **Invest now** (on the strategy's row, shown while cash waits) is closer to the tested result.
   - A strategy that is stopped, or set to Stop & sell, never buys. It is left out of *Give to strategies* and of *Move* targets;
     money added to it anyway (with + Add) gets a warning on screen and on LINE. Set it back to Active first.
+- **Same bet check** (in Add money and Move, 7 Nov 2026): as you type the amount, the dialog shows how much of the money in
+  your strategies is in US tech (Nasdaq-100, tech, semiconductors, Nasdaq-100 stocks) **before → after**, what it *acts
+  like* with 2x ETFs counted twice, and what a 10% US-tech fall would cost. It turns amber when the result acts like more
+  than all the money in your strategies. It is a guide (the plan decides the exact shares) and never stops you.
 - **Withdraw** (on a strategy): the strategy's free cash first; if that is not enough, the bot sells its holdings evenly with a
   split plan. The cash goes back to **bot unassigned**.
 - **Move**: from one strategy straight to another. Shares the receiving strategy wants too (for example moving from ROM Trend +

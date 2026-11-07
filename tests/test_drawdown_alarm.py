@@ -76,7 +76,8 @@ def test_your_money_fall_leaves_out_money_added(clean, clock):
         clock.set(datetime(2026, 10, day, 15, 0, tzinfo=timezone.utc))              # 11:00 New York, regular session
         execution.record_equity("paper", force=True)
     m = dip.money_fall("paper", sid)
-    assert m["fall"] == pytest.approx((900 / 1200 - 1) * 100, abs=0.1) and m["high_day"] == "2026-10-22"
+    # money added counts from the start of its day (as on the Falls page): 1.2 × (1 + (1900 − 1200 − 1000) / 2200)
+    assert m["fall"] == pytest.approx((1.2 * (1 - 300 / 2200) / 1.2 - 1) * 100, abs=0.1) and m["high_day"] == "2026-10-22"
     assert views.strategy_detail("paper", sid)["money_fall"]["fall"] == m["fall"]
 
 
@@ -101,3 +102,40 @@ def test_exposure_groups_and_adds_up():
 def test_dashboard_has_exposure(clean):
     d = views.dashboard("paper")
     assert "exposure" in d and d["exposure"] is not None and "us_tech" in d["exposure"]
+
+
+def test_real_return_is_not_changed_by_moving_money_out_after_a_loss(clean, clock):
+    """This week's ROM case: $5,500 in, −27%, then $2,500 moved out. On the $3,000 left the simple % looks like −50%;
+    the real result is still −27.3%."""
+    from datetime import datetime, timezone
+    from app import execution, perf
+    sid = "rom_tbd"
+    for day, cash, cap in ((26, 5500, 5500), (27, 4000, 5500), (28, 1500, 3000)):
+        db.run("UPDATE ledger SET cash=?, cap_in=?, cap_out=0 WHERE mode='paper' AND strategy=?", (cash, cap, sid))
+        clock.set(datetime(2026, 10, day, 15, 0, tzinfo=timezone.utc))
+        execution.record_equity("paper", force=True)
+    v = ledger.value("paper", sid)
+    assert v["ret"] == pytest.approx(-0.5)
+    r = perf.real_return("paper", sid, v["value"], v["net_in"])
+    assert r["ret"] == pytest.approx(4000 / 5500 - 1) and r["since"] == "2026-10-26"
+    c = views.strategy_card("paper", S.get(sid)) if hasattr(views, "strategy_card") else None
+    if c is not None:
+        assert c["real"]["ret"] == pytest.approx(r["ret"])
+    b = views.dashboard("paper")["bot"]
+    assert "real" in b
+
+
+def test_same_bet_preview_add_and_move(clean):
+    from app import exposure
+    db.run("INSERT OR REPLACE INTO strategy_state(strategy, target, ok) VALUES('rom_tbd', '{\"ROM\": 0.99}', 1)")
+    db.run("INSERT OR REPLACE INTO strategy_state(strategy, target, ok) VALUES('gold_sta', '{\"UGL\": 0.99}', 1)")
+    x = exposure.preview("paper", "add", "rom_tbd", 1000)
+    assert x["target"] == {"ROM": 0.99}
+    assert x["after"]["total"] == pytest.approx(x["before"]["total"] + 1000)
+    assert x["after"]["value"] == pytest.approx(x["before"]["value"] + 990)                 # 99% into ROM
+    assert x["after"]["acts_like"] * x["after"]["total"] == pytest.approx(x["before"]["acts_like"] * x["before"]["total"] + 1980)
+    w = exposure.preview("paper", "add", "rom_tbd", 1000, invest="wait")
+    assert w["after"]["value"] == pytest.approx(w["before"]["value"]) and w["target"] == {}   # waits as cash
+    m = exposure.preview("paper", "move", "rom_tbd", 500, to="gold_sta")
+    assert m["after"]["total"] == pytest.approx(m["before"]["total"])                         # moving is not adding
+    assert m["dest"]["id"] == "gold_sta"

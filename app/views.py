@@ -122,6 +122,7 @@ def strategy_card(mode, s, prices=None):
             "waiting_since": waiting, "ok": bool(st.get("ok")),
             "signal_time": st.get("signal_time"), "bar_time": st.get("bar_time"), "next_check": nc,
             "value": v["value"], "net_in": v["net_in"], "pnl": v["pnl"], "ret": v["ret"], "cash": v["cash"],
+            "real": _real(mode, s.id, v["value"], v["net_in"]),
             "positions": v["positions"], "target": st.get("target") or {}, "plan": bool(ap), "exec": execution.describe_cfg(cfg),
             "spark": _spark(mode, s.id), "today": perf.today_pnl(mode, s.id, v["value"], v["net_in"] or 0),
             "dd": perf.card_summary(s.id),
@@ -252,6 +253,7 @@ def dashboard(mode):
     return {"mode": mode, "account": acct, "account_error": err, "strategies": cards, "exposure": expo,
             "bot": {"value": bot_v, "net_in": bot_in, "pnl": bot_v - bot_in, "ret": (bot_v / bot_in - 1) if bot_in else None,
                     "today": today, "today_pct": (today / base_today) if today is not None and base_today else None,
+                    "real": _real(mode, "*", bot_v, bot_in),
                     "bench_ret": (bench / series[-1]["capital"] - 1) if bench and series and series[-1]["capital"] else None},
             "unassigned": un, "not_bot": not_bot, "series": series, "plans": active[:4], "health": rep and {"t": rep["t"], "counts": rep["counts"],
                                                                                        "first": next((i for i in rep["items"] if i["status"] != "ok"), None)},
@@ -350,6 +352,17 @@ def strategy_detail(mode, sid):
             "type": next((t for t in S.types_public() if t["type"] == s.type), None),
             "idle": idle.view(mode, s, st), "dip": dip.get(sid), "money_fall": _money_fall(mode, sid),
             "plans": execution.plans_view(mode, sid=sid, limit=5), "money": [m for m in ledger.moves(mode, 200) if m["strategy"] == sid or m["other"] == sid][:10]}
+
+
+def _real(mode, sid, value, net_in):
+    """{ret, since, fall, high_day}: the time-weighted result of the real money (see perf.real_return), or None."""
+    if abs(value or 0) < 0.5 and abs(net_in or 0) < 0.5:
+        return None
+    try:
+        return perf.real_return(mode, sid, value, net_in)
+    except Exception as e:                                 # never breaks a page
+        log.warning("real return %s: %s", sid, e)
+        return None
 
 
 def _money_fall(mode, sid):

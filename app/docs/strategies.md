@@ -34,8 +34,14 @@ At the top, **Money in strategies** shows the same donut as the dashboard: each 
     worst 10-year fall and one more when it goes past it, with each mode's own money. Once per fall: armed again only after
     a new high. It is a warning only; nothing is sold. An extra stop on top of the strategies' own exits was tested on
     6 Nov 2026 and made things worse ([Design decisions](#/docs/decisions)): to take less risk, hold less in the strategy.
-  - Backtests shorter than 5 years (the 4-hour gold and silver strategies have about 2 years of hourly data) show the fall
-    but get no warning: there is too little history to call anything the worst.
+  - Backtests shorter than 5 years show the fall but get no warning: there is too little history to call anything the
+    worst. Gold and silver used to be such a case (Yahoo keeps about 2 years of hourly futures); since 7 Nov 2026 their
+    backtests go back to December 2008 with OANDA spot before the bot's own bars ([Backtest](#/docs/backtest)).
+- **Real** (under the value, when it differs): the result of your own money since you started, **time-weighted**, so
+  money added or taken out does not change it. The simple *% on money put in* does change: in Nov 2026 $5,500 went into
+  ROM Trend + RSI(2), it fell about 24%, then $2,500 was moved out, so the $940 loss showed as −31% on the $3,000 left
+  while the real result was about −24%. The Dashboard cards and the Daily P&L tab show it too, and *Your money* on the
+  Fall card is measured the same way.
 - **Next US open** (top of Overview): this strategy's orders waiting for the next open (same table as the Dashboard), or
   "no order waiting" when it already holds its target.
 - **Growth of $10,000** (on Overview, above Falls to expect): the same backtest and the same dates as Falls to expect, after

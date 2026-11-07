@@ -117,6 +117,23 @@
     const tip = `${Math.abs(d.depth).toFixed(1)}% below its backtest high; worst fall in the last ${d.worst10_years} years before this one: ${d.worst10}%. A warning only: the rules do not change.`;
     return `<span class="pill ${d.warn >= 100 ? 'err' : 'warn'}" title="${U.esc(tip)}">⚠ ${d.warn >= 100 ? 'Past its worst fall' : d.of_worst + '% of its worst fall'}</span>`;
   };
+  /* The real (time-weighted) result next to the simple "% on money put in", shown only when they differ by 0.5 points
+     or more: they differ when money was added or taken out after a gain or loss. */
+  U.realDiffers = function (c) { return !!(c && c.real && c.ret != null && Math.abs(c.real.ret - c.ret) >= 0.005); };
+  U.realTip = function (c) {
+    if (!c || !c.real) return '';
+    return `Real result since ${U.ymd(c.real.since)}: ${U.pct(c.real.ret, 1)}. Money added or taken out is left out (time-weighted), so it ` +
+      `shows how the strategy did with your money. The % on money put in changes when money is moved after a gain or loss.`;
+  };
+  U.realBit = function (c, short) {
+    if (!U.realDiffers(c)) return '';
+    return `<span class="${U.cls(c.real.ret)}" title="${U.esc(U.realTip(c))}" style="cursor:help;border-bottom:1px dotted currentColor">${short ? 'real ' : 'Real '}${U.pct(c.real.ret, 1)}</span>`;
+  };
+  U.ymd = function (s) {
+    if (!s) return '—';
+    const [y, mo, da] = String(s).slice(0, 10).split('-').map(Number);
+    return new Date(Date.UTC(y, mo - 1, da)).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  };
   U.ddLine = function (s) {
     if (!s.dd) return '';
     return `<span class="muted small" title="From the backtest since ${U.esc(s.dd.from || '')}: the deepest fall below a previous high, and the longest time before a new high">Worst fall <b class="dn">${s.dd.worst.toFixed(0)}%</b>${s.dd.longest_days != null ? ' · underwater up to ' + U.durShort(s.dd.longest_days) : ''}</span>`;

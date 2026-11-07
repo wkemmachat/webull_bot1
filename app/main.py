@@ -228,6 +228,15 @@ def strategy(sid: str, mode: str = "paper", u=Depends(user)):
     return d
 
 
+@app.get("/api/exposure/preview")
+def exposure_preview(mode: str = "paper", kind: str = "add", sid: str = "", to: str = "", amount: float = 0.0, invest: str = "now", u=Depends(user)):
+    """US tech share before and after an Add money or Move (Money dialog)."""
+    from . import exposure
+    if kind not in ("add", "move"):
+        raise HTTPException(400, "kind must be add or move")
+    return exposure.preview(mode_of(mode), kind, sid, amount, to or None, "wait" if invest == "wait" else "now")
+
+
 @app.get("/api/next-orders")
 def next_orders(mode: str = "paper", sid: str = "", u=Depends(user)):
     """Orders waiting for the next US open (or running now), per strategy: sells exact, buys estimated."""

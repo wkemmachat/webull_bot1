@@ -185,6 +185,47 @@ def live_index(mode, sid):
     return days, idx
 
 
+def real_index(mode, sid, value_now=None, net_now=None):
+    """Time-weighted index of your real money in a strategy (or '*' for the whole bot), starting at 1.0 = the money first
+    put in. Money added or taken out is not a gain or loss: each day's change is (value − yesterday's value − money moved) /
+    (yesterday's value + money added). With value_now, today's point is the value right now.
+    Returns (days, index) with the start (the money put in) as the first point; ([], []) without money."""
+    cl = _closes(mode, sid)
+    if value_now is not None:
+        today = md.now_utc().astimezone(NY).date()
+        cl = [x for x in cl if x[0] != today] + [(today, float(value_now or 0), float(net_now or 0), int(md.now_utc().timestamp()))]
+    days, idx, prev, x = [], [], None, 1.0
+    for d, v, c, t in cl:
+        if prev is None:
+            if c <= 0.5:
+                continue
+            days.append(None)                                   # the start: the money put in
+            idx.append(1.0)
+            x = v / c
+        else:
+            flow = c - prev[2]
+            base = prev[1] + max(flow, 0.0)
+            if base > 0.5:
+                x *= 1 + (v - prev[1] - flow) / base
+        days.append(d)
+        idx.append(x)
+        prev = (d, v, c)
+    if days:
+        days[0] = days[1]
+    return days, idx
+
+
+def real_return(mode, sid, value_now=None, net_now=None) -> dict | None:
+    """The real result since you started: time-weighted, so money moved in or out does not change it. Next to the
+    simple "% on money put in", which does change when money is added or taken out after a gain or loss."""
+    days, idx = real_index(mode, sid, value_now, net_now)
+    if len(idx) < 2:
+        return None
+    hi = int(np.argmax(idx))
+    return {"ret": idx[-1] - 1, "since": str(days[0]), "fall": idx[-1] / idx[hi] - 1,
+            "high_day": str(days[hi]) if hi > 0 else None}
+
+
 def _sample(n, keep=(), max_points=700) -> list:
     """Indexes to draw: about max_points evenly spaced, always the first, the last and the `keep` ones."""
     step = max(1, -(-n // max_points))
@@ -273,6 +314,7 @@ def strategy_risk(sid, mode) -> dict:
             bt["underwater"] = _weekly_underwater(days, vals)
             bt["source"] = "Backtest on real prices"
             bt["built"] = (r.get("data") or {}).get("built") or {}       # {symbol: first real day}: earlier prices built from the index
+            bt["built_from"] = (r.get("data") or {}).get("built_from")     # metals: what the earlier years are (else the index)
             try:                                                  # today's fall as a percentile of past days (same as the dip zones)
                 from . import dip
                 bt["now"] = dip.from_series(days, vals)

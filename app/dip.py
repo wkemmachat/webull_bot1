@@ -98,37 +98,16 @@ def warn_level(of_worst, years=None):
 
 
 def money_fall(mode, sid) -> dict | None:
-    """Your own money in the strategy: how far it is below its high since you started, with money added or taken out
-    left out (each day's change is (value − money moved) / yesterday's value). Uses the last regular-session snapshot of each
-    New York day, plus the value now."""
-    from datetime import datetime, timedelta, timezone
-    from . import ledger, markethours as mh, marketdata as md
-    rows = db.rows("SELECT t, value, capital FROM equity WHERE mode=? AND strategy=? ORDER BY t", (mode, sid))
-    if not rows:
-        return None
-    by_day = {}
-    for x in rows:
-        dt = datetime.fromtimestamp(x["t"], timezone.utc)
-        nyd = dt.astimezone(md.NY).date()
-        b = mh.session_bounds(nyd)
-        if b and b[0] <= dt <= b[1] + timedelta(minutes=15):
-            by_day[nyd] = x                                   # the last one of the day wins
-    pts = [(str(d), x["value"] or 0.0, x["capital"] or 0.0) for d, x in sorted(by_day.items())]
+    """Your own money in the strategy: how far it is below its high since you started (money added or taken out is left
+    out), from the same time-weighted index as the real return on the strategy cards (perf.real_index)."""
+    from . import ledger, perf
     v = ledger.value(mode, sid)
-    pts.append(("now", v["value"] or 0.0, v["net_in"] or 0.0))
-    idx, hi, hi_day, cur = 1.0, 1.0, None, 1.0
-    for i in range(1, len(pts)):
-        d0, v0, c0 = pts[i - 1]
-        d1, v1, c1 = pts[i]
-        if v0 > 0.5:
-            idx *= (v1 - (c1 - c0)) / v0
-        if idx >= hi:
-            hi, hi_day = idx, d1
-        cur = idx
-    if len(pts) < 2 or (v["value"] or 0) < 0.5:
+    if (v["value"] or 0) < 0.5:
         return None
-    return {"fall": round((cur / hi - 1) * 100, 1), "high_day": hi_day if hi_day != "now" else None,
-            "since": pts[0][0] if pts[0][0] != "now" else None}
+    r = perf.real_return(mode, sid, v["value"], v["net_in"] or 0)
+    if not r:
+        return None
+    return {"fall": round(r["fall"] * 100, 1), "high_day": r["high_day"], "since": r["since"], "ret": round(r["ret"] * 100, 1)}
 
 
 def compute(s, now=None) -> dict | None:

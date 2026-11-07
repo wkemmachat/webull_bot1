@@ -30,7 +30,7 @@
       ${ticks.map((v) => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line2)" stroke-width="1" vector-effect="non-scaling-stroke"/>
         <text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--dim)">${v}%</text>`).join('')}
       ${span >= 1 ? years.map((yy) => { const xx = x(yy + '-01-01'); return `<text x="${xx}" y="${H - 6}" text-anchor="middle" font-size="11" fill="var(--dim)">${yy}</text>`; }).join('') : ''}
-      ${bx ? `<rect x="${L}" y="${T}" width="${(bx - L).toFixed(1)}" height="${H - T - B}" fill="var(--dim)" fill-opacity=".10"/><text x="${L + 6}" y="${T + 14}" font-size="11" fill="var(--dim)">built from the index</text>` : ''}
+      ${bx ? `<rect x="${L}" y="${T}" width="${(bx - L).toFixed(1)}" height="${H - T - B}" fill="var(--dim)" fill-opacity=".10"/><text x="${L + 6}" y="${T + 14}" font-size="11" fill="var(--dim)">${U.esc(opts.builtLabel || 'built from the index')}</text>` : ''}
       <path d="${area}" fill="var(--dn)" fill-opacity=".22"/><path d="${line}" fill="none" stroke="var(--dn)" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
       <circle cx="${x(worst[0])}" cy="${y(worst[1])}" r="4" fill="var(--dn)"/>
     </svg>`;
@@ -83,7 +83,7 @@
     return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;height:${H}px;overflow:visible" role="img" aria-label="Growth of $10,000: ${money(g.end)} at the end">
       ${ticks.map((v) => `<line x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="var(--line2)"/><text x="${L - 6}" y="${(y(v) + 4).toFixed(1)}" text-anchor="end" font-size="11" fill="var(--dim)">${money(v)}</text>`).join('')}
       ${years.map((yy) => `<text x="${x(yy + '-01-01').toFixed(1)}" y="${H - 6}" text-anchor="middle" font-size="11" fill="var(--dim)">${yy}</text>`).join('')}
-      ${bx ? `<rect x="${L}" y="${T}" width="${(bx - L).toFixed(1)}" height="${H - T - B}" fill="var(--dim)" fill-opacity=".10"/><text x="${L + 6}" y="${T + 14}" font-size="11" fill="var(--dim)">built from the index</text>` : ''}
+      ${bx ? `<rect x="${L}" y="${T}" width="${(bx - L).toFixed(1)}" height="${H - T - B}" fill="var(--dim)" fill-opacity=".10"/><text x="${L + 6}" y="${T + 14}" font-size="11" fill="var(--dim)">${U.esc(o.builtLabel || 'built from the index')}</text>` : ''}
       <line x1="${L}" x2="${W - R}" y1="${y(g.start).toFixed(1)}" y2="${y(g.start).toFixed(1)}" stroke="var(--dim)" stroke-dasharray="4 4"/>
       ${g.bench.map((b, j) => `<path d="${path(b.values, days)}" fill="none" stroke="var(--dim)" stroke-opacity="${j ? 0.55 : 0.85}" ${j ? 'stroke-dasharray="5 4"' : ''} stroke-width="1.3"/>`).join('')}
       <path d="${path(g.strategy, days)}" fill="none" stroke="${o.color}" stroke-width="2.2" stroke-linejoin="round"/>
@@ -146,12 +146,12 @@
         ${tile('Worst fall', pc(g.worst.depth), `${day(g.worst.peak)} → ${day(g.worst.trough)} · drawn in red`, 'dn')}
       </div>
       ${legend}
-      <div class="gchart" style="position:relative">${growthSvg(g, { w: W, h: narrow ? 220 : 270, log, built, color })}
+      <div class="gchart" style="position:relative">${growthSvg(g, { w: W, h: narrow ? 220 : 270, log, built, color, builtLabel: b.built_from ? 'OANDA spot' : null })}
         <div class="gtip" style="display:none;position:absolute;top:8px;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;box-shadow:0 4px 14px rgba(0,0,0,.14);font-size:12px;min-width:170px;z-index:2"></div></div>
       <div class="col" style="gap:2px"><span class="tiny muted">Calendar-year returns (lighter = part of a year) · point at or tap a year for its numbers</span>
         <div class="ychart" style="position:relative">${yearsSvg(g, W)}
           <div class="ytip" style="display:none;position:absolute;top:0;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;box-shadow:0 4px 14px rgba(0,0,0,.14);font-size:12px;min-width:170px;z-index:3"></div></div></div>
-      <div class="tiny muted">${built ? `Before ${day(built)} prices are built from the index (shaded), as in the falls chart below. ` : ''}${g.real ? `The real line starts at the backtest's value on its first day, so you can see whether real follows the backtest. ` : ''}Past growth is no promise; the day-by-day real result is on the Daily P&amp;L tab.</div>
+      <div class="tiny muted">${built ? (b.built_from ? `Before ${day(built)} the signal reads ${U.esc(b.built_from)} (shaded): Yahoo keeps only about 2 years of hourly futures. ` : `Before ${day(built)} prices are built from the index (shaded), as in the falls chart below. `) : ''}${g.real ? `The real line starts at the backtest's value on its first day, so you can see whether real follows the backtest. ` : ''}Past growth is no promise; the day-by-day real result is on the Daily P&amp;L tab.</div>
     </section>`;
   }
 
@@ -286,8 +286,9 @@
         ${tile('Falls of 20% or more', String(b.count_20), every20 ? `about once every ${every20.toFixed(1)} years · ${b.count_30} of 30%+` : 'none in this history')}
       </div>
       ${ten && ten.worst && b.years > 10.5 ? `<div class="muted small">Last 10 years only: worst fall ${pc(ten.worst.depth)}, longest underwater ${U.dur(ten.longest.days_under)}, below a high ${ten.pct_under.toFixed(0)}% of days.</div>` : ''}
-      ${Object.keys(b.built || {}).length ? `<div class="muted small">${Object.entries(b.built).map(([s, dd]) => `${U.esc(s)} before ${day(dd)}`).join(', ')}: ${Object.keys(b.built).length > 1 ? 'these did' : 'it did'} not exist yet, so ${Object.keys(b.built).length > 1 ? 'their' : 'its'} prices are built from the index (2× its daily move minus the fund's costs; BIL = the T-bill rate). Shaded on the chart.</div>` : ''}
-      <div>${underwaterSvg(b.underwater, { w: W, built: Object.values(b.built || {}).sort().pop() })}</div>
+      ${b.built_from && Object.keys(b.built || {}).length ? `<div class="muted small">Before ${day(Object.values(b.built)[0])} the signal reads ${U.esc(b.built_from)}: Yahoo keeps only about 2 years of hourly futures. Spot and futures turn together most of the time, but not always: over Jul 2024 – Nov 2026 the spot version made more than the futures the bot trades on (Help → Backtest → Gold and silver). Shaded on the chart.</div>`
+        : Object.keys(b.built || {}).length ? `<div class="muted small">${Object.entries(b.built).map(([s, dd]) => `${U.esc(s)} before ${day(dd)}`).join(', ')}: ${Object.keys(b.built).length > 1 ? 'these did' : 'it did'} not exist yet, so ${Object.keys(b.built).length > 1 ? 'their' : 'its'} prices are built from the index (2× its daily move minus the fund's costs; BIL = the T-bill rate). Shaded on the chart.</div>` : ''}
+      <div>${underwaterSvg(b.underwater, { w: W, built: Object.values(b.built || {}).sort().pop(), builtLabel: b.built_from ? 'OANDA spot' : null })}</div>
       <div class="tw"><table class="t"><thead><tr><th class="r">Fall</th><th>From the high on</th><th>Bottom</th><th>Back at the high</th><th class="r">Falling</th><th class="r">Underwater</th></tr></thead><tbody>
         ${b.top.map((e) => `<tr><td class="r num dn">${pc(e.depth)}</td><td class="num">${day(e.peak)}</td><td class="num">${day(e.trough)}</td>
           <td class="num">${e.recovered ? day(e.recovered) : '<span class="pill warn">not yet</span>'}</td><td class="r num">${U.dur(e.days_down)}</td><td class="r num">${U.dur(e.days_under)}</td></tr>`).join('')}</tbody></table></div>`;
@@ -343,7 +344,7 @@
         ${rows.length ? `<div class="grid" style="--min:180px;gap:10px">
           ${tile(t && !t.live ? 'Last session · ' + dayShort(t.day) : 'Today (US session)', t ? `<span class="${U.cls(t.pnl)}">${U.sgnUsd(t.pnl, 0)}</span>` : '—', t && t.pct != null ? U.pct(t.pct, 2) + (t.live ? ' since the ' + day(t.since) + ' close' : ' · market closed now') : 'after the first close')}
           ${tile('This month', `<span class="${U.cls(month)}">${U.sgnUsd(month, 0)}</span>`, 'sum of the days this month')}
-          ${tile('Since start', `<span class="${U.cls(card.pnl)}">${U.sgnUsd(card.pnl, 0)}</span>`, `${U.pct(card.ret)} on ${U.usd(card.net_in, 0)} put in`)}
+          ${tile('Since start', `<span class="${U.cls(card.pnl)}">${U.sgnUsd(card.pnl, 0)}</span>`, `${U.pct(card.ret)} on ${U.usd(card.net_in, 0)} put in${U.realDiffers(card) ? ' · ' + U.realBit(card, true) : ''}`)}
           ${st ? tile('Days up / down', `${st.up} / ${st.down}`, `${st.days ? Math.round(st.up / st.days * 100) : 0}% of ${st.days} days up · best ${U.sgnUsd(st.best.pnl, 0)}, worst ${U.sgnUsd(st.worst.pnl, 0)}`) : ''}
         </div>
         <div>${barsSvg(rows)}</div>

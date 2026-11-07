@@ -11,7 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 TMP = Path(tempfile.mkdtemp(prefix="tsb-test-"))
-os.environ.update({"DATA_DIR": str(TMP), "DATA_SOURCE": "csv", "SCHEDULER_ENABLED": "0", "COOKIE_SECURE": "0",
+os.environ.update({"METALS_HISTORY": "0", "DATA_DIR": str(TMP), "DATA_SOURCE": "csv", "SCHEDULER_ENABLED": "0", "COOKIE_SECURE": "0",
                    "SECRET_KEY": "test-secret-key-0123456789-abcdefghijklmnopqrstuvwxyz", "APP_USERNAME": "", "APP_PASSWORD": ""})
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))

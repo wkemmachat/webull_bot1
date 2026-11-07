@@ -109,7 +109,7 @@
       const pos = Object.entries(c.positions || {});
       return `<div class="grid" style="--min:${d.dip && d.dip.worst10 != null ? 180 : 210}px">
         <div class="card"><div class="eyebrow">Value · ${U.modeLabel[mode]}</div><div class="num big" style="margin-top:6px">${U.usd(c.value)}</div>
-          <div class="num small ${U.cls(c.pnl)}">${U.sgnUsd(c.pnl)} · ${U.pct(c.ret)} on ${U.usd(c.net_in, 0)}</div>${c.today ? '<div>' + U.todayLine(c) + '</div>' : ''}</div>
+          <div class="num small ${U.cls(c.pnl)}">${U.sgnUsd(c.pnl)} · ${U.pct(c.ret)} on ${U.usd(c.net_in, 0)}</div>${U.realDiffers(c) ? `<div class="num small">${U.realBit(c)} <span class="muted">since ${U.esc(U.ymd(c.real.since))}, money moved left out</span></div>` : ''}${c.today ? '<div>' + U.todayLine(c) + '</div>' : ''}</div>
         <div class="card"><div class="eyebrow">Holding</div><div class="num big" style="margin-top:6px">${pos.length ? pos.map(([k, p]) => `${U.qty(p.qty)} ${k}`).join(' · ') : 'Cash'}</div>
           <div class="muted num small">${U.usd(c.cash)} cash${pos.length ? ' · ' + pos.map(([k, p]) => `${k} ${U.usd(p.price)}`).join(' · ') : ''}</div></div>
         <div class="card"><div class="eyebrow">Signal now</div><div style="margin-top:8px">${U.pill(c.state_cls + ' big', st.ok ? (fam === 'regime' ? st.state : (st.state || '').toUpperCase()) : 'ERROR')}</div>

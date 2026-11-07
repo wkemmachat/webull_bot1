@@ -5,9 +5,12 @@ Hourly futures bars → remove contract-roll gaps (back-adjust older prices, see
 """
 from __future__ import annotations
 
+import contextlib
+import contextvars
 import logging
 import time
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -20,6 +23,59 @@ log = logging.getLogger("metals")
 DELAY_MIN = 11          # Yahoo futures lag
 MAX_WAIT_MIN = 45
 _cache: dict = {}
+
+# Long history for backtests only (6 Nov 2026): Yahoo keeps about 2 years of hourly futures, so before the bot's own bars a
+# backtest reads OANDA hourly spot gold/silver from 2006 (app/research/metals_hist), scaled to the futures price where the
+# two join. Live signals never use it: LONG is set only inside metals backtests (backtest._run_metals).
+LONG = contextvars.ContextVar("metals_long_history", default=False)
+HIST_DIR = Path(__file__).parent / "research" / "metals_hist"
+_hist: dict = {}
+
+
+@contextlib.contextmanager
+def long_history():
+    tok = LONG.set(True)
+    try:
+        yield
+    finally:
+        LONG.reset(tok)
+
+
+def _history(sym):
+    """The bundled hourly spot bars of GC / SI (UTC index, o h l c v), or None (also with METALS_HISTORY=0, as in tests)."""
+    import os
+    if os.environ.get("METALS_HISTORY", "1") == "0":
+        return None
+    if sym not in _hist:
+        f = HIST_DIR / f"{sym}_1h.csv.gz"
+        if not f.exists():
+            _hist[sym] = None
+        else:
+            d = pd.read_csv(f)
+            d.index = pd.to_datetime(d.pop("t"), unit="s", utc=True)
+            d["v"] = 0.0
+            _hist[sym] = d[["o", "h", "l", "c", "v"]].astype(float)
+    return _hist[sym]
+
+
+def with_history(sym, raw1):
+    """raw1 (the bot's own hourly futures bars) with the spot history before it, scaled at the join.
+    Returns (bars, first real bar time or None when nothing was added)."""
+    h = _history(sym)
+    if h is None or raw1.empty:
+        return raw1, None
+    first = raw1.index[0]
+    both = raw1["c"].iloc[:200].to_frame("f").join(h["c"].rename("s"), how="inner")
+    if len(both) < 20:
+        log.warning("metals history %s: no overlap with the bot's bars to scale it", sym)
+        return raw1, None
+    k = float((both["f"] / both["s"]).median())            # futures / spot (carry) where the two join
+    old = h[h.index < first].copy()
+    if old.empty:
+        return raw1, None
+    for c in ("o", "h", "l", "c"):
+        old[c] = old[c] * k
+    return pd.concat([old, raw1[old.columns]]), first
 
 
 def delay_min() -> int:
@@ -98,8 +154,9 @@ def update(sym: str) -> int:
 def series(sym: str, now: datetime | None = None) -> dict:
     """{'raw4', 'adj4', 'factor4', 'raw1'} with only completed 4H bars. Cached until new data arrives."""
     now = now or md.now_utc()
+    long = LONG.get()
     stamp = (md.last_update(sym, "1h"), int(pd.Timestamp(now).timestamp()) // 60)
-    hit = _cache.get(sym)
+    hit = _cache.get((sym, long))
     if hit and hit[0] == stamp:
         return hit[1]
     raw1 = md.load(sym, "1h")
@@ -115,6 +172,9 @@ def series(sym: str, now: datetime | None = None) -> dict:
                           [(sym, int(ts.timestamp()), ratio, gap, int(time.time())) for ts, ratio, gap in new])
     rl = [(pd.Timestamp(r["t"], unit="s", tz="UTC"), r["ratio"])
           for r in db.rows("SELECT t, ratio FROM rolls WHERE symbol=? AND ignored=0 ORDER BY t", (sym,))]
+    first_real = None
+    if long:                                       # backtests only: spot history before the bot's own bars
+        raw1, first_real = with_history(sym, raw1)
     adj1, _ = apply_rolls(raw1, rl)
     raw4, adj4 = to_4h(raw1), to_4h(adj1)
     now_ts = pd.Timestamp(now)
@@ -132,8 +192,8 @@ def series(sym: str, now: datetime | None = None) -> dict:
     else:
         raw4c, adj4c = raw4.iloc[:0], adj4.iloc[:0]
     out = {"raw1": raw1, "raw4": raw4c, "adj4": adj4c, "factor4": (adj4c["c"] / raw4c["c"]).astype(float),
-           "forming": raw4.iloc[len(raw4c):], "rolls": rl}
-    _cache[sym] = (stamp, out)
+           "forming": raw4.iloc[len(raw4c):], "rolls": rl, "first_real": first_real}
+    _cache[(sym, long)] = (stamp, out)
     return out
 
 

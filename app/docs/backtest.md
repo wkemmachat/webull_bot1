@@ -21,8 +21,8 @@ and shows what $10,000 would have become, next to simply holding the ETF (and th
 ## The Backtest page (every strategy at once)
 
 **Backtest** in the side menu puts every strategy side by side, from the last expected-returns check (no backtests run, so
-it opens at once). Gold and silver on their default settings use the research's 10 years (OANDA prices) because Yahoo keeps
-only about 2 years of hourly metals prices; the table marks those *research*.
+it opens at once). Gold and silver on their default settings use the research's 10 years (OANDA prices); the table marks
+those *research*. Their Backtest tabs now go back to December 2008 too (see *Gold and silver* below).
 
 | Part | Meaning |
 |---|---|
@@ -74,10 +74,33 @@ they were worked out.
 | USD Trend + IBS-dip | USD daily (signal and size), USD, GLD daily; SMH for comparison | from November 2007 (USD started in February 2007, plus 200 days for its average) |
 | 2x Semis regime | SMH daily, USD, BIL, GLD daily | from mid-2007 |
 | C2-7 Momentum 1x / 2x | QQQ daily (signal), weekly Nasdaq-100 ranking and stock prices from the research (2016–2026, then the bot's own), 2x ETFs, GLD, SGOV | from late October 2016 (the research's ranking file) |
-| Gold #1/#2, Silver #1/#2 | GC=F / SI=F hourly futures, UGL / AGQ (cash while flat) | about 2 years: Yahoo keeps only 2 years of hourly futures |
+| Gold and silver strategies | GC=F / SI=F hourly futures for the last ~2 years, OANDA hourly spot before that; UGL / AGQ / SLV daily | from December 2008 (UGL and AGQ start) |
 
-The metals research covered 10 years with other data (see each strategy's doc page); the in-app backtest is shorter but uses the
-exact live code and timing.
+### Gold and silver: the years before Yahoo's 2 years (7 Nov 2026)
+
+Yahoo keeps only about 2 years of hourly gold and silver futures, so until now the gold and silver backtests were 2 years
+long: too short for *Fall from its high*, the *Deep fall* warning or the buy zones to mean much. Since 7 Nov 2026 a
+backtest reads **OANDA hourly spot gold and silver from 2006** (bundled with the bot) for the years before the bot's own
+futures bars, scaled to the futures price where the two join. The last ~2 years are still the bot's own Yahoo futures
+bars, the ones it trades on. Live signals never read the OANDA bars. The charts shade the OANDA years (*OANDA spot*).
+
+**Spot is not futures.** Over the same Jul 2024 – Nov 2026 window, the bot's code on OANDA spot made more than the live
+Yahoo backtest, although most trades lined up (gold Supertrend + ADX: 89 of 104 trades within 1.5 days, at nearly the
+same UGL prices):
+
+| Same dates, same code | Yahoo futures (live backtest) | OANDA spot | Month-to-month correlation |
+|---|---|---|---|
+| Gold #1 · Supertrend + ADX (from Jul 2024) | +102% | +170% | 0.94 |
+| Gold #2 · Supertrend 30/2.5 | +114% | +175% | 0.95 |
+| Silver #1 · Donchian 30/15 (from Jun 2024) | +30% | +112% | 0.81 |
+| Silver #2 · Supertrend 10/3 | +94% | +205% | 0.83 |
+| Gold · Slow trend + calm + RSI dips (from Jul 2025) | +107% | +108% | 0.97 |
+| Silver · Trend with gold's OK + vol size (from Aug 2024) | +230% | +248% | 0.93 |
+
+The futures bars looked clean (no flat bars, only holiday gaps), so this is the difference between the two markets, not
+bad data: the gold Supertrend flips a few hours or a day apart on spot and futures, and a few of those flips cost a lot.
+An earlier study found futures doing better than spot over Jul 2023 – Oct 2026, so the gap is not always one way. So
+read the OANDA years for **how deep and how long the falls were**, not as a promise of the returns.
 
 ## Reading it honestly
 

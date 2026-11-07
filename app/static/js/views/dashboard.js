@@ -70,7 +70,7 @@
               <div class="num huge" style="margin-top:6px">${U.usd(b.value)}</div>
               <div class="row" style="gap:18px;margin-top:8px">
                 <span>Today <b class="num pnlclk ${U.cls(b.today)}" data-pnl="today" title="Each strategy's part">${b.today == null ? '—' : U.sgnUsd(b.today) + ' (' + U.pct(b.today_pct, 2) + ')'}</b></span>
-                <span>Since start <b class="num pnlclk ${U.cls(b.pnl)}" data-pnl="all" title="Each strategy's part">${U.sgnUsd(b.pnl)} (${U.pct(b.ret, 2)})</b></span>
+                <span>Since start <b class="num pnlclk ${U.cls(b.pnl)}" data-pnl="all" title="Each strategy's part">${U.sgnUsd(b.pnl)} (${U.pct(b.ret, 2)})</b>${U.realDiffers(b) ? ' · ' + U.realBit(b, true) : ''}</span>
                 <span>vs buy &amp; hold <b class="num ${U.cls((b.ret || 0) - (b.bench_ret || 0))}">${b.bench_ret == null ? '—' : ((((b.ret || 0) - b.bench_ret) * 100 >= 0 ? '+' : '') + (((b.ret || 0) - b.bench_ret) * 100).toFixed(1) + ' pts')}</b></span>
               </div></div>
             <div class="seg" id="rng"><button data-d="7">1W</button><button data-d="30">1M</button><button data-d="90" class="on">3M</button></div>
@@ -108,7 +108,7 @@
           <div class="row" style="gap:10px">${U.dot(s.color, 10)}<b style="font-size:15px">${U.esc(s.name)}</b><span class="pill" style="margin-left:auto">${s.type === 'momentum_basket' ? 'Stock basket' : s.family === 'regime' ? 'Daily regime' : '4H signal'}</span></div>
           ${U.dipPill(s.dip) || U.fallPill(s.dip) ? `<div class="row" style="gap:6px">${U.dipPill(s.dip)}${U.fallPill(s.dip)}</div>` : ''}
           <div class="row sb" style="align-items:flex-end">
-            <div><div class="num big" style="font-size:22px">${U.usd(s.value, 0)}</div><div class="num small ${U.cls(s.pnl)}">${U.sgnUsd(s.pnl, 0)} · ${U.pct(s.ret)}</div>${U.todayLine(s) ? '<div>' + U.todayLine(s) + '</div>' : ''}</div>
+            <div><div class="num big" style="font-size:22px">${U.usd(s.value, 0)}</div><div class="num small ${U.cls(s.pnl)}">${U.sgnUsd(s.pnl, 0)} · ${U.pct(s.ret)}${U.realDiffers(s) ? ' · ' + U.realBit(s, true) : ''}</div>${U.todayLine(s) ? '<div>' + U.todayLine(s) + '</div>' : ''}</div>
             ${U.spark(s.spark, s.color)}</div>
           ${U.ddLine(s) ? '<div>' + U.ddLine(s) + '</div>' : ''}
           <div class="row sb" style="gap:8px;align-items:flex-end">${U.stateBlock(s)}

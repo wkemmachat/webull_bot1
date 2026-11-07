@@ -390,7 +390,27 @@ def _exec_start(want, avail, cfg):
     return mh.start_time(avail, cfg["start_mode"], cfg["start_time"], sess)
 
 
+METAL_NAME = {"GC": "gold", "SI": "silver"}
+
+
 def _run_metals(strat, now, cost, cfg, late=0):
+    """The metals backtest on the long history: before the bot's own Yahoo futures bars (about 2 years), OANDA hourly spot
+    from 2006, scaled to the futures price at the join (metals.long_history; live signals never use it)."""
+    with metals.long_history():
+        r = _run_metals_bars(strat, now, cost, cfg, late)
+        first = (metals.series(strat.sym, now) or {}).get("first_real")
+    if first is not None:
+        d0 = pd.Timestamp(first).tz_convert(NY).date()
+        if r["days"] and d0 > r["days"][0]:
+            r["built"] = {f"{strat.sym}=F": str(d0)}
+            r["built_from"] = f"OANDA hourly spot {METAL_NAME.get(strat.sym, strat.sym)}, scaled to the futures price"
+            r["data_note"] = (f"{strat.sym}=F hourly futures → 4H bars from {d0} (Yahoo keeps about 2 years); before that OANDA "
+                              f"hourly spot {METAL_NAME.get(strat.sym, strat.sym)} from 2006, scaled to the futures price · "
+                              f"{', '.join(r['syms'])} daily total-return prices (hourly where Yahoo has them)")
+    return r
+
+
+def _run_metals_bars(strat, now, cost, cfg, late=0):
     p = strat.params
     se = metals.series(strat.sym, now)
     adj4, raw4 = se["adj4"], se["raw4"]
@@ -502,7 +522,7 @@ def _run_metals(strat, now, cost, cfg, late=0):
         bench[idx_sym] = daily[idx_sym]
     return {"days": days, "eq": eq, "expo": expo, "trades": B.trades, "fees": B.fees, "state": st, "bench": bench,
             "rf": daily.get(RF_SYMBOL), "main": etf, "index": idx_sym if idx_sym in bench else None,
-            "data_from": str(days[0]),
+            "data_from": str(days[0]), "syms": syms,
             "data_note": f"{strat.sym}=F hourly futures → 4H bars (Yahoo keeps about 2 years) · {', '.join(syms)} hourly + daily total-return prices"}
 
 
@@ -819,7 +839,7 @@ def _build(strat, now, cost, delay=0):
             "stats": stats, "ranges": [k for k, _ in RANGES if k in stats], "years": years,
             "trades": [x for x in r["trades"]][-1500:], "round_trips": _round_trips(r["trades"], r["main"], r.get("parking"))[-200:],
             "vs": r.get("vs") or r["main"], "parking": r.get("parking"), "holding": r.get("holding"),
-            "fees": round(r["fees"], 2), "cost_pct": cost * 100, "cost_2x_pct": (cost + COST_2X_SPREAD) * 100, "data": {"from": r["data_from"], "to": str(days[-1]), "note": r["data_note"], "built": r.get("built") or {},
+            "fees": round(r["fees"], 2), "cost_pct": cost * 100, "cost_2x_pct": (cost + COST_2X_SPREAD) * 100, "data": {"from": r["data_from"], "to": str(days[-1]), "note": r["data_note"], "built": r.get("built") or {}, "built_from": r.get("built_from"),
                                                                           "source": md.source()},
             "exec": {k: cfg.get(k) for k in ("lots", "interval_min", "start_mode", "start_time", "exit_mode")},
             "generated_at": int(time.time())}

@@ -117,3 +117,61 @@ def of_cards(cards) -> dict:
                         "leveraged_pct": (lev2 / tv) if tv > 0.5 else None,
                         "fall10": round(-tl * 0.10, 2),
                         "strategies": len({s["id"] for r in tech for s in r["strategies"]})}}
+
+
+def _cards(mode):
+    from . import ledger, strategies as S
+    out = []
+    for s in S.all_instances():
+        v = ledger.value(mode, s.id)
+        out.append({"id": s.id, "name": s.name, "color": s.color, "cash": float(v["cash"] or 0),
+                    "positions": {k: {"qty": p.get("qty"), "value": float(p.get("value") or 0)} for k, p in (v["positions"] or {}).items()}})
+    return out
+
+
+def _target(sid) -> dict:
+    """Today's target weights of a strategy ({symbol: weight}), from its last evaluation."""
+    import json
+    from . import db
+    r = db.one("SELECT target FROM strategy_state WHERE strategy=?", (sid,))
+    t = json.loads(r["target"] or "{}") if r else {}
+    return {k: float(w) for k, w in t.items() if w}
+
+
+def preview(mode, kind, sid, amount, to=None, invest="now") -> dict:
+    """US tech before and after an Add money or Move (a guide: the plan itself decides the exact shares).
+    Add: the money goes to the strategy's target today (or stays cash with "wait for the next buy signal").
+    Move: it leaves the first strategy from its cash first, then evenly from what it holds; the second strategy invests it
+    like Add."""
+    import copy
+    before = _cards(mode)
+    after = copy.deepcopy(before)
+    by = {c["id"]: c for c in after}
+    amount = max(0.0, float(amount or 0))
+    if kind == "move" and sid in by:
+        src = by[sid]
+        tot = src["cash"] + sum(p["value"] for p in src["positions"].values())
+        amount = min(amount, tot)
+        take = min(amount, max(src["cash"], 0.0))
+        src["cash"] -= take
+        rest = amount - take
+        held = sum(p["value"] for p in src["positions"].values())
+        if rest > 0 and held > 0:
+            for p in src["positions"].values():
+                p["value"] -= rest * p["value"] / held
+        dest = by.get(to)
+    else:
+        dest = by.get(sid)
+    if dest is not None and kind in ("add", "move"):
+        w = _target(dest["id"]) if invest == "now" else {}
+        put = 0.0
+        for sym, wt in w.items():
+            p = dest["positions"].setdefault(sym, {"qty": 1, "value": 0.0})
+            p["qty"] = p.get("qty") or 1
+            p["value"] += amount * wt
+            put += amount * wt
+        dest["cash"] += amount - put
+    a, b = of_cards(before), of_cards(after)
+    pick = lambda x: {k: x["us_tech"][k] for k in ("pct", "acts_like", "value", "fall10")} | {"total": x["total"]}
+    return {"before": pick(a), "after": pick(b), "dest": dest and {"id": dest["id"], "name": dest["name"]},
+            "target": _target(dest["id"]) if dest is not None and invest == "now" else {}}

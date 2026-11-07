@@ -1,6 +1,14 @@
 <!--{"title": "Design decisions", "group": "Help"}-->
 # Design decisions (October 2026)
 
+- **Real result, same-bet check, gold and silver history** (7 Nov 2026):
+  - Cards show a time-weighted *real* result next to the simple *% on money put in* when the two differ by half a point or
+    more (money moved after a gain or loss changes the simple one).
+  - Add money and Move show **US tech before → after** (share of the strategies' money, and *acts like* with 2x counted
+    twice) and a 10% US-tech-fall figure. Amber when it ends above 100%; it never blocks.
+  - Gold and silver backtests read OANDA hourly spot (2006–) before Yahoo's ~2 years of futures, scaled at the join, for
+    backtests only. Over the overlap spot made more than futures, so the long years are for falls, not returns
+    ([Backtest](#/docs/backtest)).
 - **No crash brake** (6 Nov 2026, after ROM's fall): every strategy was tested with an extra "sell to cash" rule on top of its
   own rules, 2006/2008 to 5 Nov 2026, with the bot's own backtest code, Webull's fee and real timing (decide after the
   close, sell at the next open). 112 settings in four families: a trailing stop on the strategy's own value (10–35% below

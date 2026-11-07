@@ -295,14 +295,19 @@
             <label class="opt ${invest === 'now' ? 'on' : ''}"><input type="radio" name="inv" value="now" ${invest === 'now' ? 'checked' : ''}><span><b style="font-weight:500">Now, by today's signal</b><br><span class="muted small">The bot buys toward the strategy's current target with a split plan (e.g. UGL if gold is long today).</span></span></label>
             <label class="opt ${invest === 'wait' ? 'on' : ''}"><input type="radio" name="inv" value="wait" ${invest === 'wait' ? 'checked' : ''}><span><b style="font-weight:500">Wait for the next buy signal</b><br><span class="muted small">This money stays as cash in the strategy until a new BUY comes (for QLD / Semis: a step up, like off → 1x or 0.5x → 2x). Sell signals do not start it. Money already in the strategy keeps trading as usual.</span></span></label></div>`
             : `<div class="note info">Uses the strategy's cash first, then sells its holdings evenly with a split plan. The money goes back to <b>bot unassigned</b>; use <b>Return to Webull</b> if the bot should stop using it.</div>`}
+          ${tab !== 'withdraw' ? '<div id="mexpo" aria-live="polite"></div>' : ''}
           <label class="row small" style="color:var(--text2)"><input type="checkbox" checked disabled style="width:18px;height:18px;accent-color:var(--accent)">A LINE message is sent when it is done (if Money alerts are on)</label>
           <div class="row" style="justify-content:flex-end"><button class="btn" id="mc">Cancel</button><button class="btn p" id="mgo">${tab === 'add' ? 'Add money' : tab === 'withdraw' ? 'Withdraw' : 'Move money'}</button></div></div>`;
           U.on(box, '[data-t]', 'click', (e, b) => { tab = b.dataset.t; draw(); });
           let all = false;                                   // Everything: the server takes all of it at today's prices
           U.on(box, '[data-q]', 'click', (e, b) => { box.querySelector('#ma').value = (+b.dataset.q).toFixed(2); all = !!b.dataset.all; });
           box.querySelector('#ma').addEventListener('input', () => { all = false; });
-          U.on(box, 'input[name=inv]', 'change', (e, b) => { invest = b.value; box.querySelectorAll('.opt').forEach((o) => o.classList.toggle('on', o.querySelector('input').checked)); });
+          U.on(box, 'input[name=inv]', 'change', (e, b) => { invest = b.value; box.querySelectorAll('.opt').forEach((o) => o.classList.toggle('on', o.querySelector('input').checked)); expo(); });
           box.querySelector('#ms').addEventListener('change', draw);
+          box.querySelector('#ma').addEventListener('input', expo);
+          if (box.querySelector('#mt')) box.querySelector('#mt').addEventListener('change', expo);
+          U.on(box, '[data-q]', 'click', () => expo());
+          expo();
           box.querySelector('#mc').onclick = close;
           box.querySelector('#mgo').onclick = (e) => U.busy(e.target, async () => {
             const amount = parseFloat((box.querySelector('#ma').value || '').replace(/[$,]/g, ''));
@@ -317,8 +322,36 @@
             close(); if (onDone) onDone();
           });
         }
+        /* Same bet check: US tech before and after (a guide; it never blocks) */
+        let et = null, seq = 0;
+        function expo() {
+          clearTimeout(et);
+          et = setTimeout(async () => {
+            const host = box.querySelector('#mexpo');
+            if (!host || tab === 'withdraw') return;
+            const amount = parseFloat((box.querySelector('#ma').value || '').replace(/[$,]/g, '')) || 0;
+            const q = new URLSearchParams({ mode, kind: tab, sid: box.querySelector('#ms').value, amount: String(amount), invest });
+            if (tab === 'move' && box.querySelector('#mt')) q.set('to', box.querySelector('#mt').value);
+            const my = ++seq;
+            let x;
+            try { x = await U.api('/api/exposure/preview?' + q.toString()); } catch (e) { host.innerHTML = ''; return; }
+            if (my !== seq || !box.querySelector('#mexpo')) return;
+            const b = x.before, a = x.after, pc = (v) => (v == null ? '—' : Math.round(v * 100) + '%');
+            if (!(amount > 0)) {
+              host.innerHTML = b.pct > 0.005 ? `<div class="note ${b.acts_like > 1 ? 'warn' : 'info'} small" style="margin:0">Right now <b>${pc(b.pct)}</b> of the money in your strategies is in US tech, and it moves like <b>${pc(b.acts_like)}</b> of it (2x ETFs count twice).</div>` : '';
+              return;
+            }
+            const up = a.acts_like > b.acts_like + 0.005, over = a.acts_like > 1;
+            const tgt = Object.keys(x.target || {}).join(' + ');
+            host.innerHTML = `<div class="note ${up && over ? 'warn' : 'info'} small" style="margin:0;display:block;line-height:1.55">
+              <b>Same bet check</b>${tgt ? ` · it would buy ${U.esc(tgt)}` : invest === 'wait' ? ' · it stays cash until a buy signal' : ''}<br>
+              US tech: <b>${pc(b.pct)} → ${pc(a.pct)}</b> of your strategies' money · acts like <b>${pc(b.acts_like)} → ${pc(a.acts_like)}</b><br>
+              A 10% fall in US tech ≈ <span class="num dn">${U.sgnUsd(b.fall10, 0)}</span> → <span class="num dn">${U.sgnUsd(a.fall10, 0)}</span>
+              ${up && over ? '<br>⚠ After this it moves like more than all the money in your strategies. You can still go ahead.' : ''}</div>`;
+          }, 250);
+        }
         draw();
-        if (preset.amount) box.querySelector('#ma').value = (+preset.amount).toFixed(2);
+        if (preset.amount) { box.querySelector('#ma').value = (+preset.amount).toFixed(2); expo(); }
       },
     });
   };
