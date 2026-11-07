@@ -139,3 +139,19 @@ def test_same_bet_preview_add_and_move(clean):
     m = exposure.preview("paper", "move", "rom_tbd", 500, to="gold_sta")
     assert m["after"]["total"] == pytest.approx(m["before"]["total"])                         # moving is not adding
     assert m["dest"]["id"] == "gold_sta"
+
+
+def test_falls_now_counts_past_falls_deeper_than_today():
+    from datetime import date, timedelta
+    from app import perf
+    vals = [100, 80, 100, 101, 70, 90, 101, 102, 95, 102.5, 103, 85]       # falls of −20%, −30.7%, −6.9%; now −17.5%
+    days = [date(2020, 1, 1) + timedelta(days=30 * i) for i in range(len(vals))]
+    x = perf.falls_now(days * 1, vals) if len(vals) >= 30 else None
+    long_v = vals * 3                                                        # three rounds so there are 30+ days
+    long_v = [v * (1.05 ** (i // len(vals))) for i, v in enumerate(long_v)]
+    long_d = [date(2020, 1, 1) + timedelta(days=30 * i) for i in range(len(long_v))]
+    x = perf.falls_now(long_d, long_v)
+    assert x["episodes"] >= 6 and x["deeper"] >= 4                          # each round has a −20% and a −30.7% fall
+    assert x["back_months"] is not None and 0 < x["of_worst"] <= 100
+    u = perf.daily_underwater(long_d, long_v)
+    assert len(u["t"]) == len(long_v) and u["v"][0] == 10000 and max(u["dd"]) == 0 and min(u["dd"]) < -30

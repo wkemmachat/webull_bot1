@@ -352,3 +352,12 @@ tr.dipz1, tr.dipz2 { box-shadow: none; }
 .exrow.tech { border-left-color: #20C997; }
 .exrow.total { border-left-color: transparent; border-top-width: 2px; }
 @media (max-width: 520px) { .exrow { grid-template-columns: minmax(0, 1fr) 78px 62px; gap: 6px; } }
+
+/* Falls to expect: interactive charts and the clickable falls table */
+.fcharts { position: relative; border: 1px solid var(--line, #E4E8E4); border-radius: 10px; overflow: hidden; }
+.fcharts .fcleg { position: absolute; z-index: 3; left: 10px; top: 6px; pointer-events: none; color: var(--text2, #555);
+  background: color-mix(in srgb, var(--chart-bg, #fff) 85%, transparent); padding: 2px 6px; border-radius: 6px; }
+.fcharts .fcv { border-bottom: 1px solid var(--line, #E4E8E4); }
+.ftable tr[data-fall] { cursor: pointer; }
+.ftable tr[data-fall]:hover td { background: var(--panel2, #F3F6F3); }
+.ftable tr.on td { background: color-mix(in srgb, #EF5350 10%, transparent); }

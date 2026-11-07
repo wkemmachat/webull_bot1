@@ -150,6 +150,50 @@ def drawdowns(days: list, values: list, top: int = 5) -> dict | None:
             "median_days_under_10": int(np.median([e["days_under"] for e in eps if e["depth"] <= -10])) if any(e["depth"] <= -10 for e in eps) else None}
 
 
+def falls_now(days, values, now_depth=None, years=20) -> dict | None:
+    """For the "Right now" row: today's fall next to the past ones.
+      deeper / episodes   finished falls that went deeper than today's, out of all finished falls
+      back_months         median months those took from first reaching today's depth back to their high
+      pct_under           today's fall is deeper than this % of the days that were below a high (last `years` years)
+      of_worst            today's fall as a % of the worst fall"""
+    v = np.asarray(values, dtype=float)
+    if len(v) < 30 or v.min() <= 0:
+        return None
+    dd = v / np.maximum.accumulate(v) - 1
+    cur = float(dd[-1]) if now_depth is None else now_depth / 100
+    if cur >= -1e-9:
+        return {"deeper": 0, "episodes": None, "back_months": None, "pct_under": 0.0, "of_worst": 0.0}
+    eps, i, n = [], 0, len(v)
+    while i < n:
+        if dd[i] < -1e-9:
+            j = i
+            while j < n and dd[j] < -1e-9:
+                j += 1
+            if j < n:                                            # finished (back at a high)
+                eps.append((i, j, float(dd[i:j].min())))
+            i = j
+        else:
+            i += 1
+    deeper = [(a, b) for a, b, m in eps if m <= cur]
+    backs = []
+    for a, b in deeper:
+        k = a + int(np.argmax(dd[a:b] <= cur))                   # first day at today's depth
+        backs.append((days[b] - days[k]).days / 30.44)
+    lo = next((x for x, d in enumerate(days) if d >= date(days[-1].year - years, days[-1].month, min(days[-1].day, 28))), 0)
+    under = dd[lo:][dd[lo:] < -1e-9]
+    return {"deeper": len(deeper), "episodes": len(eps), "back_months": round(float(np.median(backs)), 1) if backs else None,
+            "pct_under": round(float((under > cur).mean() * 100), 0) if len(under) else None,
+            "of_worst": round(cur / float(dd.min()) * 100, 0) if dd.min() < 0 else None}
+
+
+def daily_underwater(days, values):
+    """Every day's fall below the last high (%), and the value as a growth of $10,000, for the interactive chart."""
+    v = np.asarray(values, dtype=float)
+    dd = v / np.maximum.accumulate(v) - 1
+    t = [int(datetime(d.year, d.month, d.day, tzinfo=timezone.utc).timestamp()) for d in days]
+    return {"t": t, "dd": [round(float(x) * 100, 2) for x in dd], "v": [round(float(x) / v[0] * 10000, 1) for x in v]}
+
+
 def _weekly_underwater(days, values, max_points=520):
     v = np.asarray(values, dtype=float)
     dd = v / np.maximum.accumulate(v) - 1
@@ -312,12 +356,15 @@ def strategy_risk(sid, mode) -> dict:
         bt = drawdowns(days, vals)
         if bt:
             bt["underwater"] = _weekly_underwater(days, vals)
+            bt["daily"] = daily_underwater(days, vals)
+            bt["top"] = drawdowns(days, vals, top=10)["top"]
             bt["source"] = "Backtest on real prices"
             bt["built"] = (r.get("data") or {}).get("built") or {}       # {symbol: first real day}: earlier prices built from the index
             bt["built_from"] = (r.get("data") or {}).get("built_from")     # metals: what the earlier years are (else the index)
             try:                                                  # today's fall as a percentile of past days (same as the dip zones)
                 from . import dip
                 bt["now"] = dip.from_series(days, vals)
+                bt["vs_past"] = falls_now(days, vals)
             except Exception as e:
                 log.warning("risk now %s: %s", sid, e)
                 bt["now"] = None

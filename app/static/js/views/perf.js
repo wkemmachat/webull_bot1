@@ -217,17 +217,19 @@
   /* today's fall and how deep it is compared with the strategy's own past days (the dip-zone percentile) */
   const ord = (v) => U.ordinal(Math.round(v));
   function nowTiles(b) {
-    const n = b.now, c = b.current || {};
+    const n = b.now, c = b.current || {}, vp = b.vs_past || {};
     if (!n) return '';
     const atHigh = !(n.depth < 0);
     const zone = n.zone === 'deep' ? '<span class="pill dip2" style="margin-left:8px;vertical-align:middle;font-family:var(--font)">▲▲ Strong buy zone</span>'
       : n.zone === 'dip' ? '<span class="pill dip1" style="margin-left:8px;vertical-align:middle;font-family:var(--font)">▲ Buy zone</span>' : '';
-    const pctTxt = atHigh ? 'at a new high' : `deeper than on ${n.pct}% of days`;
-    return `<div class="grid" style="--min:260px;gap:10px">
-      ${tile('Fall now', atHigh ? '0%' : pc(n.depth),
-        atHigh ? `at its high on ${day(n.day)}` : `below its high of ${day(c.since)} · ${U.dur(c.days || 0)} underwater · prices of ${day(n.day)}`, atHigh ? 'up' : 'dn')}
-      ${tile('Fall now · percentile', ord(atHigh ? 0 : n.pct) + zone,
-        `${pctTxt} since ${day(n.from)} (${n.years} years) · 70th = ${pc(n.p70)}, 80th = ${pc(n.p80)}, 90th = ${pc(n.p90)}`)}
+    return `<span class="eyebrow">Right now · backtest to ${day(n.day)}</span>
+      <div class="grid" style="--min:240px;gap:10px">
+      ${tile('Now below its high', atHigh ? '0%' : pc(n.depth),
+        atHigh ? `at its high on ${day(n.day)}` : `since its high on ${day(c.since)} · ${U.dur(c.days || 0)} under water${vp.of_worst != null ? ` · ${vp.of_worst}% of the worst fall` : ''}`, atHigh ? 'up' : 'dn')}
+      ${tile('Now percentile', ord(atHigh ? 0 : n.pct) + zone,
+        atHigh ? 'at a new high' : `today's fall is deeper than ${n.pct}% of its days in ${n.years} years (days at a high count as 0)${vp.pct_under != null ? ` · deeper than ${vp.pct_under}% of its days below a high` : ''}`)}
+      ${atHigh || vp.episodes == null ? tile('Past falls deeper than now', '—', 'at a high now') : tile('Past falls deeper than now', `${vp.deeper} <span class="muted" style="font-size:14px">of ${vp.episodes}</span>`,
+        vp.deeper ? `those got back to their high after a median ${vp.back_months} months from this depth` : 'none: this is the deepest fall in the backtest')}
     </div>`;
   }
 
@@ -245,9 +247,11 @@
     if (!b && !l) { el.innerHTML = ''; return; }
     let log = true;
     try { log = localStorage.getItem('growthScale') !== 'lin'; } catch (e) { /* private mode */ }
+    let fc = null;                                           // the two falls charts (removed before each redraw)
     const draw = () => {
       const W = Math.max(300, Math.round((el.clientWidth || 1000) - 42));
       el.innerHTML = growthCard(d, W, log) + fallsHtml(W);
+      mountFalls(el, d);
       const gb = el.querySelector('#growth');
       if (gb) {
         growthHover(gb, d.growth, W, log);
@@ -269,6 +273,89 @@
     window.addEventListener('resize', onResize);
     draw();
 
+    function mountFalls(root, d) {
+      if (fc) { fc.forEach((c) => { try { c.remove(); } catch (e) { /* gone */ } }); fc = null; }
+      const b = d.backtest, host = root.querySelector('.fcharts');
+      if (!b || !b.daily || !host || !window.LightweightCharts || !window.Charts) return;
+      const LC = window.LightweightCharts, t = b.daily.t;
+      const cv = Charts.base(host.querySelector('.fcv'), { daily: true, timeVisible: false, noLogo: true });
+      const cu = Charts.base(host.querySelector('.fcu'), { daily: true });
+      fc = [cv, cu];
+      const usd = (x) => '$' + (x >= 1e6 ? (x / 1e6).toFixed(x >= 1e8 ? 0 : 1) + 'M' : x >= 1e4 ? (x / 1e3).toFixed(0) + 'k' : (x / 1e3).toFixed(1) + 'k');
+      const pcts = (x) => (x <= -0.05 ? x.toFixed(1) : '0') + '%';
+      [cv, cu].forEach((c) => c.applyOptions({ timeScale: { minBarSpacing: 0.02, rightOffset: 2 } }));   // 20 years fit in a phone's width
+      cv.applyOptions({ rightPriceScale: { mode: LC.PriceScaleMode.Logarithmic, minimumWidth: 80 }, localization: { priceFormatter: usd } });
+      cu.applyOptions({ rightPriceScale: { minimumWidth: 80, scaleMargins: { top: 0.05, bottom: 0.02 } }, localization: { priceFormatter: pcts } });
+      const color = d.color || '#2E7D32';
+      const vs = cv.addLineSeries({ color, lineWidth: 2, priceLineVisible: false, lastValueVisible: true,
+        priceFormat: { type: 'custom', formatter: (x) => '$' + (x >= 1e6 ? (x / 1e6).toFixed(2) + 'M' : x >= 1e4 ? (x / 1e3).toFixed(0) + 'k' : (x / 1e3).toFixed(1) + 'k') } });
+      vs.setData(t.map((x, i) => ({ time: x, value: b.daily.v[i] })));
+      const pcf = { type: 'custom', minMove: 0.1, formatter: (x) => (x <= -0.05 ? x.toFixed(1) : '0.0') + '%' };
+      const built = Object.values(b.built || {}).sort().pop();
+      if (built) {                                           // shade the years built from the index / read from OANDA spot
+        const bt = Date.parse(built) / 1000;
+        const sh = cu.addAreaSeries({ priceScaleId: 'shade', priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+          lineColor: 'rgba(0,0,0,0)', lineWidth: 1, topColor: 'rgba(128,128,128,0.14)', bottomColor: 'rgba(128,128,128,0.14)',
+          autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 1 } }) });
+        cu.priceScale('shade').applyOptions({ scaleMargins: { top: 0, bottom: 0 }, visible: false });
+        sh.setData(t.filter((x) => x < bt).map((x) => ({ time: x, value: 1 })));
+      }
+      const us = cu.addBaselineSeries({ baseValue: { type: 'price', price: 0 }, priceFormat: pcf, priceLineVisible: false, lastValueVisible: false,
+        topLineColor: 'rgba(0,0,0,0)', topFillColor1: 'rgba(0,0,0,0)', topFillColor2: 'rgba(0,0,0,0)',
+        bottomLineColor: '#EF5350', bottomFillColor1: 'rgba(239,83,80,0.10)', bottomFillColor2: 'rgba(239,83,80,0.38)', lineWidth: 1 });
+      us.setData(t.map((x, i) => ({ time: x, value: b.daily.dd[i] })));
+      const n = b.now || {};
+      const pl = (price, title, color, style) => { if (price != null && isFinite(price)) us.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title }); };
+      pl(b.daily.dd[b.daily.dd.length - 1], 'now', '#E0B000', LC.LineStyle.Dashed);
+      pl(n.p70, '70th', '#22A06B', LC.LineStyle.Dotted);
+      pl(n.p80, '80th', '#22A06B', LC.LineStyle.Dotted);
+      pl(n.p90, '90th', '#22A06B', LC.LineStyle.Dotted);
+      if (b.worst) us.setMarkers([{ time: Date.parse(b.worst.trough) / 1000, position: 'belowBar', color: '#D32F2F', shape: 'circle', size: 0.6, text: 'worst ' + pc(b.worst.depth, 0) }]);
+      // keep the two charts on the same dates, with one crosshair
+      let busy = false;
+      [cv, cu].forEach((src, k) => src.timeScale().subscribeVisibleLogicalRangeChange((r) => {
+        if (busy || !r) return; busy = true; (k ? cv : cu).timeScale().setVisibleLogicalRange(r); busy = false;
+      }));
+      const leg = host.querySelector('.fcleg');
+      const idx = new Map(t.map((x, i) => [x, i]));
+      const showLeg = (i) => {
+        if (i == null) i = t.length - 1;
+        leg.innerHTML = `<span class="num">${day(new Date(t[i] * 1000).toISOString().slice(0, 10))}</span> · value <b class="num">$${Math.round(b.daily.v[i]).toLocaleString('en-US')}</b> · <span class="${b.daily.dd[i] < -0.05 ? 'dn' : 'up'}">${b.daily.dd[i] < -0.05 ? b.daily.dd[i].toFixed(1) + '% below its high' : 'at its high'}</span>`;
+      };
+      showLeg();
+      [[cv, cu, us], [cu, cv, vs]].forEach(([src, dst, dser]) => src.subscribeCrosshairMove((p) => {
+        const i = p && p.time != null ? idx.get(p.time) : null;
+        showLeg(i);
+        if (i == null) { try { dst.clearCrosshairPosition(); } catch (e) { /* old version */ } return; }
+        try { dst.setCrosshairPosition(dser === us ? b.daily.dd[i] : b.daily.v[i], p.time, dser); } catch (e) { /* old version */ }
+      }));
+      const all = () => { cu.timeScale().fitContent(); cv.timeScale().fitContent(); };
+      all();
+      requestAnimationFrame(() => setTimeout(all, 0));         // again once the boxes have their size
+      // click a fall: zoom both charts to it (a little before the high, a little after it got back)
+      const zoom = (e) => {
+        root.querySelectorAll('.ftable tr.on').forEach((r) => r.classList.remove('on'));
+        if (!e) { all(); return; }
+        const a = Date.parse(e.peak) / 1000, z = Date.parse(e.recovered || b.to) / 1000, pad = Math.max(10 * 86400, (z - a) * 0.15);
+        cu.timeScale().setVisibleRange({ from: a - pad, to: Math.min(t[t.length - 1], z + pad) });
+      };
+      // one click / key handler per card (a redraw replaces it, so they never pile up)
+      if (root._fallClick) root.removeEventListener('click', root._fallClick);
+      if (root._fallKey) root.removeEventListener('keydown', root._fallKey);
+      root._fallClick = (ev) => {
+        const el2 = ev.target.closest('[data-fall]');
+        if (!el2 || !root.contains(el2)) return;
+        const k = el2.dataset.fall;
+        if (k === 'all') { zoom(null); return; }
+        zoom(b.top[+k]);
+        el2.classList.add('on');
+        host.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      };
+      root._fallKey = (ev) => { const el2 = ev.target.closest && ev.target.closest('tr[data-fall]'); if (el2 && ev.key === 'Enter') el2.click(); };
+      root.addEventListener('click', root._fallClick);
+      root.addEventListener('keydown', root._fallKey);
+    }
+
     function fallsHtml(W) {
     let html = `<section class="card col" style="gap:14px">
       <div><h2 class="h2">Falls to expect</h2>
@@ -278,19 +365,25 @@
       const every20 = b.count_20 ? (b.years / b.count_20) : null;
       html += `<div class="row sb" style="gap:8px;flex-wrap:wrap"><span class="eyebrow">Backtest · ${day(b.from)} – ${day(b.to)} (${b.years} years)</span>
         ${b.years < 4 ? `<span class="tiny muted">Short history${d.family === 'signal' ? ' (Yahoo keeps only 2 years of hourly futures prices)' : ''}. ${rs && rs.maxdd != null ? `The research's longer test: worst fall ${pc(rs.maxdd)}.` : ''}</span>` : ''}</div>
-      ${nowTiles(b)}
       <div class="grid" style="--min:200px;gap:10px">
         ${tile('Worst fall', pc(w.depth), `${day(w.peak)} → ${day(w.trough)} · ${U.dur(w.days_down)} down${w.recovered ? ', ' + U.dur(w.days_to_recover) + ' to recover' : ', not recovered yet'}`, 'dn')}
         ${tile('Longest underwater', U.dur(lg.days_under), `${day(lg.peak)} → ${lg.recovered ? day(lg.recovered) : 'still below'} · fall of ${pc(lg.depth)}`)}
-        ${tile('Time below a high', b.pct_under.toFixed(0) + '%', 'of all days: most of the time a strategy is below its last peak')}
+        ${tile('Time below a high', b.pct_under.toFixed(0) + '%', 'of all days: most of the time a strategy is below its last peak, and that is normal')}
         ${tile('Falls of 20% or more', String(b.count_20), every20 ? `about once every ${every20.toFixed(1)} years · ${b.count_30} of 30%+` : 'none in this history')}
       </div>
       ${ten && ten.worst && b.years > 10.5 ? `<div class="muted small">Last 10 years only: worst fall ${pc(ten.worst.depth)}, longest underwater ${U.dur(ten.longest.days_under)}, below a high ${ten.pct_under.toFixed(0)}% of days.</div>` : ''}
+      ${nowTiles(b)}
       ${b.built_from && Object.keys(b.built || {}).length ? `<div class="muted small">Before ${day(Object.values(b.built)[0])} the signal reads ${U.esc(b.built_from)}: Yahoo keeps only about 2 years of hourly futures. Spot and futures turn together most of the time, but not always: over Jul 2024 – Nov 2026 the spot version made more than the futures the bot trades on (Help → Backtest → Gold and silver). Shaded on the chart.</div>`
         : Object.keys(b.built || {}).length ? `<div class="muted small">${Object.entries(b.built).map(([s, dd]) => `${U.esc(s)} before ${day(dd)}`).join(', ')}: ${Object.keys(b.built).length > 1 ? 'these did' : 'it did'} not exist yet, so ${Object.keys(b.built).length > 1 ? 'their' : 'its'} prices are built from the index (2× its daily move minus the fund's costs; BIL = the T-bill rate). Shaded on the chart.</div>` : ''}
-      <div>${underwaterSvg(b.underwater, { w: W, built: Object.values(b.built || {}).sort().pop(), builtLabel: b.built_from ? 'OANDA spot' : null })}</div>
-      <div class="tw"><table class="t"><thead><tr><th class="r">Fall</th><th>From the high on</th><th>Bottom</th><th>Back at the high</th><th class="r">Falling</th><th class="r">Underwater</th></tr></thead><tbody>
-        ${b.top.map((e) => `<tr><td class="r num dn">${pc(e.depth)}</td><td class="num">${day(e.peak)}</td><td class="num">${day(e.trough)}</td>
+      ${b.daily && window.LightweightCharts ? `<div class="fcharts">
+          <div class="fcleg tiny"></div>
+          <div class="fcv" style="height:${W < 600 ? 140 : 170}px"></div>
+          <div class="fcu" style="height:${W < 600 ? 200 : 250}px"></div></div>
+        <div class="row sb" style="gap:8px;flex-wrap:wrap"><div class="muted small" style="flex:1;min-width:240px">Top: the strategy's value (growth of $10,000, log scale). Red: how far below its last high, each day. <span style="color:#C99700">Yellow dashed</span>: now. <span style="color:#22A06B">Dotted green</span>: the 70th / 80th / 90th percentile depths of its days, the buy zones. Click a fall below to zoom both charts to it; drag or pinch to move.</div>
+          <button class="btn s" type="button" data-fall="all">Show all</button></div>`
+        : `<div>${underwaterSvg(b.underwater, { w: W, built: Object.values(b.built || {}).sort().pop(), builtLabel: b.built_from ? 'OANDA spot' : null })}</div>`}
+      <div class="tw"><table class="t ftable"><thead><tr><th class="r">#</th><th class="r">Fall</th><th>From the high on</th><th>Bottom</th><th>Back at the high</th><th class="r">Falling</th><th class="r">Under water</th></tr></thead><tbody>
+        ${b.top.map((e, i) => `<tr data-fall="${i}" tabindex="0" title="Zoom the charts to this fall"><td class="r num muted">${i + 1}</td><td class="r num dn">${pc(e.depth)}</td><td class="num">${day(e.peak)}</td><td class="num">${day(e.trough)}</td>
           <td class="num">${e.recovered ? day(e.recovered) : '<span class="pill warn">not yet</span>'}</td><td class="r num">${U.dur(e.days_down)}</td><td class="r num">${U.dur(e.days_under)}</td></tr>`).join('')}</tbody></table></div>`;
     } else if (d.backtest_error) {
       html += `<div class="muted small">Backtest not available right now (${U.esc(d.backtest_error)}).</div>`;
