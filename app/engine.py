@@ -186,7 +186,9 @@ def daily_jobs(now):
     # dip zones: each strategy's underwater percentile, after the close (and once on start when none is stored yet)
     if md.source() != "csv":
         from . import dip
-        if (mh.is_trading_day(ny.date()) and hh >= "16:50" and _once("dip", day)) or (dip.missing() and _once("dip_first", day)):
+        # missing (none stored, or stored by an older version): try again each hour, because right after a restart a
+        # strategy's prices may not be loaded yet and its backtest fails (7 Nov 2026: 3 of 7 metals kept the old numbers)
+        if (mh.is_trading_day(ny.date()) and hh >= "16:50" and _once("dip", day)) or (dip.missing() and _once("dip_first", f"{day}-{hh[:2]}")):
             try:
                 dip.refresh_all(now)
             except Exception as e:

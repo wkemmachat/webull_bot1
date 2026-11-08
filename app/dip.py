@@ -115,6 +115,7 @@ def compute(s, now=None) -> dict | None:
     from . import backtest
     r = backtest.run(strat=s, now=now)
     if not r.get("ok"):
+        log.warning("dip %s: backtest failed (%s); its numbers stay as they were until the next try", s.id, r.get("error"))
         return None
     ser = r["series"]
     t = pd.to_datetime(ser["t"], unit="s")
