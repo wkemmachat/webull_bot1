@@ -30,6 +30,7 @@ log = logging.getLogger("dip")
 DIP, DEEP = 70.0, 80.0
 WARN_LEVELS = (75, 100)          # % of the worst 10-year fall: "near its worst", "deeper than its worst"
 WORST_YEARS = 10
+VERSION = 2                      # bump when the backtests behind these numbers change (2: gold & silver from 2008, 7 Nov 2026)
 WORST_MIN_YEARS = 5              # shorter backtests (the 4-hour metals: about 2 years of hourly data) get no warning
 WINDOW_YEARS = 20
 MAX_AGE_S = 5 * 86400          # older than this (bot off for days): not shown
@@ -197,7 +198,7 @@ def refresh_all(now=None, send=True) -> dict:
             if send and (s.row or {}).get("control") != "stopped":
                 notify.send("drawdown", f"⚠ {title} · {s.name}\n{txt}", strategy=s.id)
             warned = lv
-        db.set_state(f"dip:{s.id}", {**d, "at": int(time.time()), "alerted": alerted, "win": WINDOW_YEARS,
+        db.set_state(f"dip:{s.id}", {**d, "at": int(time.time()), "alerted": alerted, "win": WINDOW_YEARS, "v": VERSION,
                                      "warned": warned, "warned_peak": d.get("peak_day")})
         out[s.id] = d
     return out
@@ -206,4 +207,4 @@ def refresh_all(now=None, send=True) -> dict:
 def missing() -> bool:
     """Nothing stored yet, or stored with another window (the window changed: recompute on start, not at the next close)."""
     st = [db.get_state(f"dip:{s.id}") for s in S.all_instances()]
-    return not any(st) or any(x and (x.get("win", 10) != WINDOW_YEARS or "worst10" not in x) for x in st)
+    return not any(st) or any(x and (x.get("win", 10) != WINDOW_YEARS or "worst10" not in x or x.get("v", 1) != VERSION) for x in st)

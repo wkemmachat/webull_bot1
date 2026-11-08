@@ -114,16 +114,42 @@ def update_live(now=None) -> int:
                 caps.append((s, float(mc) / 1e9))
         except Exception as e:
             log.warning("market cap %s: %s", s, e)
+    note = ""
     if len(caps) < 50:
-        raise RuntimeError(f"only {len(caps)} market caps from Yahoo")
+        # Yahoo gave no market caps (it stopped answering on 7 Nov 2026): move last week's caps by each stock's price change
+        est, w0 = estimate_caps(friday)
+        if len(est) < 40:
+            raise RuntimeError(f"only {len(caps)} market caps from Yahoo, and no earlier ranking to estimate from")
+        log.warning("market caps: only %d from Yahoo; estimated from the %s ranking", len(caps), w0)
+        caps, note = est, (f" (estimated: Yahoo gave {len(caps)} market caps, so the {w0} ranking was moved by each stock's "
+                           f"price change since; a stock outside that week's top 50 cannot enter)")
     caps.sort(key=lambda x: -x[1])
     with db.tx() as c:
         c.execute("DELETE FROM c27_rank WHERE week=?", (str(friday),))
         c.executemany("INSERT INTO c27_rank(week,rank,symbol,mcap,created_at) VALUES(?,?,?,?,?)",
                       [(str(friday), i + 1, s, round(m, 2), int(time.time())) for i, (s, m) in enumerate(caps[:50])])
     clear_cache()
-    db.add_event("info", "data", "Nasdaq-100 ranking updated", f"Week of {friday}: " + ", ".join(s for s, _ in caps[:12]))
+    db.add_event("warn" if note else "info", "data", "Nasdaq-100 ranking " + ("estimated" if note else "updated"),
+                 f"Week of {friday}{note}: " + ", ".join(s for s, _ in caps[:12]))
     return min(50, len(caps))
+
+
+def estimate_caps(friday):
+    """[(symbol, $bn)] for `friday` from the last ranking before it: each market cap times the stock's price change between
+    the two Fridays (shares outstanding barely move in a week). Returns (list, that ranking's Friday)."""
+    r = ranks()
+    weeks = sorted(w for w in r["week"].unique() if w < friday)
+    if not weeks:
+        return [], None
+    w0 = weeks[-1]
+    prev = r[r["week"] == w0].sort_values("rank")
+    out = []
+    for sym, m in zip(prev["symbol"], prev["mcap"].astype(float)):
+        days, closes = _closes(sym)
+        a, b = bisect.bisect_right(days, w0), bisect.bisect_right(days, friday)
+        k = closes[b - 1] / closes[a - 1] if a and b and closes[a - 1] > 0 else 1.0
+        out.append((sym, m * float(k)))
+    return out, w0
 
 
 # ---------------------------------------------------------------- prices
