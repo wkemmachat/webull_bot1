@@ -62,6 +62,6 @@ one group mostly adds the same bet.
 1. Read its page: rules, worst fall, risks.
 2. Open its **Backtest** tab and look at the worst year and the longest time below a high.
 3. **Go-live → Test trade** its ETFs on your Live account (leveraged ETFs need Webull's permission; some may not be offered in Thailand).
-4. Start small, compare the bot's Trades with Webull's order history for 2 weeks, then add money step by step.
+4. Start small, compare the bot's Order history with Webull's for 2 weeks, then add money step by step.
 
 *This is information about how the strategies behaved in the past, not investment advice.*

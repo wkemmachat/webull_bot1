@@ -277,3 +277,9 @@
   LINE or Strategies page loads; a message still goes while the switch is on from before, so the last messages of a strategy
   being emptied or stopped arrive. Critical alerts are unchanged. While Automatic is on the switches cannot be set by hand
   (they are greyed); turning it off keeps the current switches as the manual setting.
+- **Order history replaces Trades** (9 Nov 2026, your request): Orders has two tabs, *Plans* (as before) and *Order history*
+  (every order sent, all strategies), and each strategy page has an *Orders* card with its own orders. Unlike Trades (filled
+  lots only) it also lists orders that did not fill, were refused or are still working, and shows Webull's order no. and the
+  client order id so any order can be found again in the Webull app. *Check with Webull* (one order, or the whole page)
+  compares status, filled shares, average price and fee with Webull, read-only. The old Trades link opens Order history with
+  *Filled* selected; the CSV now carries every id.

@@ -18,6 +18,35 @@ A **plan** moves one strategy from what it holds to its target.
 - **Safety**: every order has a unique client order id. If Webull does not answer, the bot looks the order up before it ever sends
   a replacement. It never sells more shares than the account really holds.
 
+## Order history (checking orders against Webull)
+
+**Orders → Order history** lists every order the bot has sent, newest first, in all strategies. Each strategy page shows its own
+orders in the same table (the **Orders** card under Next orders). It replaces the old Trades page, which showed only filled lots.
+
+| Column | Meaning |
+|---|---|
+| Sent (BKK) | When the order went to Webull (Bangkok time) |
+| Type | Limit price, `retry n` when the lot was sent again at a better limit, or *Inside → strategy* for a trade settled inside the bot |
+| Filled / qty | Shares filled out of the shares ordered |
+| Status | filled · part filled · not filled · refused (Webull said no; the reason is in the row) · at Webull (still working) · inside. *→ retried* means the bot sent the rest of that lot again |
+| Webull order no. | Webull's own number for the order, the one shown in the Webull app |
+
+Not listed: lots still waiting to be sent (see the plan cards and Next orders) and lots skipped before sending (too small, or the
+target changed).
+
+**Click a row** for every id: the bot's order no., the plan, the client order id the bot gave Webull, Webull's order no., the sent
+and last-update times, the lot and the fee. **Check with Webull** asks Webull about that order and compares its status, filled
+shares, average price and fee with the bot's books. **Check this page with Webull** does the same for every order on the page (one
+by one, read-only: it never changes the books) and opens any row that differs.
+
+**Export CSV** downloads the orders with the filters you chose, every id included, so you can match them with Webull's statement
+months later: bot_order_id, plan_id, sent and last-update times, strategy, symbol, side, lot, retry, limit, qty, filled, average
+price, value, fee, status, Webull order no., client order id, the strategy on the other side of an inside trade, the plan's reason
+and any note.
+
+How to cross-check: in the Webull app open Orders → History, pick an order, and find the same **Webull order no.** in the bot (or in
+the CSV). Shares, average price and fee should be the same.
+
 ## Opposite orders between strategies (settled inside the bot)
 
 Several strategies trade the same ETFs in one Webull account: USD (2x Semis regime, USD Trend + IBS-dip), QLD (QLD regime,
@@ -32,7 +61,7 @@ So, with Execution → **Opposite orders between strategies** on (the default):
 - How many: the smaller of what the seller still has to sell and what the buyer still needs and can pay for.
 - **Only the rest goes to Webull** as usual. The seller's last waiting lots shrink first; the buyer's buys are sized from its
   books, so they shrink by themselves (and close when nothing is left to buy).
-- **Tracking:** each side gets a filled lot marked *inside the bot* (Orders → Lots sent, and Trades, with the other
+- **Tracking:** each side gets a filled lot marked *inside the bot* (the plan's lots, and Orders → Order history, with the other
   strategy's name). Shares and cost move with the shares; the seller's cash goes up and the buyer's goes down by the same
   amount. The account's shares and cash do not change, so the strategies' books still add up to Webull's numbers and the
   Health check and money guard see no difference.

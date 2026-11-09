@@ -22,7 +22,7 @@ CLEAN_DAYS_NEEDED = 8
 
 MANUAL = [
     ("m_fills", "Compared the bot's Trades with Webull's own order history on 3 different days",
-     "Webull app → Orders → Filled. Same symbol, side, shares and price as the bot's Trades page.", True),
+     "Webull app → Orders → Filled. Same symbol, side, shares and price as the bot's Orders → Order history.", True),
     ("m_tv", "Checked indicator values against TradingView",
      "Health check → Indicator cross-check: Supertrend/ADX (gold), Donchian (silver), SMA/RSI (QQQ). Same within rounding.", True),
     ("m_line", "LINE alerts arrive on my phone at the right times", "Signals, plan done, the 08:00 / 21:00 digest, the morning Health check.", True),

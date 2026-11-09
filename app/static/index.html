@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png?v=4">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/css/app.css?v=75">
+<link rel="stylesheet" href="/static/css/app.css?v=76">
 <script>try { var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : t; } catch (e) {}</script>
 </head>
 <body>
@@ -27,7 +27,6 @@
     <a class="nav" data-r="money" href="#/money"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 14h2"/></svg>Money</a>
     <a class="nav" data-r="portfolio" href="#/portfolio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Portfolio</a>
     <a class="nav" data-r="orders" href="#/orders"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h11M4 18h6"/></svg>Orders<span class="cnt hidden" id="cnt-plans"></span></a>
-    <a class="nav" data-r="trades" href="#/trades"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"/></svg>Trades</a>
     <a class="nav" data-r="positions" href="#/positions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v9h9A9 9 0 1 1 12 3z"/></svg>Positions</a>
     <div class="grp">Monitor</div>
     <a class="nav" data-r="health" href="#/health"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Health check<span class="cnt hidden" id="cnt-health"></span></a>
@@ -69,27 +68,28 @@
 </nav>
 <div class="toast" id="toast" aria-live="polite"></div>
 <script src="/static/vendor/lightweight-charts.standalone.production.js"></script>
-<script src="/static/js/ui.js?v=75"></script>
-<script src="/static/js/charts.js?v=75"></script>
-<script src="/static/js/views/alloc.js?v=75"></script>
-<script src="/static/js/views/expected.js?v=75"></script>
-<script src="/static/js/views/pnl.js?v=75"></script>
-<script src="/static/js/views/exposure.js?v=75"></script>
-<script src="/static/js/views/dashboard.js?v=75"></script>
-<script src="/static/js/views/strategies.js?v=75"></script>
-<script src="/static/js/views/money.js?v=75"></script>
-<script src="/static/js/views/orders.js?v=75"></script>
-<script src="/static/js/views/monitor.js?v=75"></script>
-<script src="/static/js/views/config.js?v=75"></script>
-<script src="/static/js/views/docs.js?v=75"></script>
-<script src="/static/js/views/golive.js?v=75"></script>
-<script src="/static/js/views/backtest.js?v=75"></script>
-<script src="/static/js/views/btpage.js?v=75"></script>
-<script src="/static/js/views/symcharts.js?v=75"></script>
-<script src="/static/js/views/etf2x.js?v=75"></script>
-<script src="/static/js/views/perf.js?v=75"></script>
-<script src="/static/js/views/nextorders.js?v=75"></script>
-<script src="/static/js/views/portfolio.js?v=75"></script>
-<script src="/static/js/app.js?v=75"></script>
+<script src="/static/js/ui.js?v=76"></script>
+<script src="/static/js/charts.js?v=76"></script>
+<script src="/static/js/views/alloc.js?v=76"></script>
+<script src="/static/js/views/expected.js?v=76"></script>
+<script src="/static/js/views/pnl.js?v=76"></script>
+<script src="/static/js/views/exposure.js?v=76"></script>
+<script src="/static/js/views/dashboard.js?v=76"></script>
+<script src="/static/js/views/strategies.js?v=76"></script>
+<script src="/static/js/views/money.js?v=76"></script>
+<script src="/static/js/views/orders.js?v=76"></script>
+<script src="/static/js/views/monitor.js?v=76"></script>
+<script src="/static/js/views/config.js?v=76"></script>
+<script src="/static/js/views/docs.js?v=76"></script>
+<script src="/static/js/views/golive.js?v=76"></script>
+<script src="/static/js/views/backtest.js?v=76"></script>
+<script src="/static/js/views/btpage.js?v=76"></script>
+<script src="/static/js/views/symcharts.js?v=76"></script>
+<script src="/static/js/views/etf2x.js?v=76"></script>
+<script src="/static/js/views/perf.js?v=76"></script>
+<script src="/static/js/views/nextorders.js?v=76"></script>
+<script src="/static/js/views/orderhist.js?v=76"></script>
+<script src="/static/js/views/portfolio.js?v=76"></script>
+<script src="/static/js/app.js?v=76"></script>
 </body>
 </html>

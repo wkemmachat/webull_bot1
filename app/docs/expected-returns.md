@@ -121,7 +121,7 @@ the plan rate from the day it happened. It then compares that expected value wit
 | Too early | Under 3 months since the first money: a few weeks say nothing. |
 | Ahead | Worth more than the plan. |
 | Behind | Below the plan but above the weak case: normal, most strategies spend long stretches here. |
-| Below weak case | Below what about 9 periods in 10 would give. Look at the strategy: read its page, check its Backtest and Trades. |
+| Below weak case | Below what about 9 periods in 10 would give. Look at the strategy: read its page, check its Backtest and its Orders. |
 
 Do not change a strategy because of one quarter. A reasonable rule: act only when a strategy is **below the weak case at two
 yearly reviews in a row**, or when its bot backtest falls below its plan number.

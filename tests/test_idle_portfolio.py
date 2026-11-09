@@ -91,3 +91,14 @@ def test_portfolio_and_strategy_api(client):
     assert "idle" in d
     r = client.post("/api/money/topup", json={"mode": "paper", "strategy": "c27_mom"})
     assert r.status_code == 400
+
+
+def test_gold_parking_is_not_counted_as_in():
+    """QLD Trend + bear-dip + Vol when out holds 50% GLD + 50% cash: its next buy is its next entry, not 'after the next exit'."""
+    s = S.get("qld_tbdv")
+    assert s.gold_sym() == "GLD"
+    st = {"state": "out", "label": "OUT · 50% GLD + 50% cash", "target": {"GLD": 0.495}, "detail": {}}
+    assert not idle.is_in(s, st["target"])
+    assert idle.is_in(s, {"QLD": 0.99})
+    t = idle.next_buy_text(s, st)
+    assert t.startswith("It buys at its next entry signal") and "already in" not in t

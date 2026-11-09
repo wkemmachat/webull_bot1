@@ -18,7 +18,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import auth, backtest, btview, etf2x, perf, preview, expected, symcharts, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views, idle, portfolio, weekly
+from . import auth, backtest, btview, etf2x, perf, preview, expected, symcharts, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views, idle, portfolio, weekly, orderhist
 from . import strategies as S
 from .config import APP_NAME, BASE_DIR, COOKIE_SECURE, DISPLAY_TZ, PUBLIC_URL, SCHEDULER_ENABLED
 
@@ -571,6 +571,36 @@ def health_report(u=Depends(user)):
 @app.post("/api/health/run")
 def health_run(u=Depends(user)):
     return health.run(send=False)
+
+
+@app.get("/api/orders/history")
+def orders_history(mode: str = "paper", strategy: Optional[str] = None, side: Optional[str] = None, result: Optional[str] = None,
+                   days: Optional[float] = None, limit: int = 50, offset: int = 0, u=Depends(user)):
+    """Every order the bot has sent (newest first) with its Webull order no. and client order id, for checking later."""
+    return orderhist.history(mode_of(mode), strategy or None, side, days or None, result or None,
+                             max(1, min(int(limit), 500)), max(0, int(offset)))
+
+
+@app.get("/api/orders/history.csv")
+def orders_history_csv(mode: str = "paper", strategy: Optional[str] = None, side: Optional[str] = None,
+                       result: Optional[str] = None, days: Optional[float] = None, u=Depends(user)):
+    m = mode_of(mode)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(orderhist.CSV_COLS)
+    for r in orderhist.csv_rows(m, strategy or None, side, days or None, result or None):
+        w.writerow(r)
+    name = f"orders-{mode}{'-' + strategy if strategy else ''}-{datetime.now(TZ):%Y%m%d}.csv"
+    return Response(buf.getvalue(), media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@app.get("/api/orders/{oid}/check")
+def order_check(oid: int, u=Depends(user)):
+    """Ask Webull for one order and compare it with the bot's record (read-only)."""
+    try:
+        return orderhist.check(oid)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
 
 
 @app.get("/api/orders/{oid}/raw")

@@ -44,6 +44,10 @@ At the top, **Money in strategies** shows the same donut as the dashboard: each 
   Fall card is measured the same way.
 - **Next US open** (top of Overview): this strategy's orders waiting for the next open (same table as the Dashboard), or
   "no order waiting" when it already holds its target.
+- **Orders** (on Overview, under Next US open): every order this strategy has sent, newest first, with its Webull order no.
+  Filters: filled / not filled / at Webull now, and 7 days / 30 days / all time. Click a row for all its ids and a check with
+  Webull; Export CSV keeps them for later. The same table for all strategies is Orders → Order history
+  ([Orders & split execution](#/docs/orders)).
 - **Growth of $10,000** (on Overview, above Falls to expect): the same backtest and the same dates as Falls to expect, after
   fees. Tiles: what $10,000 became (and the yearly return), what simply holding the traded ETF would have made, how many
   calendar years were up (best and worst), and the worst fall. The chart shows the strategy in its colour, the traded ETF held

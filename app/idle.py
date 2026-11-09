@@ -31,6 +31,12 @@ def _parking(s) -> set:
     for k in ("off_symbol", "cash_symbol", "gold_etf", "cash_etf"):
         if s.params.get(k):
             out.add(s.params[k])
+    if hasattr(s, "gold_sym"):                       # trend + dip strategies park part of their money in gold when out
+        try:
+            if s.gold_sym():
+                out.add(s.gold_sym())
+        except Exception:
+            pass
     if hasattr(s, "parking"):
         try:
             out |= set(s.parking())

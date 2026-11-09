@@ -85,6 +85,7 @@
     let tab = 'overview', chartObj = null, spec = null, btClean = null, chartSym = null;
     { const q = new URLSearchParams((location.hash.split('?')[1]) || ''); if (['backtest', 'pnl', 'params', 'exec', 'history'].includes(q.get('tab'))) tab = q.get('tab'); }
     const cs = { range: null, hideLines: [], hidePanes: [], hideMarkers: false };
+    const ohState = {};
     const d = await U.api(`/api/strategies/${sid}?mode=${mode}`);
     const c = d.card, st = d.state || {}, fam = c.family;
     cs.range = fam === 'regime' ? '8M' : '1M';
@@ -234,6 +235,7 @@
       return `${kpis()}
       ${idleBox()}
       <div id="nextorders"></div>
+      <div id="sorders"></div>
       ${fam === 'regime' ? regimeTiles() : ''}
       ${st.detail && st.detail.basket ? basketTable(st.detail.basket) : ''}
       ${d.row.type === 'momentum_basket' && d.row.params.leverage === '2x' && tab === 'overview' ? '<div id="etf2x"></div>' : ''}
@@ -263,7 +265,7 @@
       s.forEach((x) => { if (x.kind === 'BUY') open = x; else if (x.kind === 'SELL' && open) { trades.push([open, x]); open = null; } });
       if (open) trades.push([open, null]);
       trades.reverse();
-      return `<section class="card"><div class="row sb" style="margin-bottom:6px"><h2 class="h2">Signals (${U.esc(d.row.params.symbol)}=F futures)</h2><a href="#/trades" class="small">ETF fills in Trades →</a></div>
+      return `<section class="card"><div class="row sb" style="margin-bottom:6px"><h2 class="h2">Signals (${U.esc(d.row.params.symbol)}=F futures)</h2><a href="#sorders" class="small" onclick="document.getElementById('sorders').scrollIntoView({behavior:'smooth'});return false">ETF orders below ↓</a></div>
         <div class="tw"><table class="t"><thead><tr><th>Buy signal (bar close)</th><th class="r">Close</th><th>Sell signal</th><th class="r">Close</th><th class="r">Move</th><th>Why</th></tr></thead><tbody>
         ${trades.map(([a, b]) => { const mv = b ? b.price / a.price - 1 : null; return `<tr><td class="num">${U.dt(a.t)}</td><td class="r num">${U.n(a.price, 2)}</td>
           <td class="num">${b ? U.dt(b.t) : U.pill('ok', 'open')}</td><td class="r num">${b ? U.n(b.price, 2) : '—'}</td><td class="r num ${U.cls(mv)}">${mv == null ? '—' : U.pct(mv, 2)}</td>
@@ -333,6 +335,7 @@
       if (tab === 'pnl') V.dailyPnlTab(el.querySelector('#bt'), sid, c);
       { const rk = el.querySelector('#risk'); if (rk && V.renderRisk) V.renderRisk(rk, sid); }
       { const no = el.querySelector('#nextorders'); if (no && V.renderNextOrders) V.renderNextOrders(no, { sid }); }
+      { const so = el.querySelector('#sorders'); if (so && V.renderOrderHistory) V.renderOrderHistory(so, { sid, limit: 20, compact: true, state: ohState }).catch(() => {}); }
       U.on(el, '[data-symc]', 'click', (e, b) => { e.preventDefault(); chartSym = b.dataset.symc; tab = 'charts'; render(); window.scrollTo(0, 0); });
       U.on(el, '[data-tab]', 'click', (e, b) => { tab = b.dataset.tab; render(); });
       U.on(el, '[data-money]', 'click', (e, b) => V.moneyDialog(b.dataset.money, sid, () => V.strategy(el, params)));

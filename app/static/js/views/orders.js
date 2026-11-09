@@ -110,13 +110,31 @@
 
   V.orders = async function (el) {
     const mode = U.mode();
-    let status = 'all';
+    const hq = new URLSearchParams((location.hash.split('?')[1]) || '');
+    let status = 'all', tab = hq.get('tab') === 'history' ? 'history' : 'plans';
+    const tabs = () => `<div class="seg" id="otab" style="align-self:flex-start">${[['plans', 'Plans'], ['history', 'Order history']].map(([k, l]) => `<button data-t="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+    function bindTabs() {
+      U.on(el, '#otab button', 'click', (e, b) => {
+        tab = b.dataset.t;
+        history.replaceState(null, '', '#/orders' + (tab === 'history' ? '?tab=history' : ''));
+        show({});
+      });
+    }
+    async function show(filters) { return tab === 'history' ? hist(filters) : load(); }
+    async function hist(filters) {
+      el.innerHTML = `<div class="page-head"><div><div class="eyebrow">Every order sent · ${U.modeLabel[mode]}</div><h1 class="h1">Orders</h1>
+        <div class="muted" style="margin-top:4px">Every order the bot has sent to Webull, with the ids to check each one against the Webull app.</div></div>
+        <a class="btn" href="#/execution">Execution settings</a></div>${tabs()}<div id="ohist"></div>`;
+      bindTabs();
+      await V.renderOrderHistory(el.querySelector('#ohist'), { filters });
+    }
     async function load() {
       const d = await U.api(`/api/plans?mode=${mode}&status=${status}&limit=40`);
       setTimeout(() => { const u = el.querySelector('#unb'); if (u) u.onclick = (e) => U.busy(e.target, async () => { await U.api('/api/orders/unblock', { body: { mode } }); U.toast('The bot will try again at the next tick'); load(); }); }, 0);
       el.innerHTML = `<div class="page-head"><div><div class="eyebrow">Split execution · ${U.modeLabel[mode]}</div><h1 class="h1">Orders</h1>
         <div class="muted" style="margin-top:4px">Every signal becomes a plan: lots of limit orders sent a few minutes apart, from the start time you set.</div></div>
         <a class="btn" href="#/execution">Execution settings</a></div>
+        ${tabs()}
         ${nextHtml(d)}
         ${blockedHtml(d)}
         <div class="seg" style="align-self:flex-start" id="st">${[['all', 'All'], ['queued', 'Queued · ' + d.counts.queued], ['running', 'Running · ' + d.counts.running], ['done', 'Done']].map(([k, l]) => `<button data-s="${k}" class="${status === k ? 'on' : ''}">${l}</button>`).join('')}</div>
@@ -125,6 +143,7 @@
           <span class="row" style="gap:6px"><span class="lot l-submitted" style="width:20px;height:14px"></span>sent</span><span class="row" style="gap:6px"><span class="lot l-filled" style="width:20px;height:14px"></span>filled</span>
           <span class="row" style="gap:6px"><span class="lot l-retry" style="width:20px;height:14px"></span>filled after retry</span><span class="row" style="gap:6px"><span class="lot l-failed" style="width:20px;height:14px"></span>failed</span>
           <span>Unfilled lots are cancelled after the interval and re-sent at a fresh price, up to 3 times; each retry reaches at least 0.5% further (at most 2%).</span></div>`;
+      bindTabs();
       U.on(el, '#st button', 'click', (e, b) => { status = b.dataset.s; load(); });
       U.on(el, '[data-act]', 'click', async (e, b) => {
         const id = b.closest('[data-plan]').dataset.plan, act = b.dataset.act;
@@ -133,8 +152,11 @@
         U.toast('Done'); load();
       });
     }
-    await load();
-    return { cleanup: () => {}, refresh: () => load().catch(() => {}), every: 20000 };
+    const f0 = {};
+    ['strategy', 'side', 'result'].forEach((k) => { if (hq.get(k)) f0[k] = hq.get(k); });
+    if (hq.get('days')) f0.days = +hq.get('days');
+    await show(f0);
+    return { cleanup: () => {}, refresh: () => (tab === 'plans' ? load().catch(() => {}) : null), every: 20000 };
   };
 
   /* ---------------------------------------------------------------- execution settings */
@@ -206,40 +228,9 @@
     });
   };
 
-  /* ---------------------------------------------------------------- trades (fills) */
+  /* ---------------------------------------------------------------- trades: now Orders → Order history (filled) */
   V.trades = async function (el) {
-    const mode = U.mode();
-    const strats = (await U.api('/api/strategies?mode=' + mode)).strategies;
-    const f = { strategy: '', side: '', days: 0, offset: 0 };
-    async function load() {
-      const q = new URLSearchParams({ mode, limit: 50, offset: f.offset });
-      if (f.strategy) q.set('strategy', f.strategy);
-      if (f.side) q.set('side', f.side);
-      if (f.days) q.set('days', f.days);
-      const d = await U.api('/api/fills?' + q);
-      el.innerHTML = `<div class="page-head"><div><div class="eyebrow">${U.modeLabel[mode]} account · every filled lot</div><h1 class="h1">Trades</h1></div>
-        <a class="btn" href="/api/fills.csv?mode=${mode}">Export CSV</a></div>
-        <div class="row" style="gap:8px"><button class="btn s ${!f.strategy ? 'p' : ''}" data-st="">All strategies</button>
-          ${strats.map((s) => `<button class="btn s ${f.strategy === s.id ? 'p' : ''}" data-st="${s.id}">${U.dot(s.color)} ${U.esc(s.name.split(' · ')[0])}</button>`).join('')}
-          <span style="flex:1"></span><div class="seg" id="sd">${[['', 'All'], ['BUY', 'Buys'], ['SELL', 'Sells']].map(([k, l]) => `<button data-v="${k}" class="${f.side === k ? 'on' : ''}">${l}</button>`).join('')}</div>
-          <div class="seg" id="dy">${[[0, 'All time'], [7, '7 days'], [30, '30 days']].map(([k, l]) => `<button data-v="${k}" class="${+f.days === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
-        <div class="grid" style="--min:200px"><div class="card"><div class="eyebrow">Filled lots</div><div class="num big" style="margin-top:6px">${d.stats.fills}</div></div>
-          <div class="card"><div class="eyebrow">Value traded</div><div class="num big" style="margin-top:6px">${U.usd(d.stats.traded, 0)}</div></div>
-          <div class="card"><div class="eyebrow">Plans completed</div><div class="num big" style="margin-top:6px">${d.stats.plans_done}</div></div></div>
-        <section class="card flush"><div class="tw"><table class="t"><thead><tr><th>Time (BKK)</th><th>Strategy</th><th>Side</th><th>Symbol</th><th class="r">Qty</th><th class="r">Avg price</th><th class="r">Value</th><th>Lot</th><th>Plan · reason</th></tr></thead><tbody>
-          ${d.rows.map((r) => `<tr><td class="num">${U.dt(r.updated_at)}</td><td><span class="row" style="gap:8px">${U.dot(r.color)}${U.esc(r.name)}</span></td>
-            <td>${U.pill(r.side === 'BUY' ? 'ok' : 'err', r.side)}</td><td class="num">${U.esc(r.symbol)}</td><td class="r num">${U.qty(r.filled_qty)}</td><td class="r num">${U.usd(r.avg_price)}</td>
-            <td class="r num">${U.usd(r.value)}</td><td class="${r.cross_with ? 'muted small' : 'num muted'}">${r.cross_with ? `<span title="Settled inside the bot with ${U.esc(r.cross_name || r.cross_with)}: no Webull order, no fee">${U.pill('info', 'inside')} ${r.side === 'SELL' ? '→' : '←'} ${U.esc(r.cross_name || r.cross_with)}</span>` : `${r.lot}/${r.lots}${r.retry ? ' ↻' + r.retry : ''}`}</td><td class="muted small">#${r.plan_id} · ${U.esc(r.reason)}</td></tr>`).join('') || '<tr><td colspan="9" class="empty">No fills yet</td></tr>'}
-          </tbody></table></div>
-          <div class="row sb" style="padding:12px 16px"><span class="muted small">Showing ${d.rows.length ? f.offset + 1 : 0}–${f.offset + d.rows.length} of ${d.total}</span>
-            <div class="row" style="gap:6px"><button class="btn s" id="prev" ${f.offset ? '' : 'disabled'}>Previous</button><button class="btn s" id="nxt" ${f.offset + 50 < d.total ? '' : 'disabled'}>Next</button></div></div></section>`;
-      U.on(el, '[data-st]', 'click', (e, b) => { f.strategy = b.dataset.st; f.offset = 0; load(); });
-      U.on(el, '#sd button', 'click', (e, b) => { f.side = b.dataset.v; f.offset = 0; load(); });
-      U.on(el, '#dy button', 'click', (e, b) => { f.days = +b.dataset.v; f.offset = 0; load(); });
-      el.querySelector('#prev').onclick = () => { f.offset = Math.max(0, f.offset - 50); load(); };
-      el.querySelector('#nxt').onclick = () => { f.offset += 50; load(); };
-    }
-    await load();
+    location.replace('#/orders?tab=history&result=filled');
   };
 
   /* ---------------------------------------------------------------- positions */

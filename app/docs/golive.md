@@ -89,7 +89,7 @@ orders and cannot read the account; queued plans simply wait — nothing is sold
 
 ## Your checks (you tick them)
 
-Compare the bot's Trades with Webull's order history on 3 days · indicator values vs TradingView · LINE alerts on your phone ·
+Compare the bot's Order history with Webull's (Check this page with Webull) on 3 days · indicator values vs TradingView · LINE alerts on your phone ·
 the Live API key (Market data + Trading, IP whitelist, 2FA) · margin or cash account · the plan to start with 2–3 strategies.
 
 **Count from today** restarts the counting for that mode (for example after a fix). Your ticks are kept.
