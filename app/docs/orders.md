@@ -31,13 +31,15 @@ orders in the same table (the **Orders** card under Next orders). It replaces th
 | Status | filled · part filled · not filled · refused (Webull said no; the reason is in the row) · at Webull (still working) · inside. *→ retried* means the bot sent the rest of that lot again |
 | Webull order no. | Webull's own number for the order, the one shown in the Webull app |
 
-Not listed: lots still waiting to be sent (see the plan cards and Next orders) and lots skipped before sending (too small, or the
-target changed).
+Not listed: lots still waiting to be sent (see the plan cards and Next orders) and lots skipped or cancelled before
+sending (too small, the target changed, money moved): Webull never saw those.
 
 **Click a row** for every id: the bot's order no., the plan, the client order id the bot gave Webull, Webull's order no., the sent
 and last-update times, the lot and the fee. **Check with Webull** asks Webull about that order and compares its status, filled
-shares, average price and fee with the bot's books. **Check this page with Webull** does the same for every order on the page (one
-by one, read-only: it never changes the books) and opens any row that differs.
+shares, average price and fee with the bot's books. **Check this page with Webull** does the same for every order on the page, about one a second, read-only (it never changes the
+books), and opens any row that differs. It waits while a plan is trading in that account and stops if Webull says "too many
+requests", so real orders always come first; press it again later and it goes on from where it stopped. Webull gives fractional
+shares to 2 decimals in its order details (a 6.2861-share sell shows as 6.29), so such a fraction counts as a match.
 
 **Export CSV** downloads the orders with the filters you chose, every id included, so you can match them with Webull's statement
 months later: bot_order_id, plan_id, sent and last-update times, strategy, symbol, side, lot, retry, limit, qty, filled, average

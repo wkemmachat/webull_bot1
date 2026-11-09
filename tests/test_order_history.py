@@ -53,7 +53,8 @@ def test_not_sent_lots_are_left_out_and_retries_are_marked(clean, clock):
     assert orderhist.history("paper", result="working")["total"] == 1
 
 
-def test_check_against_the_broker(clean, clock):
+def test_check_against_the_broker(clean, clock, monkeypatch):
+    monkeypatch.setattr(orderhist, "CHECK_GAP", 0)
     s, pid = _run(clock)
     o = db.one("SELECT * FROM orders WHERE plan_id=? AND status='filled' ORDER BY id LIMIT 1", (pid,))
     c = orderhist.check(o["id"])
@@ -76,3 +77,31 @@ def test_api_and_csv(client, clock):
     oid = d["rows"][0]["id"]
     assert client.get(f"/api/orders/{oid}/check").json()["ok"] is True
     assert client.get("/api/orders/999999/check").status_code == 404
+
+
+def test_check_is_polite_with_webull(clean, clock, monkeypatch):
+    monkeypatch.setattr(orderhist, "CHECK_GAP", 0)
+    s, pid = _run(clock)
+    o = db.one("SELECT * FROM orders WHERE plan_id=? AND status='filled' ORDER BY id LIMIT 1", (pid,))
+    b = brokers.get("paper")
+    real = b.order
+    monkeypatch.setattr(type(b), "order", lambda self, cid: {**real(cid), "filled_qty": round(o["filled_qty"] + 0.0039, 2)})
+    db.run("UPDATE orders SET filled_qty=filled_qty+0.0039 WHERE id=?", (o["id"],))
+    assert orderhist.check(o["id"])["ok"] is True                           # 6.2861 at the bot = "6.29" at Webull
+    def too_many(self, cid):
+        raise brokers.BrokerError("Webull order status failed: HTTP Status: 429, Code: TOO_MANY_REQUESTS")
+    monkeypatch.setattr(type(b), "order", too_many)
+    c = orderhist.check(o["id"])
+    assert c["busy"] and c["ok"] is None and "too many requests" in c["error"]
+    db.run("UPDATE plans SET status='active' WHERE id=?", (pid,))
+    c = orderhist.check(o["id"])
+    assert c["busy"] and "plan is trading" in c["note"]                     # never competes with a running plan
+
+
+def test_lots_cancelled_before_sending_are_not_listed(clean, clock):
+    s, pid = _run(clock)
+    n = orderhist.history("paper")["total"]
+    db.run("INSERT INTO orders(plan_id,mode,strategy,step,lot,lots,symbol,side,qty,plan_qty,status,updated_at,retry,error) "
+           "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (pid, "paper", s.id, 0, 3, 3, "QLD", "BUY", 5, 5, "cancelled", int(NOW.timestamp()), 0,
+                                                   "the target changed"))
+    assert orderhist.history("paper")["total"] == n and orderhist.history("paper", result="none")["total"] == 0

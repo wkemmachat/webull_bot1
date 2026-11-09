@@ -3,7 +3,8 @@ Webull later: the bot's order no., the client order id the bot gave Webull, Webu
 it was sent.
 
 Shown: orders that were sent (or settled inside the bot between two strategies). Not shown: lots still waiting to be sent
-("scheduled": see the plan cards and Next orders) and lots skipped before sending (too small, or the target changed).
+("scheduled": see the plan cards and Next orders), and lots skipped or cancelled before sending (too small, the target
+changed, money moved).
 
 result filter
   filled      some or all shares filled (filled, or "partial" = part filled, the rest cancelled)
@@ -11,9 +12,13 @@ result filter
   working     sent and waiting at Webull (sending, submitted, unknown)
 
 check(oid) asks Webull for one order and compares status, filled shares, average price and fee with the bot's record.
+Webull's order details give fractional shares to 2 decimals (6.2861 sold → "6.29"), so a fraction that rounds to Webull's number
+matches. Checks are paced (one Webull call per CHECK_GAP seconds, all users together), stop when Webull says "too many requests",
+and wait while a plan is trading in that account, so they never take Webull's request allowance from real orders.
 """
 from __future__ import annotations
 
+import threading
 import time
 
 from . import brokers, db
@@ -24,13 +29,19 @@ WORKING = ("sending", "submitted", "unknown")
 QTY_TOL = 1e-6
 PRICE_TOL = 0.005          # $ per share
 FEE_TOL = 0.011            # $ (Webull rounds fees to the cent)
+CHECK_GAP = 1.1            # seconds between two Webull order look-ups
+_lock = threading.Lock()
+_last = [0.0]
 
+# reached Webull (or was settled inside the bot); lots cancelled before sending (the target changed, a move) never did
+SENT = ("(o.client_order_id IS NOT NULL OR o.submitted_at IS NOT NULL OR COALESCE(o.cross_with,'')<>'' "
+        "OR o.status='failed')")
 _RETRIED = ("EXISTS(SELECT 1 FROM orders r WHERE r.plan_id=o.plan_id AND r.step=o.step AND r.symbol=o.symbol "
             "AND r.side=o.side AND r.retry=o.retry+1)")
 
 
 def _where(mode, sid=None, side=None, days=None, result=None):
-    q, a = [f"o.mode=?", f"o.status IN ({','.join('?' * len(SHOWN))})"], [mode, *SHOWN]
+    q, a = [f"o.mode=?", f"o.status IN ({','.join('?' * len(SHOWN))})", SENT], [mode, *SHOWN]
     if sid:
         q.append("o.strategy=?")
         a.append(sid)
@@ -131,14 +142,26 @@ def check(oid: int) -> dict:
                 "note": "Settled inside the bot with another strategy: there is no Webull order to check."}
     if not o.get("client_order_id"):
         return {"id": o["id"], "ok": None, "bot": bot, "diffs": [], "note": "Never reached Webull (no order id): nothing to check."}
-    try:
-        wb = brokers.get(o["mode"]).order(o["client_order_id"])
-    except brokers.BrokerError as e:
-        return {"id": o["id"], "ok": None, "bot": bot, "diffs": [], "error": str(e)[:300]}
+    if db.one("SELECT 1 FROM plans WHERE mode=? AND status='active' LIMIT 1", (o["mode"],)):
+        return {"id": o["id"], "ok": None, "bot": bot, "diffs": [], "busy": True,
+                "note": "A plan is trading in this account now: checks wait until it is done so they never slow real orders."}
+    with _lock:
+        wait = _last[0] + CHECK_GAP - time.time()
+        if wait > 0:
+            time.sleep(wait)
+        try:
+            wb = brokers.get(o["mode"]).order(o["client_order_id"])
+        except brokers.BrokerError as e:
+            msg = str(e)
+            busy = "429" in msg or "TOO_MANY" in msg.upper()
+            return {"id": o["id"], "ok": None, "bot": bot, "diffs": [], "busy": busy,
+                    "error": "Webull says too many requests: wait a minute, then check again" if busy else msg[:300]}
+        finally:
+            _last[0] = time.time()
     w_status = str(wb.get("status") or "").upper()
     diffs = []
     wf, bf = float(wb.get("filled_qty") or 0), float(bot["filled_qty"])
-    if abs(wf - bf) > QTY_TOL:
+    if abs(wf - bf) > QTY_TOL and abs(round(bf, 2) - wf) > QTY_TOL:        # Webull shows fractions to 2 decimals
         diffs.append({"field": "filled shares", "bot": bf, "webull": wf})
     if wf > 0 and wb.get("avg_price") is not None and bot["avg_price"] is not None \
             and abs(float(wb["avg_price"]) - float(bot["avg_price"])) > PRICE_TOL:

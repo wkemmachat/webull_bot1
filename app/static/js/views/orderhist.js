@@ -22,7 +22,7 @@
 
   function checkHtml(c) {
     if (!c) return '';
-    if (c.error) return `<span class="dn">Could not ask Webull: ${U.esc(c.error)}</span>`;
+    if (c.error) return `<span class="${c.busy ? 'muted' : 'dn'}">Could not ask Webull: ${U.esc(c.error)}</span>`;
     if (c.note) return `<span class="muted">${U.esc(c.note)}</span>`;
     if (c.ok) return `<span class="up">✓ Matches Webull</span> <span class="muted">· ${U.esc(c.webull.status)} · ${U.qty(c.webull.filled_qty)} filled${c.webull.avg_price ? ' @ ' + U.usd(c.webull.avg_price) : ''} · fee ${U.usd(c.webull.fee)}</span>`;
     return `<span class="dn">✗ Differs from Webull:</span> ${c.diffs.map((d) => `${U.esc(d.field)} bot ${U.esc(String(d.bot))} vs Webull ${U.esc(String(d.webull))}`).join(' · ')}`;
@@ -90,7 +90,7 @@
       el.innerHTML = `<section class="card flush">
         <div class="row sb" style="padding:16px 18px 10px;gap:10px;flex-wrap:wrap;align-items:flex-start">
           <div><h2 class="h2">${o.sid ? 'Orders' : 'Order history'}</h2><div class="muted small">${o.sid ? 'Every order this strategy has sent' : 'Every order the bot has sent'} (and trades settled inside the bot), newest first. Click a row for its ids and a check with Webull.</div></div>
-          <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn s" id="ohchk" title="Asks Webull about each order on this page (read-only)">Check this page with Webull</button>
+          <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn s" id="ohchk" title="Asks Webull about each order on this page, about one a second (read-only)">Check this page with Webull</button>
             <a class="btn s" href="/api/orders/history.csv?${qs({})}">Export CSV</a></div></div>
         <div class="row" style="gap:8px;padding:0 18px 12px;flex-wrap:wrap">
           ${o.sid ? '' : `<select id="ohst" class="in" style="height:34px;width:auto;max-width:280px"><option value="">All strategies</option>${strats.map((x) => `<option value="${U.esc(x.id)}" ${f.strategy === x.id ? 'selected' : ''}>${U.esc(x.name)}</option>`).join('')}</select>`}
@@ -119,20 +119,23 @@
       el.querySelector('#ohchk').onclick = (e) => U.busy(e.target, async () => {
         const todo = d.rows.filter((r) => r.client_order_id && !r.cross_with);
         const out = el.querySelector('#ohchkout');
-        let ok = 0, bad = [], err = 0;
+        let ok = 0, bad = [], err = 0, stop = null;
         for (let i = 0; i < todo.length; i++) {
-          out.innerHTML = `<span class="muted">Asking Webull… ${i + 1}/${todo.length}</span>`;
+          const prev = checks[todo[i].id];
+          if (prev && prev.ok === true) { ok++; continue; }                 // checked already: not asked again
+          out.innerHTML = `<span class="muted">Asking Webull… ${i + 1}/${todo.length} (about one a second, so real orders keep priority)</span>`;
           try {
             const c = await U.api(`/api/orders/${todo[i].id}/check`);
+            if (c.busy) { stop = c.error || c.note; break; }
             checks[todo[i].id] = c;
             if (c.ok) ok++; else if (c.ok === false) bad.push(todo[i]); else err++;
           } catch (x) { err++; }
-          await new Promise((r) => setTimeout(r, 250));
         }
         bad.forEach((r) => open.add(r.id));
         await load();
-        el.querySelector('#ohchkout').innerHTML = `<div class="note ${bad.length ? 'err' : err ? 'warn' : 'ok'}" style="margin:0"><b>${ok} of ${todo.length} orders on this page match Webull.</b>
-          <span>${bad.length ? `${bad.length} differ (opened below).` : ''}${err ? ` ${err} could not be checked.` : ''}${!bad.length && !err ? 'Bot books and Webull agree.' : ''}</span></div>`;
+        const left = todo.length - ok - bad.length - err;
+        el.querySelector('#ohchkout').innerHTML = `<div class="note ${bad.length ? 'err' : err || stop ? 'warn' : 'ok'}" style="margin:0"><b>${ok} of ${todo.length} orders on this page match Webull.</b>
+          <span>${bad.length ? `${bad.length} differ (opened below).` : ''}${err ? ` ${err} could not be checked.` : ''}${stop ? ` Stopped: ${U.esc(stop)} ${left} not checked yet; press the button again later to go on.` : ''}${!bad.length && !err && !stop ? 'Bot books and Webull agree.' : ''}</span></div>`;
       });
     }
     await load();
