@@ -2,7 +2,7 @@
 
   python scripts/make_demo_data.py [--dir data/csv] [--days 500]
 
-GC/SI: hourly futures bars in COMEX session hours. ETFs: daily bars (QQQ, SMH, QLD, USD, GLD, BIL, SGOV, UGL, AGQ, SLV).
+GC/SI: hourly futures bars in COMEX session hours. ETFs: daily bars (QQQ, SMH, QLD, USD, GLD, BIL, SGOV, UGL, AGQ, SLV, IYW, ROM, DIA, DDM, SSO, XLV, RXL).
 The prices are random walks, NOT real market data.
 """
 from __future__ import annotations
@@ -71,6 +71,13 @@ def main(out: Path, days: int, now=None):
     slv.to_csv(out / "SLV_1d.csv", index=False)
     iyw = daily(10, nd, 150, 0.0008, 0.014, now)                     # US technology (ROM's index) and ROM itself
     for name, df in {"IYW": iyw, "ROM": lever(iyw, 2, 60)}.items():
+        df.to_csv(out / f"{name}_1d.csv", index=False)
+    dia = daily(11, nd, 420, 0.0004, 0.010, now)                     # Dow 1x and DDM
+    for name, df in {"DIA": dia, "DDM": lever(dia, 2, 80)}.items():
+        df.to_csv(out / f"{name}_1d.csv", index=False)
+    spy = daily(9, nd, 500, 0.0005, 0.01, now)                       # SSO from the same S&P 500 path; health care 1x (XLV) and RXL
+    xlv = daily(12, nd, 140, 0.0003, 0.009, now)
+    for name, df in {"SSO": lever(spy, 2, 90), "XLV": xlv, "RXL": lever(xlv, 2, 100)}.items():
         df.to_csv(out / f"{name}_1d.csv", index=False)
     return out
 

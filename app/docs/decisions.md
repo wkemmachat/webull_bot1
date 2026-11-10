@@ -1,6 +1,19 @@
 <!--{"title": "Design decisions", "group": "Help"}-->
 # Design decisions (October 2026)
 
+- **DDM, SSO and RXL: Calm guard + dips** (10 Nov 2026): the screen for 2x ETFs that do not move with US tech pointed at
+  the Dow (DDM), health care (RXL) and the S&P 500 (SSO). Signals are read from the 1x ETF (DIA, SPY, XLV): a 2x ETF's
+  price drifts down in choppy markets, so averages and volatility on it mislead more often, and the 1x has a longer
+  history. One rule for all three: hold the 2x ETF while the 1x is calm (20-day volatility at or below its 80th percentile
+  of a year) — DDM and SSO also while DIA / SPY is above SMA100 — and its volatility is under a fixed 25% a year (the cap
+  fixes 2008, when the percentile alone called a long bear market calm); otherwise buy IBS < 0.15 dips while the volatility
+  is under 40%. Over Oct 2016 – Oct 2026: DDM 25.8% a year / −32.8% (DDM held 18.4% / −63.1%), SSO 28.8% / −37.1% (23.1% /
+  −59.3%), RXL 20.1% / −35.1% (17.4% / −51.0%). For DDM it replaced the first pick, a gated IBS dip (IBS dips only while
+  the IBD distribution-day rule on DIA is in or DDM is above SMA200: 15.2% / −27.7%), which lost half its return with fills
+  a day late; your choice, 10 Nov. RXL is sensitive to late fills (a day late: 14.4%). Added with no money
+  ([DDM](#/docs/strategy-ddm-calm-guard), [SSO](#/docs/strategy-sso-calm-guard), [RXL](#/docs/strategy-rxl-calm-guard));
+  DIA / DDM count as *Dow Jones* and XLV / RXL as *Health care* on the Money page. New installs: the paper account is now
+  $250,000 (21 strategies); existing paper accounts keep their balance.
 - **Real result, same-bet check, gold and silver history** (7 Nov 2026):
   - Cards show a time-weighted *real* result next to the simple *% on money put in* when the two differ by half a point or
     more (money moved after a gain or loss changes the simple one).

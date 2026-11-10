@@ -331,6 +331,63 @@
     "sharpe": 0.62,
     "bench": "Silver #1 on the same prices: 12.8% a year, worst fall −60.7%; a fall worse than −60% in 14% of 2,000 reshuffled decades (Silver #1: 79%)"
    }
+  },
+  "rxl_calm_guard": {
+   "doc": "strategy-rxl-calm-guard",
+   "reviewed": "2026-11-10",
+   "expect": {
+    "cagr": 20.1,
+    "maxdd": -35.1,
+    "basis": "10 yr, real fee",
+    "period": "Oct 2016 – Oct 2026",
+    "note": "The bot's rules rebuilt on TradingView daily prices at Webull's real fee (0.11% per buy and per sell), Oct 2016 – Oct 2026, cash earning nothing: the same 10 years as every other strategy (research \"DDM · RXL · SSO: 1x signals and a better rule\", 10 Nov 2026)."
+   },
+   "research": {
+    "source": "DDM · RXL · SSO: 1x signals and a better rule, 10 Nov 2026 · calm guard + dips",
+    "period": "Nov 2016 – Nov 2026",
+    "cagr": 20.8,
+    "maxdd": -35.4,
+    "sharpe": 0.83,
+    "bench": "RXL held on the same prices: 17.6% a year, worst fall −51.0%; since 2007 the rule 19.3% / −57.1% vs RXL held 15.4% / −69.0%"
+   }
+  },
+  "ddm_calm_guard": {
+   "doc": "strategy-ddm-calm-guard",
+   "reviewed": "2026-11-10",
+   "expect": {
+    "cagr": 25.8,
+    "maxdd": -32.8,
+    "basis": "10 yr, real fee",
+    "period": "Oct 2016 – Oct 2026",
+    "note": "The bot's rules rebuilt on TradingView daily prices at Webull's real fee (0.11% per buy and per sell), Oct 2016 – Oct 2026, cash earning nothing: the same 10 years as every other strategy (research \"DDM · RXL · SSO: 1x signals and a better rule\", 10 Nov 2026)."
+   },
+   "research": {
+    "source": "DDM · RXL · SSO: 1x signals and a better rule, 10 Nov 2026 · calm guard + dips",
+    "period": "Nov 2016 – Nov 2026",
+    "cagr": 26.1,
+    "maxdd": -33.0,
+    "sharpe": 1.01,
+    "bench": "DDM held on the same prices: 18.5% a year, worst fall −63.1%; since 2007 the rule 19.4% / −46.6% vs DDM held 11.9% / −82.2%"
+   }
+  },
+  "sso_calm_guard": {
+   "doc": "strategy-sso-calm-guard",
+   "reviewed": "2026-11-10",
+   "expect": {
+    "cagr": 28.8,
+    "maxdd": -37.1,
+    "basis": "10 yr, real fee",
+    "period": "Oct 2016 – Oct 2026",
+    "note": "The bot's rules rebuilt on TradingView daily prices at Webull's real fee (0.11% per buy and per sell), Oct 2016 – Oct 2026, cash earning nothing: the same 10 years as every other strategy (research \"DDM · RXL · SSO: 1x signals and a better rule\", 10 Nov 2026)."
+   },
+   "research": {
+    "source": "DDM · RXL · SSO: 1x signals and a better rule, 10 Nov 2026 · calm guard + dips",
+    "period": "Nov 2016 – Nov 2026",
+    "cagr": 28.8,
+    "maxdd": -37.4,
+    "sharpe": 1.05,
+    "bench": "SSO held on the same prices: 22.8% a year, worst fall −59.3%; since 2007 the rule 21.3% / −49.5% vs SSO held 13.3% / −85.5%"
+   }
   }
  },
  "log": [
@@ -353,6 +410,10 @@
   {
    "date": "2026-11-03",
    "what": "Every strategy now plans on the same 10 years (Oct 2016 – Oct 2026) at the real fee, from one price source per family (TradingView daily for the Nasdaq / semis / ROM strategies, OANDA 4-hour for gold and silver), so the Dashboard can rank them fairly. Before, the older strategies used their 10-year research and the newer ones the longer, lower history since 2008. qld_regime 38.9→36.6; semis_regime 55.9→55.7; qld_tbd 31.6→36.6; c27_mom 32.1→32.1; c27_mom2x 56.6→56.6; qld_ibs 37.5→34.6; usd_ibs 62.9→56.5; gold_sta 7.7→14.6; gold_st30 9.0→13.2; silver_dc 12.7→12.7; silver_st 14.4→12.0; rom_tbd 50.0→49.7; qld_tbdv 34.9→45.7; usd_smh_ibs 49.6→74.5; rom_vol_ibs 42.0→59.9; gold_trend_calm 18.0→22.6; silver_gold_ok 12.2→28.5; silver_lead_1x 10.2→13.4."
+  },
+  {
+   "date": "2026-11-10",
+   "what": "Added ddm_calm_guard (DDM · Calm guard + dips): 25.8% a year, worst fall −32.8%; sso_calm_guard (SSO · Calm guard + dips): 28.8%, −37.1%; rxl_calm_guard (RXL · Calm guard + dips): 20.1%, −35.1%; over Oct 2016 – Oct 2026 on TradingView daily prices at the real fee."
   }
  ]
 }

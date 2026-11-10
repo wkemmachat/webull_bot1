@@ -64,6 +64,17 @@ DEFAULTS = [
     ("silver_lead_1x", "metal_trend_sized", "Silver · Trend + silver leading, else 1x", "#6E7F94",
      {"symbol": "SI", "atr": 180, "mult": 4.0, "gold_confirm": False, "daily_ma": 100, "gsr_ma": 100, "one_x_etf": "SLV",
       "target_vol_pct": 40.0, "size_vol_days": 20, "size_band_pct": 10.0, "etf": "AGQ", "cash_etf": ""}, {}),
+    # 10 Nov 2026 "DDM · RXL · SSO: 1x signals and a better rule": hold the 2x ETF while its 1x market ETF is calm (DDM, SSO: or
+    # above SMA100) and under 25% volatility; IBS dips otherwise. Added with no money.
+    ("rxl_calm_guard", "calm_guard", "RXL · Calm guard + dips", "#FF6B6B",
+     {"trade": "RXL", "market": "XLV", "cash_symbol": "", "gold_share_pct": 0.0, "calm_pct": 80, "vol_days": 20, "vol_lookback": 252,
+      "uptrend_ma_days": 0, "vol_cap_pct": 25.0, "dip_ibs_max": 0.15, "dip_max_days": 5, "dip_vol_cap_pct": 40.0}, {}),
+    ("ddm_calm_guard", "calm_guard", "DDM · Calm guard + dips", "#C77DFF",
+     {"trade": "DDM", "market": "DIA", "cash_symbol": "", "gold_share_pct": 0.0, "calm_pct": 80, "vol_days": 20, "vol_lookback": 252,
+      "uptrend_ma_days": 100, "vol_cap_pct": 25.0, "dip_ibs_max": 0.15, "dip_max_days": 5, "dip_vol_cap_pct": 40.0}, {}),
+    ("sso_calm_guard", "calm_guard", "SSO · Calm guard + dips", "#7986CB",
+     {"trade": "SSO", "market": "SPY", "cash_symbol": "", "gold_share_pct": 0.0, "calm_pct": 80, "vol_days": 20, "vol_lookback": 252,
+      "uptrend_ma_days": 100, "vol_cap_pct": 25.0, "dip_ibs_max": 0.15, "dip_max_days": 5, "dip_vol_cap_pct": 40.0}, {}),
 ]
 # Earlier defaults: a strategy still on exactly these settings is moved to the new ones once (lower-cost versions, 26 Oct 2026:
 # IBS-dip T-bill half as cash + QLD IBS < 0.15; metals flat in cash instead of SGOV).
@@ -91,7 +102,8 @@ UPGRADES = [
 ]
 UPGRADE_WHY = {"cash_parking_2026_10": "Parks in cash instead of BIL (each BIL round trip cost 0.22% in fees)"}
 # Added with LINE alerts off: they hold no money until you move some to them (turn LINE on in the strategy when you do).
-QUIET_DEFAULTS = {"usd_smh_ibs", "rom_vol_ibs", "gold_trend_calm", "silver_gold_ok", "silver_lead_1x"}
+QUIET_DEFAULTS = {"usd_smh_ibs", "rom_vol_ibs", "gold_trend_calm", "silver_gold_ok", "silver_lead_1x", "ddm_calm_guard",
+                  "sso_calm_guard", "rxl_calm_guard"}
 PALETTE = ["#3DC9C0", "#E8875A", "#E46AA8", "#9BCB4E", "#F2C14E", "#5B8DEF", "#B084F5"]
 
 

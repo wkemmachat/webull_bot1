@@ -40,12 +40,13 @@ def test_fees_come_out_of_the_strategy(clean, clock):
     assert fees > 0
     acct = brokers.get("paper").account()
     # the account's cash and the books agree: what is outside the bot did not shrink by the fees
-    assert acct["cash"] - ledger.bot_cash("paper") == pytest.approx(200000 - 10000 * len(S.all_instances()), abs=0.05)
+    assert acct["cash"] - ledger.bot_cash("paper") == pytest.approx(250000 - 10000 * len(S.all_instances()), abs=0.05)
 
 
 def test_cannot_allocate_below_floor(clean):
     acct = brokers.get("paper").account()
-    db.set_settings({"protect_floor_paper": "15000"})                      # free cash is 20,000 (200,000 − 18 strategies × 10,000)
+    free = 250000 - 10000 * len(S.all_instances())                         # 40,000 (250,000 − 21 strategies × 10,000)
+    db.set_settings({"protect_floor_paper": str(free - 5000)})             # only 5,000 above the floor
     with pytest.raises(ValueError):
         moneyops.to_bot("paper", 6000)
     moneyops.to_bot("paper", 5000)

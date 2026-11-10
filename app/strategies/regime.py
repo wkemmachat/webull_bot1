@@ -29,7 +29,8 @@ STATE_TEXT = {"2x": "trend on, confirmed, calm", "0.5x": "trend on, confirmed, j
 STATE_COLOR = {"2x": "#5B8DEF", "1x": "#34508A", "0.5x": "#F5C76B", "off": "#B9852C"}
 RANGE_DAYS = {"3M": 63, "8M": 168, "1Y": 252, "2Y": 504, "ALL": 4000}
 TV = {"QQQ": "NASDAQ:QQQ", "SMH": "NASDAQ:SMH", "QLD": "AMEX:QLD", "USD": "AMEX:USD", "TQQQ": "NASDAQ:TQQQ",
-      "SOXL": "AMEX:SOXL", "SPY": "AMEX:SPY", "SSO": "AMEX:SSO", "UPRO": "AMEX:UPRO"}
+      "SOXL": "AMEX:SOXL", "SPY": "AMEX:SPY", "SSO": "AMEX:SSO", "UPRO": "AMEX:UPRO",
+      "DIA": "AMEX:DIA", "DDM": "AMEX:DDM", "XLV": "AMEX:XLV", "RXL": "AMEX:RXL"}
 
 
 def tv_url(sym):
