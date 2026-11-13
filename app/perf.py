@@ -69,6 +69,20 @@ def daily(mode, sid, limit=None) -> dict:
     return {"rows": out[:limit] if limit else out, "stats": stats}
 
 
+def today_start(mode) -> int | None:
+    """The equity snapshot the Dashboard's Today counts from: the last record of the previous US trading day (in a session,
+    and after the close until midnight New York), or of the day before the last completed session (weekends, holidays,
+    before the open). The strategy cards' Today (today_pnl) uses the same records, so the cards add up to the Dashboard."""
+    cl = _closes(mode, "*", since_days=12)
+    now_ny = md.now_utc().astimezone(NY)
+    today = now_ny.date()
+    if mh.is_trading_day(today) and now_ny.strftime("%H:%M") >= "09:30":
+        prev = next((x for x in reversed(cl) if x[0] < today), None)
+        return prev[3] if prev else None
+    done = [x for x in cl if x[0] < today]
+    return done[-2][3] if len(done) >= 2 else None
+
+
 def today_pnl(mode, sid, value_now=None, net_now=None) -> dict | None:
     """Profit/loss of the current US session since the last close (money moved today left out). Outside a session
     (weekend, holiday, before the open) it is the last completed session's result, marked live=False."""

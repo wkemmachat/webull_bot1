@@ -71,3 +71,23 @@ def test_over_time_keeps_regular_session_only(clean, clock):
     hours = [datetime.fromtimestamp(t, timezone.utc).hour for t in s["series"]["t"][:-1]]
     assert hours == [13, 15]                                      # the first snapshot, then only the regular session
     assert len(s["series"]["lines"][a]) == len(s["series"]["t"])
+
+
+def test_cards_today_add_up_to_the_dashboard_today(clean, clock):
+    """12 Nov 2026: the cards' Today summed to -$198.76 while the Dashboard said -$187.58, because the Dashboard counted from
+    a snapshot 1.2 days back (Wednesday 17:00 New York) and the cards from Wednesday's last record. Both now use the latter."""
+    from datetime import datetime, timezone
+    ids = _ids()
+    a, b = ids[0], ids[1]
+    clock.set(datetime(2026, 11, 11, 21, 0, tzinfo=timezone.utc))         # Wed 16:00 New York
+    execution.record_equity("paper", force=True)
+    db.run("UPDATE ledger SET cash=cash+11.18 WHERE mode='paper' AND strategy=?", (a,))   # an after-hours move
+    clock.set(datetime(2026, 11, 12, 3, 0, tzinfo=timezone.utc))          # Wed 22:00 New York: Wednesday's last record
+    execution.record_equity("paper", force=True)
+    db.run("UPDATE ledger SET cash=cash-119.05 WHERE mode='paper' AND strategy=?", (a,))
+    db.run("UPDATE ledger SET cash=cash-79.71 WHERE mode='paper' AND strategy=?", (b,))
+    clock.set(datetime(2026, 11, 13, 2, 47, tzinfo=timezone.utc))         # Thu 21:47 New York
+    d = views.dashboard("paper")
+    cards = sum((c["today"] or {}).get("pnl") or 0 for c in d["strategies"])
+    assert d["bot"]["today"] == pytest.approx(-198.76, abs=0.01) and cards == pytest.approx(d["bot"]["today"], abs=0.01)
+    assert views.pnl_breakdown("paper", "today")["total"] == pytest.approx(d["bot"]["today"], abs=0.01)

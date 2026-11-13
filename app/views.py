@@ -150,8 +150,10 @@ def pnl_breakdown(mode, period="all", points=160):
     now = int(time.time())
     t0, start = None, {}
     if days:
-        r = db.one("SELECT MIN(t) t FROM equity WHERE mode=? AND strategy='*' AND t>=?", (mode, now - int(days * 86400)))
-        t0 = r["t"] if r else None
+        t0 = perf.today_start(mode) if period == "today" else None                 # the same start as the Dashboard's Today
+        if t0 is None:
+            r = db.one("SELECT MIN(t) t FROM equity WHERE mode=? AND strategy='*' AND t>=?", (mode, now - int(days * 86400)))
+            t0 = r["t"] if r else None
         if t0 is not None:
             start = {x["strategy"]: x for x in db.rows("SELECT strategy, value, capital FROM equity WHERE mode=? AND t=?", (mode, t0))}
     rows, base_tot = [], 0.0
@@ -233,10 +235,15 @@ def dashboard(mode):
     bot_v = sum(c["value"] for c in cards)
     bot_in = sum(c["net_in"] for c in cards)
     series = execution.equity_series(mode, "*", 90)
-    day_ago = execution.equity_series(mode, "*", 1.2)
-    # today's gain leaves out money added or withdrawn today
-    today = ((bot_v - day_ago[0]["value"]) - (bot_in - (day_ago[0]["capital"] or 0))) if day_ago else None
-    base_today = (day_ago[0]["value"] + (bot_in - (day_ago[0]["capital"] or 0))) if day_ago else None
+    # today's gain leaves out money added or withdrawn today; it counts from the previous session's last record, like the
+    # strategy cards, so the cards' Today add up to it (a rolling 1.2 days only when that record is missing)
+    t0 = perf.today_start(mode)
+    r0 = db.one("SELECT value, capital FROM equity WHERE mode=? AND strategy='*' AND t=?", (mode, t0)) if t0 else None
+    if r0 is None:
+        day_ago = execution.equity_series(mode, "*", 1.2)
+        r0 = {"value": day_ago[0]["value"], "capital": day_ago[0]["capital"]} if day_ago else None
+    today = ((bot_v - r0["value"]) - (bot_in - (r0["capital"] or 0))) if r0 else None
+    base_today = (r0["value"] + (bot_in - (r0["capital"] or 0))) if r0 else None
     un = ledger.pool_cash(mode)
     not_bot = (acct["total"] - bot_v - un) if acct and acct.get("total") is not None else None
     plans = execution.plans_view(mode, status=None, limit=50)
