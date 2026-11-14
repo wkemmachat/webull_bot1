@@ -274,6 +274,16 @@
       } catch (e) { box.innerHTML = `<div class="note err small">${U.esc(e.message || e)}</div>`; }
     }
 
+    let hold = null;
+    async function loadHoldings() {
+      const box = el.querySelector('#holdtab');
+      if (!box || !V.renderHoldingsTable) return;
+      try {
+        hold = hold || await U.api('/api/holdings?mode=' + mode);
+        V.renderHoldingsTable(box, hold);
+      } catch (e) { box.innerHTML = `<section class="card"><div class="note err small" style="margin:0">Holdings: ${U.esc(e.message || e)}</div></section>`; }
+    }
+
     function render() {
       kill();
       const a = combine(series, now, 'w');
@@ -287,6 +297,7 @@
           <div class="card"><div class="eyebrow">Your split · 10-year backtest</div><div class="num big" style="margin-top:6px">${a ? P(a.cagr) + ' a year' : '—'}</div><div class="muted small">${a ? 'worst fall ' + fall(a.maxdd) + ' · under water up to ' + yrs(a.longestWeeks) : 'needs the expected-returns check'}</div></div>
           <div class="card"><div class="eyebrow">Biggest market</div><div class="num big" style="margin-top:6px">${top ? top.pct.toFixed(0) + '%' : '—'}</div><div class="muted small">${top ? U.esc(top.market) : ''}</div></div></div>
         <section class="card col" style="gap:12px"><div><h2 class="h2">Mix now${d.plan ? ' vs your plan' : ''}</h2></div>${mixTable()}${movesHtml()}</section>
+        <div id="holdtab"><section class="card"><div class="empty small"><span class="spin"></span></div></section></div>
         ${exposureHtml()}
         ${btHtml()}
         ${tryHtml()}
@@ -296,6 +307,7 @@
       drawBt();
       drawReal();
       loadWeekly();
+      loadHoldings();
       U.on(el, '#win button', 'click', (e, b) => { if (b.disabled) return; win = b.dataset.w; el.querySelectorAll('#win button').forEach((x) => x.classList.toggle('on', x === b)); drawBt(); });
       U.on(el, '[data-mv]', 'click', (e, b) => {
         const m = d.moves[+b.dataset.mv];

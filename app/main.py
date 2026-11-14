@@ -18,7 +18,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import auth, backtest, btview, etf2x, perf, preview, expected, symcharts, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views, idle, portfolio, weekly, orderhist
+from . import auth, backtest, btview, etf2x, perf, preview, expected, symcharts, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views, idle, portfolio, weekly, orderhist, holdings
 from . import strategies as S
 from .config import APP_NAME, BASE_DIR, COOKIE_SECURE, DISPLAY_TZ, PUBLIC_URL, SCHEDULER_ENABLED
 
@@ -555,6 +555,27 @@ def fills_csv(mode: str = "paper", u=Depends(user)):
                     r["filled_qty"], r["avg_price"], round(r["value"], 2), f"{r['lot']}/{r['lots']}", r["plan_id"], r["reason"]])
     return Response(buf.getvalue(), media_type="text/csv",
                     headers={"Content-Disposition": f'attachment; filename="fills-{mode}-{datetime.now(TZ):%Y%m%d}.csv"'})
+
+
+@app.get("/api/holdings")
+def holdings_get(mode: str = "paper", u=Depends(user)):
+    """What each strategy holds now (cash by reason, shares), the totals, what is not the bot's, and the Webull check."""
+    m = mode_of(mode)
+    acct, err = views.account(m)
+    return holdings.build(m, acct, err)
+
+
+@app.get("/api/holdings.csv")
+def holdings_csv(mode: str = "paper", u=Depends(user)):
+    m = mode_of(mode)
+    acct, err = views.account(m)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(holdings.CSV_COLS)
+    for r in holdings.csv_rows(holdings.build(m, acct, err)):
+        w.writerow(r)
+    return Response(buf.getvalue(), media_type="text/csv",
+                    headers={"Content-Disposition": f'attachment; filename="holdings-{mode}-{datetime.now(TZ):%Y%m%d}.csv"'})
 
 
 @app.get("/api/positions")

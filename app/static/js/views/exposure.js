@@ -1,12 +1,21 @@
 /* Dashboard: what the money in the strategies is really in (holdings grouped by what each ETF follows, 2x counted twice).
-   V.renderExposure(el, x) — x: dashboard.exposure from the API ({total, rows, us_tech}). */
+   V.renderExposure(el, x, h) — x: dashboard.exposure ({total, rows, us_tech}); h: dashboard.holdings (By strategy view).
+   One section, two views: By strategy (what each strategy holds, cash by reason, Webull check) and By market (2x counted twice). */
 (function () {
   const V = window.Views || (window.Views = {});
   const pc = (x, d) => (x == null ? '—' : (x * 100).toFixed(d == null ? 0 : d) + '%');
 
-  V.renderExposure = function (el, x) {
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* not remembered */ } },
+  };
+
+  V.renderExposure = function (el, x, h) {
     if (!el) return;
-    if (!x || !x.rows || !x.rows.length || !(x.total > 0.5)) { el.innerHTML = ''; return; }
+    const hasH = h && h.rows && V.holdingsByStrategy;
+    if ((!x || !x.rows || !x.rows.length || !(x.total > 0.5)) && !hasH) { el.innerHTML = ''; return; }
+    x = x && x.rows ? x : { rows: [], total: 0, us_tech: {} };
+    const view = hasH ? store.get('expoView', 'strategy') : 'market';
     const t = x.us_tech || {};
     const head = t.pct > 0.005
       ? `<div class="note ${t.acts_like >= 1 ? 'warn' : 'info'} small" style="margin:0;display:block;line-height:1.55">
@@ -23,9 +32,22 @@
         <div class="num" style="text-align:right">${U.usd(r.value, 0)}<div class="muted small">${pc(r.pct, 1)}</div></div>
         <div class="num" style="text-align:right" title="Value × leverage, as a share of all the money">${r.key === 'cash' || r.key === 'tbills' ? '<span class="muted">—</span>' : pc(r.acts_like)}
           <div class="muted small">acts like</div></div></div>`;
+    const seg = hasH ? `<div class="seg" id="exview"><button data-v="strategy" class="${view === 'strategy' ? 'on' : ''}">By strategy</button><button data-v="market" class="${view === 'market' ? 'on' : ''}">By market</button></div>` : '';
+    const sub = view === 'strategy' ? 'What each strategy holds now: cash and shares, from the bot’s books, checked against Webull'
+      : 'All strategies together, by what each ETF follows · 2x ETFs count twice in “acts like”';
+    if (view === 'strategy') {
+      el.innerHTML = `<section class="card col" style="gap:14px">
+        <div class="row sb" style="gap:8px;flex-wrap:wrap;align-items:flex-start"><div><h2 class="h2">What your money is in</h2><div class="muted small">${sub}</div></div>
+          <div class="row" style="gap:8px;flex-wrap:wrap">${seg}<a class="btn s" href="#/portfolio">Full table</a></div></div>
+        ${head}
+        ${V.holdingsByStrategy(h)}</section>`;
+      U.on(el, '#exview button', 'click', (e, b) => { store.set('expoView', b.dataset.v); V.renderExposure(el, x, h); });
+      V.bindHoldings(el, () => V.renderExposure(el, x, h));
+      return;
+    }
     el.innerHTML = `<section class="card col" style="gap:12px">
-      <div class="row sb" style="gap:8px;flex-wrap:wrap"><h2 class="h2">What your money is in</h2>
-        <span class="muted small">All strategies together, by what each ETF follows · 2x ETFs count twice in “acts like”</span></div>
+      <div class="row sb" style="gap:8px;flex-wrap:wrap;align-items:flex-start"><div><h2 class="h2">What your money is in</h2>
+        <div class="muted small">${sub}</div></div>${seg}</div>
       ${head}
       <div class="exbar" role="img" aria-label="Money by what it follows">${bar}</div>
       <div>${x.rows.map(row).join('')}</div>
@@ -33,5 +55,6 @@
         <div class="num" style="text-align:right"><b>${pc(t.acts_like)}</b><div class="muted small">acts like</div></div></div>` : ''}
       <div class="muted small">Total in strategies ${U.usd(x.total, 0)} (their cash included). The 10% line is a rough guide: semiconductors usually move more than the Nasdaq-100.</div>
     </section>`;
+    U.on(el, '#exview button', 'click', (e, b) => { store.set('expoView', b.dataset.v); V.renderExposure(el, x, h); });
   };
 })();

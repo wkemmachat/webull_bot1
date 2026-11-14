@@ -296,3 +296,8 @@
   client order id so any order can be found again in the Webull app. *Check with Webull* (one order, or the whole page)
   compares status, filled shares, average price and fee with Webull, read-only. The old Trades link opens Order history with
   *Filled* selected; the CSV now carries every id.
+- **Holdings by strategy** (14 Nov 2026, your request): the Dashboard's *What your money is in* now opens on **By strategy**
+  (what each strategy holds: cash by reason and shares, checked against Webull, with *Not the bot's* underneath); the old
+  market view is the **By market** switch, so nothing is shown twice. Portfolio has the full strategy × symbol table with the
+  Webull check and the *Not the bot's* detail (OMER, the ADVM CVR, own USD cash, HKD cash). Strategies with $0 are hidden behind
+  *Show N strategies with no money* (remembered per device); the Strategies page always lists all of them.

@@ -126,7 +126,7 @@
       </div>`;
       if (chart) chart.remove();
       V.renderAlloc(el.querySelector('#alloc'), shown);
-      if (V.renderExposure) V.renderExposure(el.querySelector('#expo'), d.exposure);
+      if (V.renderExposure) V.renderExposure(el.querySelector('#expo'), d.exposure, d.holdings);
       if (oldPnl && oldPnl.firstChild) { el.querySelector('#pnlx').replaceWith(oldPnl); V.renderPnl(oldPnl); } else V.renderPnl(el.querySelector('#pnlx'));
       U.on(el, '[data-pnl]', 'click', (e, x) => { const box = el.querySelector('#pnlx'); V.renderPnl(box, { period: x.dataset.pnl }).then(() => box.scrollIntoView({ behavior: 'smooth', block: 'start' })); });
       U.on(el, '[data-idle]', 'click', () => { U.showIdle(!showIdle); if (V.expectedForget) V.expectedForget(); load(); });

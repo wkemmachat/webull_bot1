@@ -257,7 +257,13 @@ def dashboard(mode):
     except Exception as e:                                 # never breaks the Dashboard
         log.warning("exposure: %s", e)
         expo = None
-    return {"mode": mode, "account": acct, "account_error": err, "strategies": cards, "exposure": expo,
+    from . import holdings
+    try:
+        hold = holdings.build(mode, acct, err)
+    except Exception as e:                                 # never breaks the Dashboard
+        log.warning("holdings: %s", e)
+        hold = None
+    return {"mode": mode, "account": acct, "account_error": err, "strategies": cards, "exposure": expo, "holdings": hold,
             "bot": {"value": bot_v, "net_in": bot_in, "pnl": bot_v - bot_in, "ret": (bot_v / bot_in - 1) if bot_in else None,
                     "today": today, "today_pct": (today / base_today) if today is not None and base_today else None,
                     "real": _real(mode, "*", bot_v, bot_in),

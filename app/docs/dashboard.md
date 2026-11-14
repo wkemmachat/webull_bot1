@@ -29,7 +29,15 @@
     device.
 - **Account split**: how the broker account is divided between the strategies (most money first), bot unassigned and *not for the bot* (always last).
 - **Money in strategies**: a donut of how the money in the strategies is split — the total is all strategies combined; bot unassigned money is not counted. Switch between **Value now** and **Money put in**. Hover or tap a slice for its share; tap a name to open the strategy.
-- **What your money is in** (under the donut): all strategies' holdings together, grouped by what each ETF follows:
+- **What your money is in** (under the donut) has two views; the switch is remembered on this device.
+  **By strategy** (the default): what each strategy holds now, from the bot's books. At the top, the total of each symbol
+  (value, share of the bot, shares) and of cash. Then one row per strategy with money: a bar of what it holds and the amounts
+  (*GLD 11.88 sh $4,226 · Cash $4,578*). Striped cash **waits for a buy signal** (money you added with "wait for the next buy
+  signal"); *for planned orders* is cash set aside for buys at the next open; the rest of the cash is where the strategy's
+  rule says to be. Click a row for the strategy. **Show N strategies with no money** lists the $0 strategies (all of them are
+  always on the Strategies page). At the bottom: the bot's total, **✓ Matches Webull** (the bot's shares per symbol against
+  your Webull account) and **Not the bot's**: your own shares, cash not given to the bot and HKD cash (details on Portfolio).
+  **By market**: all strategies' holdings together, grouped by what each ETF follows:
   Nasdaq-100 (QQQ, QLD), US tech (IYW, ROM), semiconductors (SMH, USD), Nasdaq-100 stocks (C2-7), S&P 500, gold, silver,
   T-bills and cash. **Acts like** counts a 2x ETF twice: $1,000 in ROM acts like $2,000 in US tech. The top line adds up the
   groups marked with a green edge, because they fall together on a bad tech day (5 Nov 2026: IYW −6.9%, QQQ −5.8%, SMH −8.6%),

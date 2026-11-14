@@ -25,6 +25,14 @@ All the money in the mode you are looking at, together:
   mix → Save as my plan* here). Plan = (money in strategies + bot unassigned) × ratio. **Moves** that close the gaps are
   listed (bot unassigned first, then from the most over-weight strategy); each button opens the usual Money dialog filled in.
   Nothing moves until you confirm there. Gaps under $50 are ignored.
+- **Holdings by strategy**: one row per strategy with money, one column per symbol it holds, then Cash, Other and Total. Each
+  amount shows its share of the strategy (and the thin bar under it); **Shares** switches the cells to share counts. Under each
+  strategy's state: its target now (*GLD 49.5% · cash*). Cash notes: *waits* (added with "wait for the next buy signal") and
+  *for orders* (buys planned for the next open). Rows below: **All strategies** (the totals), *Bot · not given to a strategy*,
+  **Not the bot's** (click to open or close): your own shares with what they gained since you bought them, USD cash in Webull
+  not given to the bot (*Money → Allocate* gives it), and HKD cash (kept apart, not in the USD total). **Webull account**: each
+  symbol's shares with ✓ when the bot's books match, the account cash and the total; *books match* means the shares match and
+  bot + not the bot's add up to the account total. **Export CSV** keeps it. **Show N strategies with no money** adds the $0 ones.
 - **What the money holds**: by market across all strategies (two strategies holding USD both count as semiconductors 2x;
   T-bills, gold, cash and bot unassigned shown separately).
 - **Your mix in the backtest**: today's split, each strategy's money growing on its own as in the bot (never rebalanced),
