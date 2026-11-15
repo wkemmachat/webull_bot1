@@ -165,6 +165,7 @@ def refresh_all(now=None, send=True) -> dict:
             log.warning("dip %s: %s", s.id, e)
             continue
         if not d:
+            db.set_state(f"diptry:{s.id}", int(time.time()))     # no backtest yet: missing() waits a day before asking again
             continue
         old = db.get_state(f"dip:{s.id}") or {}
         alerted = bool(old.get("alerted"))
@@ -206,6 +207,13 @@ def refresh_all(now=None, send=True) -> dict:
 
 
 def missing() -> bool:
-    """Nothing stored yet, or stored with another window (the window changed: recompute on start, not at the next close)."""
-    st = [db.get_state(f"dip:{s.id}") for s in S.all_instances()]
-    return not any(st) or any(x and (x.get("win", 10) != WINDOW_YEARS or "worst10" not in x or x.get("v", 1) != VERSION) for x in st)
+    """A strategy with nothing stored yet (a new default strategy: 15 Nov 2026 its zone appeared on its Backtest tab but not in
+    the Expected table until the next close), or stored with another window or version: recompute now, not at the next close."""
+    now = time.time()
+    for s in S.all_instances():
+        x = db.get_state(f"dip:{s.id}")
+        if not x and now - (db.get_state(f"diptry:{s.id}") or 0) < 86400:
+            continue                                      # its backtest failed in the last day: wait for the next close
+        if not x or x.get("win", 10) != WINDOW_YEARS or "worst10" not in x or x.get("v", 1) != VERSION:
+            return True
+    return False

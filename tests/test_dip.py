@@ -67,3 +67,15 @@ def test_window_is_20_years_and_a_new_window_recomputes(clean):
     assert dip.WINDOW_YEARS == 20
     db.set_state("dip:qld_regime", {"pct": 50, "zone": None, "at": 1, "alerted": False})       # stored by the 10-year version
     assert dip.missing()
+
+
+def test_a_new_strategy_with_no_zone_yet_is_missing(clean):
+    from app import dip, db
+    base = {"win": dip.WINDOW_YEARS, "worst10": -30.0, "v": dip.VERSION, "at": 1}
+    for s in S.all_instances():
+        db.set_state(f"dip:{s.id}", base)
+    assert not dip.missing()
+    db.set_state("dip:rxl_ichi_calm", None)                    # added by an update: nothing stored yet
+    assert dip.missing()
+    db.set_state("diptry:rxl_ichi_calm", int(__import__("time").time()))   # its backtest just failed: wait for the next close
+    assert not dip.missing()
