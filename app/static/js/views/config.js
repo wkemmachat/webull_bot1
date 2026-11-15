@@ -98,7 +98,7 @@
     function keys(env) {
       const st = d[env];
       return `<section class="card col" style="gap:14px"><div class="row sb"><h2 class="h2">${env === 'live' ? 'Live' : 'Test'} API keys</h2>${U.pill(st.connected ? 'ok' : st.status === 'connecting' ? 'warn' : '', st.status || 'not connected')}</div>
-        ${st.status === 'connecting' ? `<div class="note warn"><span class="spin"></span><span>${U.esc(st.msg)}</span></div>` : st.status === 'error' ? `<div class="note err">${U.esc(st.msg)}</div>` : ''}
+        ${st.status === 'connecting' ? `<div class="note warn fx"><span class="spin"></span><span>${U.esc(st.msg)}</span></div>` : st.status === 'error' ? `<div class="note err">${U.esc(st.msg)}</div>` : ''}
         <div class="f"><label for="${env}-k">App Key</label><input class="in num" id="${env}-k" placeholder="${st.key_hint ? 'saved · ' + U.esc(st.key_hint) + ' (leave empty to keep)' : 'App Key'}"></div>
         <div class="f"><label for="${env}-s">App Secret</label><input class="in num" id="${env}-s" type="password" placeholder="${st.has_keys ? 'saved (leave empty to keep)' : 'App Secret'}"></div>
         <div class="fs"><div class="f"><label for="${env}-a">Account ID (optional)</label><input class="in num" id="${env}-a" value="${U.esc(st.account_id || '')}" placeholder="found automatically"></div>

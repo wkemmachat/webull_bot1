@@ -24,7 +24,7 @@
     return (list || []).filter((x) => x.status !== 'ok').map((x) => {
       const ended = x.status === 'ended', urgent = ended || x.days_left <= 1;
       const left = ended ? 'has ended' : x.days_left < 1 ? `ends in ${Math.max(1, Math.round(x.days_left * 24))} hours` : `ends in ${Math.ceil(x.days_left)} day${Math.ceil(x.days_left) > 1 ? 's' : ''}`;
-      return `<div class="note ${urgent ? 'err' : 'warn'} row sb" role="alert" style="flex-wrap:wrap;gap:10px">
+      return `<div class="note fx ${urgent ? 'err' : 'warn'} row sb" role="alert" style="flex-wrap:wrap;gap:10px">
         <span><b>Webull ${U.esc(x.label)} login ${left}</b> (${U.esc(x.ends_text)} Bangkok). ${ended ? 'No orders can be sent until you reconnect.' : 'Renew it while the US market is closed: Reconnect, then enter the SMS code in the Webull app (Menu → Messages → OpenAPI Notifications) within 5 minutes.'}</span>
         <a class="btn s ${urgent ? 'p' : ''}" href="#/webull">Renew now →</a></div>`;
     }).join('');

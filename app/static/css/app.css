@@ -149,7 +149,8 @@ textarea.in { height: auto; padding: 10px 12px; }
 .tabs a, .tabs button { padding: 10px 14px; color: var(--muted); font-weight: 500; border: 0; background: none; border-bottom: 2px solid transparent;
   margin-bottom: -1px; cursor: pointer; }
 .tabs .on { color: var(--text); border-bottom-color: var(--accent); }
-.note { display: flex; gap: 12px; padding: 12px 16px; border-radius: 10px; font-size: 13.5px; align-items: flex-start; }
+.note { display: block; padding: 12px 16px; border-radius: 10px; font-size: 13.5px; line-height: 1.5; }
+.note.fx { display: flex; gap: 12px; align-items: flex-start; }   /* notes laid out as parts (spinner + text, title + text) */
 .note.ok { background: var(--ok-bg); color: var(--ok-fg); } .note.warn { background: var(--warn-bg); color: var(--warn-fg); }
 .note.err { background: var(--err-bg); color: var(--err-fg); } .note.info { background: var(--info-bg); color: var(--info); }
 .empty { padding: 28px; text-align: center; color: var(--muted); }

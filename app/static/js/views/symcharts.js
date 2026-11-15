@@ -27,7 +27,7 @@
       } catch (e) { r = { ok: false, error: e.message }; }
       if (!r.ok) {
         if (st.data) { U.toast(r.error, 'err'); const b = host.querySelector('#sc-box'); if (b) b.style.opacity = '1'; return; }
-        host.innerHTML = `<div class="note err" style="flex-direction:column;align-items:flex-start;gap:6px"><b>Charts not available yet</b><span>${U.esc(r.error)}</span>
+        host.innerHTML = `<div class="note err fx" style="flex-direction:column;align-items:flex-start;gap:6px"><b>Charts not available yet</b><span>${U.esc(r.error)}</span>
           <span class="muted">They come from the backtest. Open the Backtest tab once, then come back.</span></div>`;
         return;
       }

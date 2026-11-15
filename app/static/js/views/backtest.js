@@ -352,7 +352,7 @@
       destroyCharts();
       const r = st.data;
       if (!r.ok) {
-        host.innerHTML = `<div class="note err" style="flex-direction:column;align-items:flex-start;gap:6px"><b>Backtest not possible yet</b><span>${U.esc(r.error)}</span>
+        host.innerHTML = `<div class="note err fx" style="flex-direction:column;align-items:flex-start;gap:6px"><b>Backtest not possible yet</b><span>${U.esc(r.error)}</span>
           <span class="muted">It needs the price history (downloaded from Yahoo by the server). Try again in a minute; if it repeats, open Health check → Data.</span></div>
           ${st.custom ? tryBox() : ''}`;
         bindTry();

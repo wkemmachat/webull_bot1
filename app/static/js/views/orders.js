@@ -96,7 +96,7 @@
     const rule = all.filter(([, b]) => b.code === d.rule_code), other = all.filter(([, b]) => b.code !== d.rule_code);
     let h = '';
     if (other.length) {
-      h += `<div class="note err" style="flex-direction:column;align-items:flex-start;gap:6px"><b>Webull refuses ${other.map(([s]) => U.esc(s)).join(', ')} — no orders for ${other.length > 1 ? 'them' : 'it'} until you fix it and press the button</b>
+      h += `<div class="note err fx" style="flex-direction:column;align-items:flex-start;gap:6px"><b>Webull refuses ${other.map(([s]) => U.esc(s)).join(', ')} — no orders for ${other.length > 1 ? 'them' : 'it'} until you fix it and press the button</b>
         ${other.map(([s, b]) => `<span>${U.esc(s)}: ${U.esc(b.msg)}${b.hint ? ' → ' + U.esc(b.hint) : ''}</span>`).join('')}
         <button class="btn s" id="unb">I fixed it — try again now</button></div>`;
     }
@@ -244,7 +244,7 @@
       el.innerHTML = `<div class="page-head"><div><div class="eyebrow">Bot books vs ${U.modeLabel[mode]} account · checked ${d.checked_at ? U.time(d.checked_at) : '—'}</div><h1 class="h1">Positions</h1></div>
         <button class="btn p" id="rc">Reconcile now</button></div>
         ${d.account_error ? `<div class="note err">${U.esc(d.account_error)}</div>` : bad.length || !cashOk ? `<div class="note err"><b>${bad.length} symbol(s) differ from the account.</b> Buys in those symbols wait until you check. Did you sell something by hand in Webull?</div>`
-          : `<div class="note ok"><b>All ${d.rows.length} symbols and cash match the account.</b><span>No action needed. A mismatch shows up in the nightly Health check and on LINE.</span></div>`}
+          : `<div class="note ok fx"><b>All ${d.rows.length} symbols and cash match the account.</b><span>No action needed. A mismatch shows up in the nightly Health check and on LINE.</span></div>`}
         <section class="card flush"><div style="padding:14px 18px 4px"><h2 class="h2">Bot positions</h2></div><div class="tw"><table class="t"><thead><tr><th>Symbol</th><th class="r">Account shares</th><th class="r">Bot books</th><th>Owned by</th><th class="r">Price</th><th class="r">Value</th><th class="r">Difference</th><th>Status</th></tr></thead><tbody>
           ${d.rows.map((r) => `<tr><td><b class="num">${U.esc(r.symbol)}</b></td><td class="r num">${U.n(r.account, 0)}</td><td class="r num">${U.n(r.bot, 0)}</td>
             <td>${r.owners.map((o) => `<span class="pill" style="margin-right:4px">${U.dot(o.color)} ${U.esc(o.name.split(' · ')[0])} · ${U.qty(o.qty)}</span>`).join('')}</td>
