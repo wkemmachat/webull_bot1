@@ -3,16 +3,16 @@ import pytest
 
 from app import brokers, db, execution as X, ledger, marketdata as md, moneyops
 from app import strategies as S
-from conftest import NOW
+from conftest import NOW, PAPER_START
 
 
 def test_paper_start(clean):
     acct = brokers.get("paper").account()
-    assert acct["cash"] == 250000
+    assert acct["cash"] == PAPER_START
     for r in S.rows():
         assert ledger.get("paper", r["id"])["cap_in"] == 10000
     assert ledger.pool_cash("paper") == 0                                          # bot unassigned starts empty
-    assert ledger.outside_cash("paper", acct["cash"]) == pytest.approx(250000 - 10000 * len(S.rows()))   # not for the bot
+    assert ledger.outside_cash("paper", acct["cash"]) == pytest.approx(PAPER_START - 10000 * len(S.rows()))   # not for the bot
 
 
 def test_three_layers(clean):

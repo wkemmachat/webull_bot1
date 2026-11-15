@@ -2,7 +2,7 @@
 
   python scripts/make_demo_data.py [--dir data/csv] [--days 500]
 
-GC/SI: hourly futures bars in COMEX session hours. ETFs: daily bars (QQQ, SMH, QLD, USD, GLD, BIL, SGOV, UGL, AGQ, SLV, IYW, ROM, DIA, DDM, SSO, XLV, RXL).
+GC/SI: hourly futures bars in COMEX session hours. ETFs: daily bars (QQQ, SMH, QLD, USD, GLD, BIL, SGOV, UGL, AGQ, SLV, IYW, ROM, DIA, DDM, SSO, XLV, RXL, LQD, IEF).
 The prices are random walks, NOT real market data.
 """
 from __future__ import annotations
@@ -79,6 +79,8 @@ def main(out: Path, days: int, now=None):
     xlv = daily(12, nd, 140, 0.0003, 0.009, now)
     for name, df in {"SSO": lever(spy, 2, 90), "XLV": xlv, "RXL": lever(xlv, 2, 100)}.items():
         df.to_csv(out / f"{name}_1d.csv", index=False)
+    for name, df in {"LQD": daily(13, nd, 110, 0.0001, 0.004, now), "IEF": daily(14, nd, 96, 0.00005, 0.004, now)}.items():
+        df.to_csv(out / f"{name}_1d.csv", index=False)                # credit check of USD · Trend split (LQD ÷ IEF)
     return out
 
 

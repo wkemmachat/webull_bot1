@@ -20,6 +20,7 @@ import pytest  # noqa: E402
 
 # Wednesday 21 Oct 2026, 15:00 UTC = 11:00 New York (market open), 22:00 Bangkok
 NOW = datetime(2026, 10, 21, 15, 0, tzinfo=timezone.utc)
+PAPER_START = 400000                                            # tests: paper account start (the app default is 250,000)
 
 import make_demo_data  # noqa: E402
 
@@ -80,6 +81,7 @@ def clean():
         c.execute("DELETE FROM settings")
         c.execute("UPDATE strategies SET control='active', line_on=1, exec=NULL")
     db.init()
+    db.set_settings({"paper_start_cash": str(PAPER_START)})     # room for every default strategy's $10,000 and free cash
     md.clear_quotes()
     notify.set_transport(None)
     moneyops.seed_paper()

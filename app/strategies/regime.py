@@ -30,7 +30,8 @@ STATE_COLOR = {"2x": "#5B8DEF", "1x": "#34508A", "0.5x": "#F5C76B", "off": "#B98
 RANGE_DAYS = {"3M": 63, "8M": 168, "1Y": 252, "2Y": 504, "ALL": 4000}
 TV = {"QQQ": "NASDAQ:QQQ", "SMH": "NASDAQ:SMH", "QLD": "AMEX:QLD", "USD": "AMEX:USD", "TQQQ": "NASDAQ:TQQQ",
       "SOXL": "AMEX:SOXL", "SPY": "AMEX:SPY", "SSO": "AMEX:SSO", "UPRO": "AMEX:UPRO",
-      "DIA": "AMEX:DIA", "DDM": "AMEX:DDM", "XLV": "AMEX:XLV", "RXL": "AMEX:RXL"}
+      "DIA": "AMEX:DIA", "DDM": "AMEX:DDM", "XLV": "AMEX:XLV", "RXL": "AMEX:RXL", "LQD": "AMEX:LQD", "IEF": "NASDAQ:IEF",
+      "IYW": "AMEX:IYW", "ROM": "AMEX:ROM", "GLD": "AMEX:GLD"}
 
 
 def tv_url(sym):

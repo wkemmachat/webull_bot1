@@ -301,3 +301,45 @@
   market view is the **By market** switch, so nothing is shown twice. Portfolio has the full strategy × symbol table with the
   Webull check and the *Not the bot's* detail (OMER, the ADVM CVR, own USD cash, HKD cash). Strategies with $0 are hidden behind
   *Show N strategies with no money* (remembered per device); the Strategies page always lists all of them.
+- **USD · Trend split added** (15 Nov 2026, your request after "Strategy research and stress tests"): round 3 USD split C as a
+  new strategy type `trend_split`, with no money. A third each in SMA150 / ROC126 / EMA150 on SMH, each with a calm gate
+  (90th, 90th, 80th percentile) and the credit check LQD ÷ IEF above its SMA100 on dividend-adjusted closes, one-day USD buys
+  after SMH IBS < 0.30 below a leg's trend, legs rebalanced each January. The bot's backtest reproduces the research (10 years
+  92.9% / −36.6% against 93.0% / −36.6%) and beats the three USD strategies over 3, 5, 10 years and since 2006, but made 22.9%
+  in the last year against 95.8%, and the research's walk-forward check suggests about 73% a year out of sample.
+- **QLD · Split 2C added** (15 Nov 2026, your request after "Strategy research and stress tests"): round 2 QLD split C as a
+  new strategy type `split_mix` (the money split equally over several strategies on one ETF, each leg a strategy of an existing
+  type, set back to equal each January), with no money. Legs: QLD-A (EMA100 trend + calm + RSI and IBS dips, type
+  `trend_gate`), QLD-B and QLD-C (new type `ibd_gate`: IBD market direction on QQQ, B also above SMA200, calm gate, size by
+  QLD's volatility 60% / 40%, one-day RSI dips); all park half in GLD. The IBD rule counts distribution days only since the
+  last follow-through day and drops one once QQQ closes 5% above it (without that the backtest missed the 2020 rebound by 70
+  points). The bot's backtest reproduces the research (10 years 50.5% / −21.1% against 50.1% / −21.0%) and beats every QLD
+  strategy over 10 years and since 2006 with the smallest fall in every stress test; it makes a little less than QLD Trend +
+  bear-dip + Vol at a 0.50% fee or with every order a day late, and the walk-forward check suggests about 33% to 36% a year
+  out of sample. Its target holds still between leg changes, so a day's price move alone never makes a plan (the same was
+  added to USD · Trend split).
+- **ROM · Split 2C added** (15 Nov 2026, your request after "Strategy research and stress tests"): round 2 ROM split C as a
+  `split_mix` with weighted legs, with no money: 67% in the rules of ROM · Trend + Vol + RSI & IBS dips (parks in cash) and 33%
+  in a new rule (IYW above its close 252 days ago and LQD ÷ IEF above its SMA100, dip trades after 3 lower closes sold above
+  SMA5, one-day dips after ROM IBS < 0.2, parks half in GLD), set back to 67% / 33% each January. For this `split_mix` now
+  takes a weight per leg and legs that park differently (the backtest takes each day's target, gold included, from the mix),
+  and `trend_gate` has three new options: ROC trend, the credit check and 3DOWN dip trades. The bot's backtest reproduces the
+  research (10 years 60.9% / −26.3% against 60.7% / −26.3%): today's best return with a 10-point smaller fall, better over 1,
+  3 and 5 years and with orders a day late, a little behind at a 0.50% fee. Two-thirds of it is ROM · Trend + Vol + RSI & IBS
+  dips, so it is meant to replace that strategy, not to run beside it.
+- **SSO · Slow MACD + calm + dips added** (15 Nov 2026, your request after "Strategy research and stress tests"): round 1
+  SSO-A as a `trend_gate` default, with no money. SSO while SPY's EMA60 is above its EMA130 (a slow MACD above zero) and calm
+  (90th percentile); below it, dip trades after SPY IBS < 0.20 sold above SMA5, and one-day buys after RSI(2) < 10; cash when
+  out. For this `trend_gate` gained `ma_type` XEMA (with `fast_days`), `dip_entry` IBS (with `entry_ibs_max`) and `rsi_1d_buy`.
+  The bot's backtest matches the research exactly (10 years 33.7% / −36.7% against SSO · Calm guard + dips' 28.6% / −37.1%;
+  better since 2006 and at every fee). But the edge comes from crash years (2008, 2011, 2020, 2022): it was ahead in only 9 of 21
+  calendar years, about 2 points a year behind from 2017 to 2026 without 2020, and weaker than Calm guard when orders are a day
+  late. On SSO the research's walk-forward check made about 19% a year, less than holding SSO.
+- **RXL · Ichimoku cloud + calm + S&P check + dips added** (15 Nov 2026, your request after "Strategy research and stress
+  tests"): round 1 RXL-A as a `trend_gate` default, with no money. RXL while XLV's Ichimoku cloud trend (18/48/96, drawn 48 days
+  ahead; on above the cloud, off below it, unchanged inside) is on, XLV is calm (80th percentile) and SPY is above its SMA200,
+  sized 60% ÷ RXL volatility; below it, dip trades after XLV IBS < 0.25 sold above the previous day's high or after 5 days, and
+  one-day buys after RSI(2) < 5; half GLD when out. For this `trend_gate` gained `ma_type` ICHI, a market check
+  (`mkt_symbol`, `mkt_ma_days`) and `dip_exit` PREVHIGH (`dip_max_days`). The backtest matches the research exactly (10 years
+  26.6% / −30.1% against RXL · Calm guard + dips' 18.6% / −34.6%), ahead in every test but a 0.50% fee. On RXL the research's
+  walk-forward check made about 10% a year, less than holding RXL, so its extra return is the least proven of all the picks.

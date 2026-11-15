@@ -12,6 +12,27 @@ from .base import TYPES, StrategyBase, register  # noqa: F401
 
 _loaded = False
 
+_QLD_BASE = {"signal": "QQQ", "trade": "QLD", "cash_symbol": "", "gold_share_pct": 50.0, "gold_symbol": "GLD"}
+QLD_2C_LEGS = [
+    {"name": "QLD-A · EMA100 trend + dips", "type": "trend_gate",
+     "params": {**_QLD_BASE, "ma_type": "EMA", "ma_days": 100, "vol_gate_q": 80.0, "vol_days": 20, "vol_lookback": 252, "rsi_buy": 5.0,
+                "rsi_len": 2, "exit_ma": 5, "dip_ibs_max": 0.15, "dip_ibs_symbol": "QLD", "jumpy_ibs_max": 0.0, "target_vol_pct": 0.0}},
+    {"name": "QLD-B · IBD or SMA200, vol 60%", "type": "ibd_gate",
+     "params": {**_QLD_BASE, "trend_mode": "SMA|IBD", "ma_days": 200, "ibd_dist": 6, "ibd_expire_pct": 5.0, "target_vol_pct": 60.0,
+                "dip_vol_cap_pct": 0.0}},
+    {"name": "QLD-C · IBD, vol 40%", "type": "ibd_gate",
+     "params": {**_QLD_BASE, "trend_mode": "IBD", "ibd_dist": 6, "ibd_expire_pct": 5.0, "target_vol_pct": 40.0, "dip_vol_cap_pct": 40.0}},
+]
+_ROM_TODAY = {"signal": "IYW", "trade": "ROM", "cash_symbol": "", "gold_share_pct": 0.0, "ma_type": "EMA", "ma_days": 150,
+              "vol_gate_q": 90.0, "vol_days": 20, "vol_lookback": 252, "rsi_buy": 5.0, "rsi_len": 2, "exit_ma": 5, "dip_ibs_max": 0.15,
+              "dip_ibs_symbol": "ROM", "jumpy_ibs_max": 0.0, "target_vol_pct": 0.0}
+ROM_2C_LEGS = [
+    {"name": "ROM · Trend + Vol + RSI & IBS dips", "type": "trend_gate", "weight": 67, "params": dict(_ROM_TODAY)},
+    {"name": "ROC252 + credit + 3-down & IBS dips", "type": "trend_gate", "weight": 33,
+     "params": {"signal": "IYW", "trade": "ROM", "cash_symbol": "", "gold_share_pct": 50.0, "gold_symbol": "GLD", "ma_type": "ROC",
+                "ma_days": 252, "vol_gate_q": 0.0, "credit_ma": 100, "credit_a": "LQD", "credit_b": "IEF", "dip_entry": "3DOWN",
+                "rsi_buy": 0.0, "exit_ma": 5, "dip_ibs_max": 0.2, "dip_ibs_symbol": "ROM", "jumpy_ibs_max": 0.0, "target_vol_pct": 0.0}},
+]
 DEFAULTS = [
     ("gold_sta", "supertrend", "Gold #1 · Supertrend + ADX", "#F2C14E",
      {"symbol": "GC", "atr": 30, "mult": 2.5, "adx_min": 20, "adx_len": 14, "etf": "UGL", "cash_etf": ""}, {}),
@@ -75,6 +96,38 @@ DEFAULTS = [
     ("sso_calm_guard", "calm_guard", "SSO · Calm guard + dips", "#7986CB",
      {"trade": "SSO", "market": "SPY", "cash_symbol": "", "gold_share_pct": 0.0, "calm_pct": 80, "vol_days": 20, "vol_lookback": 252,
       "uptrend_ma_days": 100, "vol_cap_pct": 25.0, "dip_ibs_max": 0.15, "dip_max_days": 5, "dip_vol_cap_pct": 40.0}, {}),
+    # 15 Nov 2026 "Strategy research and stress tests", round 3 USD split C: a third each in SMA150 / ROC126 / EMA150 on SMH with
+    # calm and credit (LQD ÷ IEF) gates and one-day SMH IBS dips, rebalanced once a year. Added with no money.
+    ("usd_trend_split", "trend_split", "USD · Trend split (3 rules + credit check)", "#1C7ED6",
+     {"signal": "SMH", "trade": "USD", "cash_symbol": "", "leg1_kind": "SMA", "leg1_days": 150, "leg1_calm_q": 90.0,
+      "leg2_kind": "ROC", "leg2_days": 126, "leg2_calm_q": 90.0, "leg3_kind": "EMA", "leg3_days": 150, "leg3_calm_q": 80.0,
+      "vol_days": 20, "vol_lookback": 252, "credit_a": "LQD", "credit_b": "IEF", "credit_ma": 100, "dip_ibs_max": 0.3,
+      "dip_ibs_symbol": "SMH", "rebalance_legs": "yearly"}, {}),
+    # 15 Nov 2026 "Strategy research and stress tests", round 2 QLD split C: a third each in QLD-A (EMA100 trend + calm + dips),
+    # QLD-B (IBD or SMA200 trend + calm, vol 60%) and QLD-C (IBD trend + calm, vol 40%), rebalanced once a year. Added with no money.
+    ("qld_split_2c", "split_mix", "QLD · Split 2C (3 strategies, a third each)", "#2F9E44",
+     {"signal": "QQQ", "trade": "QLD", "rebalance_legs": "yearly", "legs": json.dumps(QLD_2C_LEGS)}, {}),
+    # 15 Nov 2026 "Strategy research and stress tests", round 2 ROM split C: 67% in ROM · Trend + Vol + RSI & IBS dips (the same
+    # rules as rom_vol_ibs) and 33% in a new rule (IYW ROC252 + credit check, 3-down and ROM IBS dips, half GLD when out),
+    # rebalanced once a year. Added with no money.
+    ("rom_split_2c", "split_mix", "ROM · Split 2C (today's best 67% + ROC252 & credit 33%)", "#0CA678",
+     {"signal": "IYW", "trade": "ROM", "rebalance_legs": "yearly", "legs": json.dumps(ROM_2C_LEGS)}, {}),
+    # 15 Nov 2026 "Strategy research and stress tests", round 1 SSO-A: SSO while SPY's EMA60 is above its EMA130 (a slow MACD
+    # above zero) and calm; below it, dip trades after SPY IBS < 0.20 (sold above SMA5) and one-day buys after RSI(2) < 10.
+    # Added with no money.
+    ("sso_macd_calm", "trend_gate", "SSO · Slow MACD + calm + dips", "#5C7CFA",
+     {"signal": "SPY", "trade": "SSO", "cash_symbol": "", "gold_share_pct": 0.0, "ma_type": "XEMA", "fast_days": 60, "ma_days": 130,
+      "vol_gate_q": 90.0, "vol_days": 20, "vol_lookback": 252, "dip_entry": "IBS", "entry_ibs_max": 0.2, "exit_ma": 5, "rsi_buy": 0.0,
+      "rsi_len": 2, "rsi_1d_buy": 10.0, "dip_ibs_max": 0.0, "jumpy_ibs_max": 0.0, "target_vol_pct": 0.0}, {}),
+    # 15 Nov 2026 "Strategy research and stress tests", round 1 RXL-A: RXL while XLV's Ichimoku cloud trend (18/48/96) is on,
+    # XLV is calm and SPY is above its SMA200, sized 60% ÷ RXL volatility; below the cloud, dip trades after XLV IBS < 0.25 (sold
+    # above the previous high or after 5 days) and one-day buys after RSI(2) < 5; half GLD when out. Added with no money.
+    ("rxl_ichi_calm", "trend_gate", "RXL · Ichimoku cloud + calm + S&P check + dips", "#F06595",
+     {"signal": "XLV", "trade": "RXL", "cash_symbol": "", "gold_share_pct": 50.0, "gold_symbol": "GLD", "ma_type": "ICHI",
+      "ichi_tenkan": 18, "ichi_kijun": 48, "ma_days": 96, "ichi_shift": 48, "vol_gate_q": 80.0, "vol_days": 20, "vol_lookback": 252,
+      "mkt_symbol": "SPY", "mkt_ma_days": 200, "dip_entry": "IBS", "entry_ibs_max": 0.25, "dip_exit": "PREVHIGH", "dip_max_days": 5,
+      "rsi_buy": 0.0, "rsi_len": 2, "rsi_1d_buy": 5.0, "dip_ibs_max": 0.0, "jumpy_ibs_max": 0.0, "target_vol_pct": 60.0,
+      "size_vol_days": 20, "size_band_pct": 20.0}, {}),
 ]
 # Earlier defaults: a strategy still on exactly these settings is moved to the new ones once (lower-cost versions, 26 Oct 2026:
 # IBS-dip T-bill half as cash + QLD IBS < 0.15; metals flat in cash instead of SGOV).
@@ -103,7 +156,8 @@ UPGRADES = [
 UPGRADE_WHY = {"cash_parking_2026_10": "Parks in cash instead of BIL (each BIL round trip cost 0.22% in fees)"}
 # Added with LINE alerts off: they hold no money until you move some to them (turn LINE on in the strategy when you do).
 QUIET_DEFAULTS = {"usd_smh_ibs", "rom_vol_ibs", "gold_trend_calm", "silver_gold_ok", "silver_lead_1x", "ddm_calm_guard",
-                  "sso_calm_guard", "rxl_calm_guard"}
+                  "sso_calm_guard", "rxl_calm_guard", "usd_trend_split", "qld_split_2c",
+                  "rom_split_2c", "sso_macd_calm", "rxl_ichi_calm"}
 PALETTE = ["#3DC9C0", "#E8875A", "#E46AA8", "#9BCB4E", "#F2C14E", "#5B8DEF", "#B084F5"]
 
 

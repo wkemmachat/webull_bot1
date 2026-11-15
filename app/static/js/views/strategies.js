@@ -278,7 +278,7 @@
       const cols = st.detail && st.detail.log_cols;
       const OUTS = new Set(['out', 'off', 'volatile']);   // states that hold no ETF
       if (cols) {
-        const f = (v, k) => k === 'n0' ? U.n(v, 0) : k === 'n1' ? U.n(v, 1) : U.n(v, 2);
+        const f = (v, k) => k === 'text' ? U.esc(v == null ? '—' : String(v)) : k === 'n0' ? U.n(v, 0) : k === 'n1' ? U.n(v, 1) : k === 'n4' ? U.n(v, 4) : U.n(v, 2);
         return `<section class="card"><div class="row sb" style="margin-bottom:6px"><h2 class="h2">Daily log — the numbers each decision used</h2></div>
         <div class="tw"><table class="t"><thead><tr><th>Date (NY)</th>${cols.map((c) => `<th class="r">${U.esc(c.label)}</th>`).join('')}<th>State</th><th>Action</th></tr></thead><tbody>
         ${log.slice(0, 15).map((r) => `<tr><td class="num">${U.esc(r.date)}</td>${cols.map((c) => `<td class="r num">${f(r[c.k], c.fmt)}</td>`).join('')}

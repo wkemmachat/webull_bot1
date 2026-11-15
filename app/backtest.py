@@ -350,7 +350,10 @@ def _run_daily(strat, now, cost, delay=0):
         expo.append(w.get(trade, 0.0))
         st = states[d]
         held_state.append(st)
-        target = strat.target_for(st, sizes[d]) if sized else strat.target_for(st)
+        if hasattr(strat, "target_at"):              # split mixes: the day's target straight from the frame
+            target = strat.target_at(d, st, sizes.get(d))
+        else:
+            target = strat.target_for(st, sizes[d]) if sized else strat.target_for(st)
         if target != last_target:                    # like the bot: a plan only when the target changes (trend ↔ dip: no trade)
             kind = "START" if last_target is None else ("BUY" if target.get(trade, 0) > last_target.get(trade, 0) else "SELL")
             why = f"{sig} close {fr.loc[pd.Timestamp(d).tz_localize('UTC'), 'c']:,.2f}: state {last_state or 'start'} → {st}"
