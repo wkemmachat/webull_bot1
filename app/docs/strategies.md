@@ -24,6 +24,28 @@ At the top, **Money in strategies** shows the same donut as the dashboard: each 
     strategy that sizes by volatility changes its size, and *→ dip* / *→ trend* when the reason for holding changes but the
     position stays the same. For example, on 2 Nov 2026 IYW closed below its 150-day average on a day with RSI(2) below 5, so the
     ROM strategies went from the trend straight into a dip trade and kept holding ROM: no arrow, just *→ dip*.
+- **Check the rule** (Overview, daily strategies of the types *Trend + calm gate*, *IBD trend + calm*, *Trend split* and
+  *Split mix*: the USD, QLD, ROM, SSO and RXL strategies added on 15 Nov 2026, and ROM · Trend + Vol + RSI & IBS dips): a way
+  to check the rule by eye, day by day.
+  - **One button per leg.** A split strategy has a *Mix* button (how the legs add up to the money in the ETF) and one button
+    per leg; each leg shows its own rule and charts.
+  - **Small charts of exactly what the rule compares**, on one timeline:
+    - *Trend:* the price and the line it must be above, such as EMA100, SMA200, the Ichimoku cloud, EMA60 vs EMA130, or the
+      close N days ago.
+    - *Gates:* volatility against its percentile line; credit (LQD ÷ IEF) against its average; SPY against its SMA200.
+      Days that fail are shaded.
+    - *Dips:* RSI, IBS or lower closes in a row, with the buy level drawn. Days with a dip trade open are shaded.
+    - *Size:* the leg's money in the ETF, for strategies sized by volatility.
+    - For IBD legs, the distribution days counted, with the line at 6.
+  - **Conditions:** one lane per condition (green = met). *Rule says: in* is worked out on this page from those lanes; *Bot is
+    in* is the bot's own decision. They must match on every day. The box above the charts says how many days they agree; a day
+    where they differ is red.
+  - **Day check:** hover a day, or click to keep it. It shows each condition in plain words, that day's numbers, whether it was
+    met, and what the rule and the bot decided after that close. Orders go at the next open.
+  - **Same check in TradingView:** the indicators and settings to add there, and which checks have no TradingView indicator
+    (the volatility percentile, IBS, IBD direction), where this page is the reference.
+  - 3M / 8M / 1Y / 2Y changes the period. The Health check compares the same decisions with a separate step-by-step
+    recalculation.
 - **Fall from its high** (the fifth card in Overview): how far the strategy is below its backtest high today, next to
   its **worst fall in the last 10 years before this one** (the current fall is left out, so a new record shows as deeper
   than the worst). The bar fills toward the worst (the line); it turns amber at 75% of the way and red past it. Below:

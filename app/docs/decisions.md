@@ -343,3 +343,8 @@
   (`mkt_symbol`, `mkt_ma_days`) and `dip_exit` PREVHIGH (`dip_max_days`). The backtest matches the research exactly (10 years
   26.6% / −30.1% against RXL · Calm guard + dips' 18.6% / −34.6%), ahead in every test but a 0.50% fee. On RXL the research's
   walk-forward check made about 10% a year, less than holding RXL, so its extra return is the least proven of all the picks.
+- **Check the rule on the strategy page** (15 Nov 2026, your request): the new strategies' Overview has a *Check the rule*
+  section: one button per leg (and *Mix*), small charts of exactly the numbers each leg's rule compares (trend line, volatility
+  gate, credit, S&P check, dips, size), one lane per condition, the rule's answer worked out from those lanes next to the
+  bot's own decision (they agree on every day of 2 years for all six strategies it covers), a day check in plain words, and
+  the matching TradingView settings. Kept next to the existing TradingView-style chart, which still shows the trades.

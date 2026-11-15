@@ -237,6 +237,7 @@
       <div id="nextorders"></div>
       <div id="sorders"></div>
       ${fam === 'regime' ? regimeTiles() : ''}
+      ${(V.ruleCheckTypes || []).includes(c.type) ? '<div id="rulecheck"></div>' : ''}
       ${st.detail && st.detail.basket ? basketTable(st.detail.basket) : ''}
       ${d.row.type === 'momentum_basket' && d.row.params.leverage === '2x' && tab === 'overview' ? '<div id="etf2x"></div>' : ''}
       <section class="card col" style="gap:12px;padding:16px"><div id="ctool"></div><div id="chart" class="col" style="gap:18px"><div class="empty"><span class="spin"></span></div></div>
@@ -360,6 +361,7 @@
         U.toast('Saved'); V.strategy(el, params);
       });
       if (tab === 'overview') {
+        if (el.querySelector('#rulecheck')) V.ruleCheck(el.querySelector('#rulecheck'), sid);
         el.querySelector('#ctool').innerHTML = chartToolbar();
         try { spec = spec || (await U.api(`/api/strategies/${sid}/chart?range=${cs.range}`)); } catch (e) { spec = { charts: [], error: e.message }; }
         drawChart();

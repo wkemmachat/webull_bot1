@@ -281,6 +281,20 @@ def strategy_chart(sid: str, range: str = "1M", u=Depends(user)):
         return {"charts": [], "error": str(e)}
 
 
+@app.get("/api/strategies/{sid}/rulecheck")
+def strategy_rulecheck(sid: str, range: str = "8M", u=Depends(user)):
+    """Check the rule: the rule's numbers per leg, one lane per condition, the rule's answer next to the bot's."""
+    from . import rulecheck
+    s = S.get(sid)
+    if not s:
+        raise HTTPException(404, "No such strategy")
+    try:
+        out = rulecheck.build(s, md.now_utc(), range)
+    except Exception as e:
+        return {"views": [], "error": str(e)}
+    return out or {"views": [], "none": True}
+
+
 @app.post("/api/strategies/preview")
 async def strategy_preview(request: Request, u=Depends(user)):
     b = await body(request)
