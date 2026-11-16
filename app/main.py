@@ -205,6 +205,21 @@ def dashboard(mode: str = "paper", u=Depends(user)):
     return views.dashboard(mode_of(mode))
 
 
+@app.get("/api/pnl/report")
+def pnl_report(mode: str = "paper", u=Depends(user)):
+    """Profit & loss page: since start and month by month (app/pnlreport.py)."""
+    from . import pnlreport
+    return pnlreport.build(mode_of(mode))
+
+
+@app.get("/api/pnl/report.csv")
+def pnl_report_csv(mode: str = "paper", u=Depends(user)):
+    from . import pnlreport
+    m = mode_of(mode)
+    return Response(pnlreport.csv_text(m), media_type="text/csv",
+                    headers={"Content-Disposition": f'attachment; filename="profit-loss-by-month-{m}.csv"'})
+
+
 @app.get("/api/pnl")
 def pnl(mode: str = "paper", period: str = "all", u=Depends(user)):
     return views.pnl_breakdown(mode_of(mode), period)
@@ -1109,7 +1124,7 @@ def data_refresh(u=Depends(user)):
 
 
 # ---------------------------------------------------------------- docs
-DOC_ORDER = ["overview", "quick-start-mac", "first-day", "modes", "dashboard", "strategies", "backtest", "money", "portfolio", "orders", "line", "health", "golive", "hongkong",
+DOC_ORDER = ["overview", "quick-start-mac", "first-day", "modes", "dashboard", "strategies", "backtest", "money", "portfolio", "profit-loss", "orders", "line", "health", "golive", "hongkong",
              "strategy-compare", "strategy-timeframes", "strategy-dips", "expected-returns", "strategy-gold1", "strategy-gold2", "strategy-silver1", "strategy-silver2", "strategy-qld", "strategy-semis",
              "strategy-qld-tbd", "strategy-qld-tbdv", "strategy-qld-ibs", "strategy-usd-ibs", "strategy-rom-tbd", "strategy-usd-smh-ibs", "strategy-usd-trend-split", "strategy-qld-split-2c", "strategy-rom-split-2c", "strategy-sso-macd-calm", "strategy-rxl-ichi-calm",
              "strategy-rom-vol-ibs", "strategy-gold-trend-calm", "strategy-silver-gold-ok", "strategy-silver-lead-1x", "strategy-ddm-calm-guard", "strategy-sso-calm-guard",

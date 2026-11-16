@@ -419,6 +419,27 @@
     </svg>`;
   }
 
+  /* the same days by calendar month (US date): start + put in + P&L = end; return = the days' % chained (money put in is not a gain) */
+  function byMonth(rows) {
+    const asc = rows.slice().reverse(), ms = [];
+    let prev = 0;
+    for (const r of asc) {
+      const k = r.date.slice(0, 7);
+      let m = ms[ms.length - 1];
+      if (!m || m.k !== k) { m = { k, start: prev, flow: 0, pnl: 0, f: 1, up: 0, down: 0, now: false }; ms.push(m); }
+      m.flow += r.flow; m.pnl += r.pnl; m.f *= 1 + (r.pct || 0); m.end = r.value; m.now = m.now || r.today;
+      if (!r.today) { if (r.pnl > 0.004) m.up++; else if (r.pnl < -0.004) m.down++; }
+      prev = r.value;
+    }
+    if (!ms.length) return '';
+    const name = (k) => new Date(k + '-01T00:00:00Z').toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    return `<div class="col" style="gap:6px"><div class="row sb" style="gap:8px"><div style="font-weight:600;font-size:14px">By month</div><a class="small" href="#/pnl">All strategies by month →</a></div>
+      <div class="tw"><table class="t"><thead><tr><th>Month (US)</th><th class="r">Start</th><th class="r">Put in / taken out</th><th class="r">Profit / loss</th><th class="r">Return</th><th class="r">End</th><th class="r">Days up / down</th></tr></thead><tbody>
+      ${ms.reverse().map((m) => `<tr><td>${name(m.k)}${m.now ? ' <span class="muted small">to date</span>' : ''}</td><td class="r num">${U.usd(m.start, 0)}</td>
+        <td class="r num muted">${Math.abs(m.flow) >= 0.5 ? U.sgnUsd(m.flow, 0) : '—'}</td><td class="r num ${U.cls(m.pnl)}" style="font-weight:600">${U.sgnUsd(m.pnl, 0)}</td>
+        <td class="r num ${U.cls(m.f - 1)}">${U.pct(m.f - 1, 1)}</td><td class="r num">${U.usd(m.end, 0)}</td><td class="r num muted">${m.up} / ${m.down}</td></tr>`).join('')}</tbody></table></div></div>`;
+  }
+
   V.dailyPnlTab = async function (el, sid, card) {
     const mode = U.mode();
     el.innerHTML = '<section class="card"><div class="empty"><span class="spin"></span></div></section>';
@@ -441,6 +462,7 @@
           ${st ? tile('Days up / down', `${st.up} / ${st.down}`, `${st.days ? Math.round(st.up / st.days * 100) : 0}% of ${st.days} days up · best ${U.sgnUsd(st.best.pnl, 0)}, worst ${U.sgnUsd(st.worst.pnl, 0)}`) : ''}
         </div>
         <div>${barsSvg(rows)}</div>
+        ${byMonth(rows)}
         <div class="tw"><table class="t"><thead><tr><th>Day (US)</th><th class="r">Value at close</th><th class="r">P&amp;L</th><th class="r">%</th><th class="r">Money in / out</th><th class="r">Total since start</th></tr></thead><tbody>
           ${list.map((r) => `<tr><td class="num">${dayShort(r.date)}${r.today ? ' ' + U.pill('info', 'so far') : ''}</td><td class="r num">${U.usd(r.value)}</td>
             <td class="r num ${U.cls(r.pnl)}" style="font-weight:600">${U.sgnUsd(r.pnl)}</td><td class="r num ${U.cls(r.pnl)}">${r.pct == null ? '—' : U.pct(r.pct, 2)}</td>

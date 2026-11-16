@@ -348,3 +348,11 @@
   gate, credit, S&P check, dips, size), one lane per condition, the rule's answer worked out from those lanes next to the
   bot's own decision (they agree on every day of 2 years for all six strategies it covers), a day check in plain words, and
   the matching TradingView settings. Kept next to the existing TradingView-style chart, which still shows the trades.
+- **Profit & loss page** (16 Nov 2026, your request): sidebar → *Profit & loss* shows since start and month by month for the
+  mode in the top bar: a summary (profit or loss, time-weighted % and the Dashboard's % of money put in, put in → worth now,
+  the same money bought and held, days up/down, best and worst day, fees), worth against money put in over time, a year ×
+  month returns grid, month statements (start + put in + profit = end), each strategy's part of the period and a strategy ×
+  month table, plus a CSV. Since start is the Dashboard's number exactly and the months add up to it; deposits are never
+  counted as a gain. Each strategy's Daily P&L tab gained a *By month* table, and the Dashboard's P&L card a *By month* link.
+  The page has no "booked vs still open" split for months (the bot does not store a booked/open history per day); the
+  buy-and-hold comparison was kept instead.

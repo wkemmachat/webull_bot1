@@ -14,7 +14,8 @@
 - **Profit & loss by strategy** (under Bot equity; click **Today** or **Since start** in Bot equity to jump to it): each
   strategy's part of those numbers, worked out exactly like Bot equity (value change minus money moved in or out), so the rows
   always add up to the Dashboard number.
-  - Periods: **Today** (the same window as Bot equity's Today), **1W**, **1M**, **3M**, **Since start**.
+  - Periods: **Today** (the same window as Bot equity's Today), **1W**, **1M**, **3M**, **Since start**. **By month →** opens
+    the Profit & loss page (since start and month by month, with month statements and a CSV; see *Profit & loss*).
   - **Bars**: one bar per strategy, green right of $0, red left, best first; the last row is the total. Show them in **$**,
     **% of its money** (each strategy on its own: P&L ÷ all the money it was given, or ÷ its value at the start of the period;
     these do not add up) or **pts of total** (its share of the total %; these add up to the Bot equity %). Hover a bar for money

@@ -160,7 +160,7 @@
         <div><div class="eyebrow">Profit &amp; loss by strategy</div>
           <div style="margin-top:4px;font-size:15px">${pname(st.period)} <b class="num ${U.cls(d.total)}">${d.total == null ? '—' : U.sgnUsd(d.total) + ' (' + U.pct(d.pct, 2) + ')'}</b>
             <span class="muted small">= the sum of the ${st.view === 'bars' ? 'bars' : 'bands'}${d.since ? ' · since ' + U.dtLong(d.since) : ''}</span></div></div>
-        <div class="row" style="gap:8px">${seg('pnlper', PERIODS, st.period)}${st.view === 'bars' ? seg('pnlunit', UNITS, st.unit) : ''}${seg('pnlview', [['bars', 'Bars'], ['time', 'Over time']], st.view)}</div>
+        <div class="row" style="gap:8px">${seg('pnlper', PERIODS, st.period)}${st.view === 'bars' ? seg('pnlunit', UNITS, st.unit) : ''}${seg('pnlview', [['bars', 'Bars'], ['time', 'Over time']], st.view)}<a class="btn s" href="#/pnl" title="Since start and month by month">By month →</a></div>
       </div>
       <div id="pnlchart" style="position:relative"></div>
       <div id="pnlleg" class="row" style="gap:6px 14px"></div>

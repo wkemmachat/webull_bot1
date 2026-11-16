@@ -6,7 +6,7 @@
 
   const routes = [
     [/^\/?$/, 'dashboard'], [/^\/strategies\/new$/, 'strategyNew'], [/^\/strategies\/([\w-]+)$/, 'strategy'], [/^\/strategies$/, 'strategies'], [/^\/backtest$/, 'backtestAll'],
-    [/^\/money$/, 'money'], [/^\/portfolio$/, 'portfolio'], [/^\/orders$/, 'orders'], [/^\/execution$/, 'execution'], [/^\/trades$/, 'trades'],
+    [/^\/money$/, 'money'], [/^\/portfolio$/, 'portfolio'], [/^\/pnl$/, 'pnlReport'], [/^\/orders$/, 'orders'], [/^\/execution$/, 'execution'], [/^\/trades$/, 'trades'],
     [/^\/positions$/, 'positions'], [/^\/health$/, 'health'], [/^\/logs$/, 'logs'], [/^\/line$/, 'line'], [/^\/webull$/, 'webull'],
     [/^\/settings$/, 'settings'], [/^\/golive$/, 'golive'], [/^\/docs\/?([\w-]*)$/, 'docs'],
   ];
