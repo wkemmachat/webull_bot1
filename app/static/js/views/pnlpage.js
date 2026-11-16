@@ -183,10 +183,12 @@ Worth ${usd0(p.v)} · put in ${usd0(p.c)} · ${sg(p.v - p.c)}${p.b != null ? '\n
       const mn = Math.min(0, ...rows.map((r) => r.v)), mx = Math.max(0, ...rows.map((r) => r.v)), span = (mx - mn) || 1;
       const A = L + (mn < 0 ? 70 : 8), Z = A + (W - A - R) * (-mn / span), S = (W - A - R) / span;   // room for the labels on both sides
       let h = `<line x1="${Z}" x2="${Z}" y1="0" y2="${rows.length * rh}" class="pl-zero"/>`;
+      const room = Math.floor(((narrow ? W - 16 : L - 14)) / 6.4);                  // ~6.4px per character at 12.5px
+      const nm = (t) => (t.length > room ? t.slice(0, room - 1).trimEnd() + '…' : t);
       rows.forEach((r, i) => {
         const y = i * rh + (narrow ? 18 : 4), w = Math.abs(r.v) * S, x = r.v >= 0 ? Z : Z - w;
-        h += narrow ? `<text x="${L}" y="${y - 4}" class="pl-name ${r.s.no_money ? 'off' : ''}">${U.esc(r.s.name)}</text>`
-          : `<text x="${L - 10}" y="${y + 13}" text-anchor="end" class="pl-name ${r.s.no_money ? 'off' : ''}">${U.esc(r.s.name)}</text>`;
+        h += narrow ? `<text x="${L}" y="${y - 4}" class="pl-name ${r.s.no_money ? 'off' : ''}">${U.esc(nm(r.s.name))}<title>${U.esc(r.s.name)}</title></text>`
+          : `<text x="${L - 10}" y="${y + 13}" text-anchor="end" class="pl-name ${r.s.no_money ? 'off' : ''}">${U.esc(nm(r.s.name))}<title>${U.esc(r.s.name)}</title></text>`;
         h += `<rect x="${x}" y="${y + 2}" width="${Math.max(w, 1.5)}" height="15" rx="3" fill="${r.v >= 0 ? 'var(--up)' : 'var(--dn)'}" opacity="${r.s.no_money ? 0.38 : 0.9}"/>`;
         h += `<text x="${r.v >= 0 ? Z + w + 6 : Z - w - 6}" y="${y + 14}" text-anchor="${r.v >= 0 ? 'start' : 'end'}" class="pl-ax">${Math.abs(r.v) < 0.5 ? '$0' : sg(r.v)}</text>`;
       });
