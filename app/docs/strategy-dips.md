@@ -39,8 +39,18 @@ The card opens by itself when the strategy is in the add window; otherwise it is
 
 Each day is ranked only against the days before it (3 years of warm-up, so the odds start in 2009): no hindsight.
 
-**Dashboard:** "Where to put extra money now" lists the strategies in the add window, best first: depth, the past times as
-small green/red bars, the typical year, and what $1,000 typically became.
+**Dashboard:**
+
+- **"… just got cheap"** — a green alert at the top when a strategy entered the add window in the last week (the same day
+  the LINE message goes out): how far below its high, its record as dots ("30 of 30 were higher a year later"), and
+  **Add money to it** (the usual Add money form with that strategy picked), **Why?** (its page) and **Dismiss**. Several in
+  the same week share one alert.
+- **"Good places for extra money now"** — a card per strategy in the window (Good time and Safer, the newest first, then the
+  deepest): what $1,000 typically became a year later, one dot per past time (green = up a year later), how deep it is and
+  how much you have in it, and an **Add money** button. "Mixed" strategies get a "Less sure" line under the cards.
+  **Hide** folds it to one line, and it opens again by itself when another strategy enters the window. Dismiss and Hide are
+  remembered in this browser.
+- **Menu badge** — the green number next to Dashboard is how many strategies are in the window (stopped ones not counted).
 
 **LINE "Good time to add money"** (LINE alerts → "Good time to add money"): once per fall, when a Good-time or OK-safer
 strategy reaches its 85th percentile, armed again only after it climbs back above its 70th. It carries the same odds: the

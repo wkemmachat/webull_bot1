@@ -124,7 +124,7 @@ def compute(s, now=None) -> dict | None:
     return from_series(t, ser["strategy"])
 
 
-KEYS = ("verdict", "depth", "pct", "zone", "p70", "p80", "p90", "day", "from", "years", "peak_day", "worst10", "worst10_from", "worst10_to",
+KEYS = ("verdict", "add_since", "depth", "pct", "zone", "p70", "p80", "p90", "day", "from", "years", "peak_day", "worst10", "worst10_from", "worst10_to",
         "worst10_years", "worst_all", "worst_all_from", "worst_all_to", "of_worst")
 
 
@@ -184,10 +184,12 @@ def refresh_all(now=None, send=True) -> dict:
         d["verdict"] = verdict
         alerted = bool(old.get("alerted"))
         new_deep = d["pct"] >= DEEP and not alerted
+        add_since = old.get("add_since") if alerted else None          # the day it entered the add window (Dashboard "New")
         if d["pct"] < DIP:
-            alerted = False                               # armed again once it is out of the dip zones
+            alerted, add_since = False, None              # armed again once it is out of the dip zones
         if new_deep:
             alerted = True                                # once per fall, whatever is sent
+            add_since = d["day"]
             x = addmoney.get(s.id) if am else None
             if x and verdict in ("good", "safer") and (s.row or {}).get("control") != "stopped":
                 txt = addmoney.line_text(s.name, x, d)
@@ -217,6 +219,7 @@ def refresh_all(now=None, send=True) -> dict:
             if send and (s.row or {}).get("control") != "stopped":
                 notify.send("drawdown", f"⚠ {title} · {s.name}\n{txt}", strategy=s.id)
             warned = lv
+        d["add_since"] = add_since
         db.set_state(f"dip:{s.id}", {**d, "at": int(time.time()), "alerted": alerted, "win": WINDOW_YEARS, "v": VERSION,
                                      "warned": warned, "warned_peak": d.get("peak_day")})
         out[s.id] = d

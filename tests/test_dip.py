@@ -71,6 +71,11 @@ def test_line_once_per_dip_and_rearm(clean, monkeypatch):
     assert len(q()) == 2
     card = views.strategy_card("paper", S.get("qld_regime"))
     assert card["dip"]["zone"] == "deep" and card["dip"]["pct"] == 86.0 and card["dip"]["verdict"] == "good"
+    assert card["dip"]["add_since"] == "2026-10-23"                  # the day it entered the add window (Dashboard "New")
+    assert views.topbar()["issues"]["add"] == 1                      # the green badge on Dashboard in the menu
+    vals["pct"] = 60.0
+    dip.refresh_all()
+    assert dip.get("qld_regime")["add_since"] is None and views.topbar()["issues"]["add"] == 0
     assert card["add"]["in_zone"] and card["add"]["label"] == "Good time" and card["add"]["up_n"] == 30
 
 

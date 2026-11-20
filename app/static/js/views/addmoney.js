@@ -81,22 +81,75 @@
     if (tg) tg.onclick = () => { const b = host.querySelector('#ambody'), on = b.style.display === 'none'; b.style.display = on ? '' : 'none'; tg.textContent = on ? 'Hide' : 'Show why'; tg.setAttribute('aria-expanded', on); if (on) OPEN.add(a.sid); else OPEN.delete(a.sid); draw(); };
   };
 
-  /* Dashboard: strategies in the add window (85th+), best first; '' when none */
+  /* Dashboard: "just got cheap" alert (a strategy entered the add window in the last 7 days, until dismissed) and
+     "Good places for extra money now" as cards (good / safer), "Less sure" lines (mixed). '' when none is in the window.
+     Dismiss and Hide are remembered in this browser (Hide opens again when a new strategy enters). */
+  const LS = { get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* private */ } } };
+  const daysAgo = (iso) => { if (!iso) return 99; const [y, m, d] = iso.split('-').map(Number); return (Date.now() - Date.UTC(y, m - 1, d)) / 864e5; };
+  const isNew = (s) => s.dip && s.dip.add_since && daysAgo(s.dip.add_since) <= 7.5;
+  const dismissed = (s) => LS.get(`amDis:${s.id}:${s.dip.add_since}`) === '1';
+  const depthTxt = (s) => (s.dip ? `−${Math.abs(s.dip.depth).toFixed(0)}% · ${s.dip.pct >= 99.5 ? 'deepest ever' : U.ordinal(s.dip.pct) + ' pct'}` : '');
+  const dots = (x, size, cols) => { const n = Math.min(x.n, 30), up = Math.round(x.up_n * n / x.n);
+    return `<span class="am-dots" style="grid-template-columns:repeat(${Math.min(cols, n)},${size}px)">${Array.from({ length: n }, (_, j) => `<i class="${j < up ? '' : 'r'}" style="width:${size}px;height:${size}px"></i>`).join('')}</span>`; };
+
+  function alertHtml(news) {
+    if (!news.length) return '';
+    const a = news[0], x = a.add;
+    if (news.length === 1) {
+      return `<div class="am-alert" role="status"><div class="am-aic">▲</div>
+        <div style="min-width:0"><div class="am-akick">New ${daysAgo(a.dip.add_since) < 1.5 ? 'today' : 'this week'}</div>
+          <div class="am-at">${U.esc(a.name)} just got cheap</div>
+          <div class="am-as">It's ${Math.abs(a.dip.depth).toFixed(0)}% below its high${a.dip.pct >= 99.5 ? ', deeper than ever before' : ''}. ${x.up_n === x.n ? 'That has always been a good time to add extra money.' : `When it was this cheap before, it was higher a year later ${x.up_n} of ${x.n} times.`}</div>
+          <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn p s am-btn" data-am-add="${U.esc(a.id)}">Add money to it</button>
+            <a class="btn s" href="#/strategies/${U.esc(a.id)}">Why?</a><button class="am-link" data-am-dis="${U.esc(a.id + '|' + a.dip.add_since)}">Dismiss</button></div></div>
+        <div class="am-proof"><div class="muted small">times it got this cheap</div>${dots(x, 8, 10)}
+          <div class="am-pn">${x.up_n} of ${x.n}</div><div class="muted small">were higher a year later</div></div></div>`;
+    }
+    return `<div class="am-alert" role="status"><div class="am-aic">▲</div>
+      <div style="min-width:0"><div class="am-akick">New this week</div>
+        <div class="am-at">${news.length} strategies just got cheap</div>
+        <div class="am-as">${news.map((s) => `<b>${U.esc(s.name)}</b> (${Math.abs(s.dip.depth).toFixed(0)}% below its high, ${s.add.up_n} of ${s.add.n} times up a year later)`).join(' · ')}.</div>
+        <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn s" data-am-scroll="1">See them below</button><button class="am-link" data-am-dis="${news.map((s) => U.esc(s.id + '|' + s.dip.add_since)).join(',')}">Dismiss</button></div></div>
+      <div class="am-proof"><div class="muted small">best record</div>${dots(news[0].add, 8, 10)}<div class="am-pn">${news[0].add.up_n} of ${news[0].add.n}</div><div class="muted small">${U.esc(news[0].name)}</div></div></div>`;
+  }
+
+  function tile(s, fresh) {
+    const x = s.add, pct = s.dip ? s.dip.pct : 0;
+    return `<div class="am-tile ${fresh ? 'new' : ''}"><div class="row sb" style="gap:8px;flex-wrap:nowrap"><a class="am-tn" href="#/strategies/${U.esc(s.id)}">${U.esc(s.name)}</a>
+        ${fresh ? '<span class="pill am-newp">new</span>' : U.pill(x.verdict === 'good' ? 'ok' : 'ok', x.verdict === 'good' ? 'Good time' : 'Safer')}</div>
+      <div class="row" style="gap:6px;align-items:baseline;flex-wrap:wrap"><span class="muted small">$1,000 →</span><span class="am-tv">${x.typical != null ? $k(x.typical) : '—'}</span><span class="muted small">a year later, typically</span></div>
+      <div class="row" style="gap:8px;flex-wrap:nowrap">${dots(x, 6, 15)}<span class="muted small" style="white-space:nowrap">${x.up_n} of ${x.n} up</span></div>
+      <div><div class="am-meter"><i style="width:${Math.max(4, Math.min(100, pct))}%"></i></div>
+        <div class="row sb small muted" style="margin-top:4px;gap:8px"><span>${depthTxt(s)}</span><span>${(s.value || 0) >= 0.5 ? 'you have ' + U.usd(s.value, 0) : 'no money in it yet'}</span></div></div>
+      <button class="btn s am-btn" style="align-self:flex-start" data-am-add="${U.esc(s.id)}">Add money</button></div>`;
+  }
+
   V.addMoneyList = function (list) {
-    const rows = (list || []).filter((s) => s.add && s.add.in_zone && s.control !== 'stopped' && !s.idle);
-    const go = rows.filter((s) => s.add.verdict !== 'none').sort((a, b) => ({ good: 0, safer: 1, mixed: 2 }[a.add.verdict] - { good: 0, safer: 1, mixed: 2 }[b.add.verdict]) || (b.dip ? b.dip.pct : 0) - (a.dip ? a.dip.pct : 0));
-    const no = rows.filter((s) => s.add.verdict === 'none');
-    if (!go.length) return '';
-    const mini = (x) => { const n = Math.min(x.n, 30), up = Math.round(x.up_n * n / x.n), w = 120 / n;
-      return `<svg viewBox="0 0 120 12" width="120" height="12" aria-hidden="true">${Array.from({ length: n }, (_, j) => `<rect x="${(j * w).toFixed(1)}" y="0" width="${Math.max(1, w - 1).toFixed(1)}" height="12" rx="1" class="${j < up ? 'am-up' : 'am-dn'}"/>`).join('')}</svg>`; };
-    return `<section class="card col am-list" style="gap:4px">
-      <div class="row sb" style="gap:8px;flex-wrap:wrap"><h2 class="h2">Where to put extra money now</h2><a class="small" href="#/docs/strategy-dips">How it works</a></div>
-      <div class="muted small">Strategies 85th percentile or deeper below their high. The bars: every past time it got this deep, and whether it was up a year later. For extra money you keep aside; not a promise.</div>
-      ${go.map((s) => `<a class="am-li" href="#/strategies/${U.esc(s.id)}"><span style="min-width:0"><span class="row" style="gap:8px;flex-wrap:nowrap">${U.dot(s.color, 9)}<b class="ell">${U.esc(s.name)}</b></span>
-          <span class="muted small">${s.dip ? s.dip.depth.toFixed(0) + '% · ' + (s.dip.pct >= 99.5 ? 'deepest ever' : U.ordinal(s.dip.pct) + ' pct') : ''}${(s.value || 0) >= 0.5 ? ' · you have ' + U.usd(s.value, 0) : ''}</span></span>
-        <span class="col am-mini">${mini(s.add)}<span class="muted small">${s.add.up_n} of ${s.add.n} up · typical ${P(s.add.entry_med || 0)}${s.add.typical != null ? ' · $1,000 → ' + $k(s.add.typical) : ''}</span></span>
-        <span>${U.pill(PILL[s.add.label] || '', s.add.label)}</span></a>`).join('')}
-      ${no.length ? `<div class="muted small" style="padding-top:8px">Also this deep, but no add signal: ${no.map((s) => `<a href="#/strategies/${U.esc(s.id)}">${U.esc(s.name)}</a> (${s.add.n < 6 ? 'only ' + s.add.n + ' past falls' : s.add.up_n + ' of ' + s.add.n + ' up, no better than other days'})`).join(' · ')}.</div>` : ''}
-    </section>`;
+    const rows = (list || []).filter((s) => s.add && s.add.in_zone && s.control !== 'stopped' && !s.idle && s.dip);
+    const rank = { good: 0, safer: 1, mixed: 2 };
+    const go = rows.filter((s) => s.add.verdict === 'good' || s.add.verdict === 'safer')
+      .sort((a, b) => (isNew(b) - isNew(a)) || (rank[a.add.verdict] - rank[b.add.verdict]) || (b.dip.pct - a.dip.pct) || ((b.add.up_n / b.add.n) - (a.add.up_n / a.add.n)));
+    const less = rows.filter((s) => s.add.verdict === 'mixed');
+    if (!go.length && !less.length) return '';
+    const news = rows.filter((s) => s.add.verdict !== 'mixed' && isNew(s) && !dismissed(s));
+    const newest = rows.map((s) => s.dip.add_since || '').sort().pop() || '';
+    const hidden = LS.get('amHide') && LS.get('amHide') >= newest;
+    const head = `<div class="row sb" style="gap:8px;flex-wrap:wrap;align-items:flex-end"><div><h2 class="h2">Good places for extra money now</h2>
+        <div class="muted small" style="margin-top:2px">${hidden ? `${go.length} strateg${go.length === 1 ? 'y is' : 'ies are'} cheap now, and when they were this cheap before they were almost always higher a year later.`
+          : 'Cheap right now, and when they were this cheap before, they were almost always higher a year later.'}</div></div>
+      <button class="am-link" data-am-hide="${hidden ? '' : U.esc(newest || '0')}">${hidden ? 'Show' : 'Hide'}</button></div>`;
+    return `${alertHtml(news)}<section class="col am-sec" id="amsec" style="gap:10px">${head}
+      ${hidden ? '' : `${go.length ? `<div class="am-tiles">${go.map((s) => tile(s, isNew(s))).join('')}</div>` : ''}
+      ${less.map((s) => `<div class="am-less"><span class="pill warn">Less sure</span><span style="flex:1;min-width:0"><a href="#/strategies/${U.esc(s.id)}"><b>${U.esc(s.name)}</b></a> is cheap too (${depthTxt(s)}), but only ${s.add.up_n} of ${s.add.n} times were up a year later.</span>
+        <button class="btn s" data-am-add="${U.esc(s.id)}">Add</button></div>`).join('')}
+      <div class="muted small">$1,000 → the typical value a year later on days this cheap, from each strategy's backtest. For extra money you keep aside. History, not a promise. <a href="#/docs/strategy-dips">How it works</a></div>`}</section>`;
+  };
+
+  /* Dashboard buttons: Add money (the usual form, this strategy picked), Dismiss, Hide/Show, See them */
+  V.addMoneyBind = function (el, reload) {
+    U.on(el, '[data-am-add]', 'click', (e, b) => V.moneyDialog('add', b.dataset.amAdd, reload));
+    U.on(el, '[data-am-dis]', 'click', (e, b) => { (b.dataset.amDis || '').split(',').forEach((k) => { const [id, since] = k.split('|'); LS.set(`amDis:${id}:${since}`, '1'); }); reload(); });
+    U.on(el, '[data-am-hide]', 'click', (e, b) => { LS.set('amHide', b.dataset.amHide || ''); reload(); });   // remembers the newest entry seen: a newer one opens it again
+    U.on(el, '[data-am-scroll]', 'click', () => { const s = el.querySelector('#amsec'); if (s) s.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   };
 })();

@@ -64,7 +64,21 @@ def _issue_counts():
     rep = health.latest()
     plans = db.one("SELECT COUNT(*) n FROM plans WHERE status='active'")["n"]
     by_mode = {r["mode"]: r["n"] for r in db.rows("SELECT mode, COUNT(*) n FROM plans WHERE status='active' GROUP BY mode")}
-    return {"health": (rep["counts"]["warn"] + rep["counts"]["error"]) if rep else 0, "plans": plans, "plans_by_mode": by_mode}
+    return {"health": (rep["counts"]["warn"] + rep["counts"]["error"]) if rep else 0, "plans": plans, "plans_by_mode": by_mode,
+            "add": _add_count()}
+
+
+def _add_count():
+    """Strategies in the add window (85th percentile+, the add signal works or is mixed, not stopped): the green badge on
+    Dashboard in the menu, the same strategies as the Dashboard's "Good places for extra money now"."""
+    n = 0
+    for s in S.all_instances():
+        if (s.row or {}).get("control") == "stopped":
+            continue
+        d = dip.get(s.id)
+        if d and d["pct"] >= dip.DEEP and d.get("verdict") in ("good", "safer", "mixed"):
+            n += 1
+    return n
 
 
 def _state(sid):

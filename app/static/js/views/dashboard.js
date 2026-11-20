@@ -134,6 +134,7 @@
         chart = equityChart(el.querySelector('#eq'), d.series, range);
       };
       el.querySelector('#add').onclick = () => (d.unassigned > 0 ? V.splitDialog(load) : V.fundDialog('in', load));
+      if (V.addMoneyBind) V.addMoneyBind(el, load);
     }
     await load();
     return { cleanup: () => { if (chart) chart.remove(); }, refresh: () => load().catch(() => {}), every: 60000 };

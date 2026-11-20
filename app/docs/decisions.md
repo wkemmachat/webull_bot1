@@ -364,3 +364,7 @@
   "Where to put extra money now" on the Dashboard (replaces the Strong-buy banner), and the LINE message moved from the
   80th to the 85th percentile and only for strategies where it worked, with the odds in plain words. Pills: ▲ Buy zone
   70–84th, ▲▲ Good time to add 85th+, grey ▼ Deep fall where the signal has no edge. Docs → Buy zones: when to add money.
+- **Dashboard add-money alert** (20 Nov 2026, your request): a green "… just got cheap" alert for a week after a strategy
+  enters the add window (Add money to it / Why? / Dismiss), the add-window strategies as cards with $1,000 → typical, past
+  times as dots and an Add money button each, "Less sure" lines for mixed ones, Hide (opens again on a new entry), and a
+  green count badge next to Dashboard in the menu.

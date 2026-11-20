@@ -72,6 +72,8 @@
     cp.textContent = np; cp.classList.toggle('hidden', !np);
     const ch = document.getElementById('cnt-health');
     ch.textContent = top.issues.health; ch.classList.toggle('hidden', !top.issues.health);
+    const ca = document.getElementById('cnt-add');
+    if (ca) { ca.textContent = top.issues.add || 0; ca.classList.toggle('hidden', !top.issues.add); }
   }
 
   async function setPaused(on) {
