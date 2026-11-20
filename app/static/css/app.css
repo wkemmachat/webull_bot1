@@ -508,3 +508,24 @@ tr.dipz1, tr.dipz2 { box-shadow: none; }
 .am-less { display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-radius: 12px; background: var(--panel2); font-size: 13px; }
 @media (max-width: 640px) { .am-alert { grid-template-columns: 40px minmax(0, 1fr); } .am-proof { grid-column: 1 / -1; } .am-aic { width: 40px; height: 40px; } .am-less { flex-wrap: wrap; } }
 .am-tn { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3; }
+/* the three colours of "Good places for extra money now": green = money in it, blue = on, no money, grey dashed = stopped */
+.am-tile.am-g { box-shadow: inset 0 0 0 1.5px var(--dip1-line); }
+.am-tile.am-g.new { box-shadow: inset 0 0 0 2.5px var(--dip1-line); }
+.am-tile.am-b { box-shadow: inset 0 0 0 1.5px var(--info); }
+.am-tile.am-b.new { box-shadow: inset 0 0 0 2.5px var(--info); }
+.am-tile.am-s { box-shadow: none; border: 1.5px dashed var(--muted); background: var(--panel2); }
+.am-gain { display: flex; align-items: center; gap: 14px; }
+.am-pct { font-size: 28px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.am-money { display: flex; flex-direction: column; gap: 1px; border-left: 1px solid var(--line); padding-left: 14px; }
+.am-money b { font-size: 16px; font-variant-numeric: tabular-nums; }
+.am-g .am-pct { color: var(--dip1-line); } .am-b .am-pct { color: var(--info); } .am-s .am-pct { color: var(--text2); }
+.am-g .am-dots i:not(.r), .am-g .am-meter i { background: var(--dip1-line); }
+.am-b .am-dots i:not(.r), .am-b .am-meter i { background: var(--info); }
+.am-s .am-dots i:not(.r), .am-s .am-meter i { background: var(--muted); }
+.pill.am-p-g { background: var(--dip1-bg); color: var(--dip1-fg); } .pill.am-p-b, .am-lg.am-p-b { background: var(--info-bg); color: var(--info); }
+.pill.am-p-s, .am-lg.am-p-s { background: var(--panel); color: var(--text2); box-shadow: inset 0 0 0 1px var(--line); }
+.am-lg { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 3px 10px; border-radius: 999px; }
+.am-lg.am-p-g { background: var(--dip1-bg); color: var(--dip1-fg); }
+.am-grp { display: flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 650; margin-top: 4px; }
+.am-sw-g, .am-sw-b, .am-sw-s { display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
+.am-sw-g { background: var(--dip1-line); } .am-sw-b { background: var(--info); } .am-sw-s { background: var(--muted); }

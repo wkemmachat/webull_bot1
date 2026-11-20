@@ -53,7 +53,7 @@
   function steps(a) {
     const z = a.zone_days || {}, y = a.any_day || {}, w = a.wait, now = a.now;
     const step = (n, t) => `<div class="am-step"><span class="am-num">${n}</span><b>${t}</b></div>`;
-    const money = (lab, key, strong) => `<div class="am-m ${strong ? 'on' : ''}"><span class="muted small">${lab}</span><span class="num am-big">${$k(z[key])}</span><span class="muted small">normal day: ${$k(y[key])}</span></div>`;
+    const money = (lab, key, strong) => `<div class="am-m ${strong ? 'on' : ''}"><span class="muted small">${lab}</span><span class="row" style="gap:8px;align-items:baseline"><span class="num am-big">${$k(z[key])}</span><b class="${strong ? '' : 'muted'}">${P(z[key])}</b></span><span class="muted small">normal day: ${$k(y[key])} (${P(y[key])})</span></div>`;
     return `${step(1, now && now.pct >= 85 ? 'Why now: it is on sale' : 'Where it is now')}${gauge(a)}
       ${step(2, `What happened the last ${a.n} times it got this cheap`)}
       <div><div class="am-bars" data-n="1"></div><div class="muted small" style="text-align:center">Each bar = one time it reached the add zone (${(a.entries[Math.max(0, a.entries.length - 40)] || [''])[0].slice(0, 4)} → ${(a.entries[a.entries.length - 1] || [''])[0].slice(0, 4)}), and how much it was up a year later. <b class="${a.up_n === a.n ? 'up' : ''}">${a.up_n} of ${a.n} were up.</b></div></div>
@@ -99,7 +99,7 @@
       return `<div class="am-alert" role="status"><div class="am-aic">▲</div>
         <div style="min-width:0"><div class="am-akick">New ${daysAgo(a.dip.add_since) < 1.5 ? 'today' : 'this week'}</div>
           <div class="am-at">${U.esc(a.name)} just got cheap</div>
-          <div class="am-as">It's ${Math.abs(a.dip.depth).toFixed(0)}% below its high${a.dip.pct >= 99.5 ? ', deeper than ever before' : ''}. ${x.up_n === x.n ? 'That has always been a good time to add extra money.' : `When it was this cheap before, it was higher a year later ${x.up_n} of ${x.n} times.`}</div>
+          <div class="am-as">It's ${Math.abs(a.dip.depth).toFixed(0)}% below its high${a.dip.pct >= 99.5 ? ', deeper than ever before' : ''}. ${x.up_n === x.n ? 'That has always been a good time to add extra money' : `When it was this cheap before, it was higher a year later ${x.up_n} of ${x.n} times`}${x.typical != null ? `: typically <b>${P(x.typical)}</b> a year later ($1,000 → ${$k(x.typical)})` : ''}.</div>
           <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn p s am-btn" data-am-add="${U.esc(a.id)}">Add money to it</button>
             <a class="btn s" href="#/strategies/${U.esc(a.id)}">Why?</a><button class="am-link" data-am-dis="${U.esc(a.id + '|' + a.dip.add_since)}">Dismiss</button></div></div>
         <div class="am-proof"><div class="muted small">times it got this cheap</div>${dots(x, 8, 10)}
@@ -113,36 +113,51 @@
       <div class="am-proof"><div class="muted small">best record</div>${dots(news[0].add, 8, 10)}<div class="am-pn">${news[0].add.up_n} of ${news[0].add.n}</div><div class="muted small">${U.esc(news[0].name)}</div></div></div>`;
   }
 
+  const groupOf = (s) => (s.control === 'stopped' ? 's' : (s.value || 0) >= 0.5 ? 'g' : 'b');
+  const GROUPS = [['g', 'You have money in it'], ['b', 'On, but no money yet'], ['s', 'Stopped (not trading)']];
+  const pctTxt = (r) => (r == null ? '—' : P(r));
+
   function tile(s, fresh) {
-    const x = s.add, pct = s.dip ? s.dip.pct : 0;
-    return `<div class="am-tile ${fresh ? 'new' : ''}"><div class="row sb" style="gap:8px;flex-wrap:nowrap"><a class="am-tn" href="#/strategies/${U.esc(s.id)}">${U.esc(s.name)}</a>
-        ${fresh ? '<span class="pill am-newp">new</span>' : U.pill(x.verdict === 'good' ? 'ok' : 'ok', x.verdict === 'good' ? 'Good time' : 'Safer')}</div>
-      <div class="row" style="gap:6px;align-items:baseline;flex-wrap:wrap"><span class="muted small">$1,000 →</span><span class="am-tv">${x.typical != null ? $k(x.typical) : '—'}</span><span class="muted small">a year later, typically</span></div>
+    const x = s.add, pct = s.dip ? s.dip.pct : 0, g = groupOf(s);
+    const pill = fresh && g !== 's' ? '<span class="pill am-newp">new</span>'
+      : `<span class="pill am-p-${g}">${g === 's' ? 'Stopped' : x.verdict === 'good' ? 'Good time' : 'Safer'}</span>`;
+    const btn = g === 's' ? `<a class="btn s" style="align-self:flex-start" href="#/strategies/${U.esc(s.id)}">Open to start</a>`
+      : `<button class="btn s am-btn" style="align-self:flex-start" data-am-add="${U.esc(s.id)}">Add money</button>`;
+    return `<div class="am-tile am-${g} ${fresh && g !== 's' ? 'new' : ''}"><div class="row sb" style="gap:8px;flex-wrap:nowrap;align-items:flex-start"><a class="am-tn" href="#/strategies/${U.esc(s.id)}">${U.esc(s.name)}</a>${pill}</div>
+      <div class="am-gain"><div><div class="am-pct">${pctTxt(x.typical)}</div><div class="muted small" style="margin-top:3px">a year later, typically</div></div>
+        <div class="am-money"><span class="muted small">$1,000 became</span><b>${x.typical != null ? $k(x.typical) : '—'}</b></div></div>
       <div class="row" style="gap:8px;flex-wrap:nowrap">${dots(x, 6, 15)}<span class="muted small" style="white-space:nowrap">${x.up_n} of ${x.n} up</span></div>
       <div><div class="am-meter"><i style="width:${Math.max(4, Math.min(100, pct))}%"></i></div>
-        <div class="row sb small muted" style="margin-top:4px;gap:8px"><span>${depthTxt(s)}</span><span>${(s.value || 0) >= 0.5 ? 'you have ' + U.usd(s.value, 0) : 'no money in it yet'}</span></div></div>
-      <button class="btn s am-btn" style="align-self:flex-start" data-am-add="${U.esc(s.id)}">Add money</button></div>`;
+        <div class="row sb small muted" style="margin-top:4px;gap:8px"><span>${depthTxt(s)}</span><span>${g === 'g' ? 'you have ' + U.usd(s.value, 0) : g === 'b' ? 'no money yet' : 'stopped'}</span></div></div>
+      ${btn}</div>`;
   }
 
+  /* Dashboard: every strategy in the add window (85th+) in three colours: green = you have money in it, blue = on but no
+     money yet, grey dashed = stopped (open it to start). Good time and Safer as cards, Mixed as "Less sure" lines. */
   V.addMoneyList = function (list) {
-    const rows = (list || []).filter((s) => s.add && s.add.in_zone && s.control !== 'stopped' && !s.idle && s.dip);
+    const rows = (list || []).filter((s) => s.add && s.add.in_zone && s.dip);
     const rank = { good: 0, safer: 1, mixed: 2 };
-    const go = rows.filter((s) => s.add.verdict === 'good' || s.add.verdict === 'safer')
-      .sort((a, b) => (isNew(b) - isNew(a)) || (rank[a.add.verdict] - rank[b.add.verdict]) || (b.dip.pct - a.dip.pct) || ((b.add.up_n / b.add.n) - (a.add.up_n / a.add.n)));
-    const less = rows.filter((s) => s.add.verdict === 'mixed');
+    const sort = (a, b) => (isNew(b) - isNew(a)) || (rank[a.add.verdict] - rank[b.add.verdict]) || (b.dip.pct - a.dip.pct) || ((b.add.up_n / b.add.n) - (a.add.up_n / a.add.n));
+    const go = rows.filter((s) => s.add.verdict === 'good' || s.add.verdict === 'safer').sort(sort);
+    const less = rows.filter((s) => s.add.verdict === 'mixed').sort(sort);
     if (!go.length && !less.length) return '';
-    const news = rows.filter((s) => s.add.verdict !== 'mixed' && isNew(s) && !dismissed(s));
-    const newest = rows.map((s) => s.dip.add_since || '').sort().pop() || '';
+    const news = rows.filter((s) => s.add.verdict !== 'mixed' && s.control !== 'stopped' && isNew(s) && !dismissed(s));
+    const newest = rows.filter((s) => s.control !== 'stopped').map((s) => s.dip.add_since || '').sort().pop() || '';
     const hidden = LS.get('amHide') && LS.get('amHide') >= newest;
+    const on = go.filter((s) => s.control !== 'stopped').length;
     const head = `<div class="row sb" style="gap:8px;flex-wrap:wrap;align-items:flex-end"><div><h2 class="h2">Good places for extra money now</h2>
-        <div class="muted small" style="margin-top:2px">${hidden ? `${go.length} strateg${go.length === 1 ? 'y is' : 'ies are'} cheap now, and when they were this cheap before they were almost always higher a year later.`
+        <div class="muted small" style="margin-top:2px">${hidden ? `${on} strateg${on === 1 ? 'y is' : 'ies are'} cheap now${go.length > on ? ` (and ${go.length - on} stopped)` : ''}, and when they were this cheap before they were almost always higher a year later.`
           : 'Cheap right now, and when they were this cheap before, they were almost always higher a year later.'}</div></div>
       <button class="am-link" data-am-hide="${hidden ? '' : U.esc(newest || '0')}">${hidden ? 'Show' : 'Hide'}</button></div>`;
+    const present = GROUPS.filter(([g]) => go.some((s) => groupOf(s) === g));
+    const legend = present.length > 1 ? `<div class="row am-legend" style="gap:6px;flex-wrap:wrap">${present.map(([g, t]) => `<span class="am-lg am-p-${g}"><i class="am-sw-${g}"></i>${t.replace(' (not trading)', '')}</span>`).join('')}</div>` : '';
+    const groups = present.map(([g, t]) => { const gs = go.filter((s) => groupOf(s) === g);
+      return `<div class="am-grp"><i class="am-sw-${g}"></i>${t}<span class="muted small"> · ${gs.length}</span></div><div class="am-tiles">${gs.map((s) => tile(s, isNew(s))).join('')}</div>`; }).join('');
     return `${alertHtml(news)}<section class="col am-sec" id="amsec" style="gap:10px">${head}
-      ${hidden ? '' : `${go.length ? `<div class="am-tiles">${go.map((s) => tile(s, isNew(s))).join('')}</div>` : ''}
-      ${less.map((s) => `<div class="am-less"><span class="pill warn">Less sure</span><span style="flex:1;min-width:0"><a href="#/strategies/${U.esc(s.id)}"><b>${U.esc(s.name)}</b></a> is cheap too (${depthTxt(s)}), but only ${s.add.up_n} of ${s.add.n} times were up a year later.</span>
-        <button class="btn s" data-am-add="${U.esc(s.id)}">Add</button></div>`).join('')}
-      <div class="muted small">$1,000 → the typical value a year later on days this cheap, from each strategy's backtest. For extra money you keep aside. History, not a promise. <a href="#/docs/strategy-dips">How it works</a></div>`}</section>`;
+      ${hidden ? '' : `${legend}${groups}
+      ${less.map((s) => `<div class="am-less"><span class="pill warn">Less sure</span><span style="flex:1;min-width:0"><a href="#/strategies/${U.esc(s.id)}"><b>${U.esc(s.name)}</b></a>${s.control === 'stopped' ? ' (stopped)' : ''} is cheap too (${depthTxt(s)}), but only ${s.add.up_n} of ${s.add.n} times were up a year later${s.add.typical != null ? ` (typically ${P(s.add.typical)})` : ''}.</span>
+        ${s.control === 'stopped' ? `<a class="btn s" href="#/strategies/${U.esc(s.id)}">Open</a>` : `<button class="btn s" data-am-add="${U.esc(s.id)}">Add</button>`}</div>`).join('')}
+      <div class="muted small">% and $1,000 → the typical result a year later on days this cheap, from each strategy's backtest. Stopped strategies don't trade: open one and press Start before adding money. For extra money you keep aside. History, not a promise. <a href="#/docs/strategy-dips">How it works</a></div>`}</section>`;
   };
 
   /* Dashboard buttons: Add money (the usual form, this strategy picked), Dismiss, Hide/Show, See them */

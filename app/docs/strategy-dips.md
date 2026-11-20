@@ -46,11 +46,13 @@ Each day is ranked only against the days before it (3 years of warm-up, so the o
   **Add money to it** (the usual Add money form with that strategy picked), **Why?** (its page) and **Dismiss**. Several in
   the same week share one alert.
 - **"Good places for extra money now"** — a card per strategy in the window (Good time and Safer, the newest first, then the
-  deepest): what $1,000 typically became a year later, one dot per past time (green = up a year later), how deep it is and
-  how much you have in it, and an **Add money** button. "Mixed" strategies get a "Less sure" line under the cards.
+  deepest), in three colours: **green** = you have money in it, **blue** = on but no money yet, **grey dashed** = stopped
+  (not trading: **Open to start** — press Start on its page before adding money). Each card: the typical gain a year later
+  as a big percent and what $1,000 became, one dot per past time (green = up a year later, red = down), how deep it is and
+  how much you have in it, and **Add money**. "Mixed" strategies get a "Less sure" line under the cards.
   **Hide** folds it to one line, and it opens again by itself when another strategy enters the window. Dismiss and Hide are
   remembered in this browser.
-- **Menu badge** — the green number next to Dashboard is how many strategies are in the window (stopped ones not counted).
+- **Menu badge** — the green number next to Dashboard is how many strategies that are on are in the window (stopped ones not counted).
 
 **LINE "Good time to add money"** (LINE alerts → "Good time to add money"): once per fall, when a Good-time or OK-safer
 strategy reaches its 85th percentile, armed again only after it climbs back above its 70th. It carries the same odds: the

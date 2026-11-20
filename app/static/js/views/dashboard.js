@@ -52,7 +52,7 @@
       <div class="page-head"><div><div class="eyebrow">${U.esc(today)} · ${U.modeLabel[mode]} account</div><h1 class="h1">Dashboard</h1></div>
         <div class="row"><a class="btn" href="#/health">Run cross-check</a><button class="btn p" type="button" id="add">Add money</button></div></div>
       ${tokenBanner(d.logins)}
-      ${V.addMoneyList ? V.addMoneyList(shown) : ''}
+      ${V.addMoneyList ? V.addMoneyList(d.strategies) : ''}
       <div id="nextorders"></div>
       ${d.account_error ? `<div class="note warn">Account not readable: ${U.esc(d.account_error)}</div>` : ''}
       <div class="grid" style="--min:340px">

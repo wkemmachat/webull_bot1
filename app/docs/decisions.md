@@ -368,3 +368,6 @@
   enters the add window (Add money to it / Why? / Dismiss), the add-window strategies as cards with $1,000 → typical, past
   times as dots and an Add money button each, "Less sure" lines for mixed ones, Hide (opens again on a new entry), and a
   green count badge next to Dashboard in the menu.
+- **Add-money cards for every strategy, three colours, percent** (20 Nov 2026, your request): stopped strategies and
+  strategies without money that are in the add window are shown too — green = money in it, blue = on, no money yet, grey
+  dashed = stopped (Open to start) — and each card leads with the typical gain a year later in percent next to $1,000 →.
