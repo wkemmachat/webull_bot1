@@ -114,7 +114,7 @@ def strategy_card(mode, s, prices=None):
     cfg = execution.exec_cfg(s)
     return {"id": s.id, "name": s.name, "color": s.color, "type": s.type, "family": s.family, "timeframe": s.timeframe,
             "control": s.row.get("control"), "line_on": bool(s.row.get("line_on")), "flow": d.get("flow"), "rule": d.get("rule"),
-            "dip": dip.get(s.id),
+            "dip": dip.get(s.id), "add": _add_brief(s.id),
             # stopped and empty in this mode: the pages hide it unless "Show stopped" is on
             "idle": s.row.get("control") == "stopped" and not ap and abs(v["value"] or 0) < 0.5 and not v["positions"],
             "state": st.get("state"), "label": label, "state_label": state_label, "activity": activity,
@@ -363,8 +363,25 @@ def strategy_detail(mode, sid):
     return {"mode": mode, "card": card, "row": {**s.row, "params": s.params}, "describe": s.describe(), "state": st,
             "signals": sig, "holdings": hold, "exec": cfg, "exec_text": execution.describe_cfg(cfg),
             "type": next((t for t in S.types_public() if t["type"] == s.type), None),
-            "idle": idle.view(mode, s, st), "dip": dip.get(sid), "money_fall": _money_fall(mode, sid),
+            "idle": idle.view(mode, s, st), "dip": dip.get(sid), "add": _add_full(sid), "money_fall": _money_fall(mode, sid),
             "plans": execution.plans_view(mode, sid=sid, limit=5), "money": [m for m in ledger.moves(mode, 200) if m["strategy"] == sid or m["other"] == sid][:10]}
+
+
+def _add_brief(sid):
+    try:
+        from . import addmoney
+        return addmoney.brief(sid)
+    except Exception:
+        return None
+
+
+def _add_full(sid):
+    """Good time to add money? (addmoney.py): the odds from the strategy's backtest and where it is today."""
+    try:
+        from . import addmoney
+        return addmoney.get(sid)
+    except Exception:
+        return None
 
 
 def _real(mode, sid, value, net_in):

@@ -1,22 +1,56 @@
 <!--{"title": "Buy zones: when to add money", "group": "The strategies"}-->
 # Buy zones: when to add money
 
-Every strategy spends time **below its last high** ("under water"). The bot measures, once a day after the US close, how deep
-each strategy is below its own backtest high and compares it with all its days in the last **20 years** (the C2-7 baskets:
-since 2016; gold and silver: the 2 years of backtest they have). Until 28 Oct 2026 the window was 10 years; 20 years is
-stricter because the 2008 crash and the 2011–2016 falls count too, so the same depth gets a lower percentile. The research
-table below was measured on 10 years.
+Every strategy spends time **below its last high** ("under water"). Once a day after the US close the bot measures how deep
+each strategy is below its own backtest high and compares it with its days in the last **20 years** (the C2-7 baskets: since
+2016; the 4-hour metals: the 2 years of backtest they have).
 
-| Colour | Zone | Meaning |
+| Pill | Zone | Meaning |
 |---|---|---|
-| Green · **▲ Buy zone** | 70th–80th percentile | Deeper under water than on 70–80% of its past days |
-| Solid dark green · **▲▲ Strong buy zone** | 80th percentile or deeper | Deeper than on 80% of its past days: banner on Home and one LINE message |
+| Green · **▲ Buy zone** | 70th–84th percentile | Cheaper than usual |
+| Solid dark green · **▲▲ Good time to add** | 85th percentile or deeper | The add window: a strategy whose past deep falls were followed by gains |
+| Grey · **▼ Deep fall** | 70th or deeper | The same depth, but in this strategy's backtest deep falls kept falling: no reason to add |
 
-The badge shows the percentile and how far below the high it is, for example **▲▲ Strong buy zone · 86th pct · −26%**. Hover it for the
-70th / 80th / 90th percentile depths of that strategy. The LINE message comes once per dip; the next one only after the
-strategy has climbed back above its 70th percentile. Turn it on or off in LINE alerts → "Strong buy zone".
+Until 20 Nov 2026 the dark green pill started at the 80th percentile ("Strong buy zone") for every strategy, gold and silver
+included.
 
-## Why it can help (research, 27 Oct 2026)
+## Good time to add money? (20 Nov 2026)
+
+Each strategy's **Overview** starts with a card that answers this in four steps, from its own backtest:
+
+1. **Where it is now**: a bar from "at its high" through "cheap" (70th) to "add money" (85th+), with today on it.
+2. **What happened the last times it got this cheap**: one bar per past time it reached the 85th percentile, showing how
+   much it was up a year later (for example ROM · Split 2C: 30 of 30 were up, typically +51%).
+3. **If you add $1,000 on a day like this**: a bad year (1 in 10), a typical year and a good year a year later, next to the
+   same on a normal day, and how far it typically dipped first.
+4. **The rule**: add *extra* money you keep aside; don't hold back money you'd add anyway — for the Nasdaq/S&P strategies waiting for a
+   dip was better less than half the time (40–48%) and cost 1–6% on average.
+
+The card opens by itself when the strategy is in the add window; otherwise it is one line ("Not a special time to add" or
+"No add-money signal for this strategy") with **Show why**.
+
+**Which strategies:** the verdict compares days in the zone with any day of the same backtest:
+
+- **Good time** — up a year later more often, by more, and a smaller fall first; at least 9 of 10 of the times it got there
+  were up (ROM · Split 2C, QLD · Split 2C, QLD Trend + bear-dip + Vol, ROM · Trend + Vol, DDM, RXL Ichimoku, C2-7).
+- **OK, safer** — more often up and a smaller fall first, but not by more (USD · Trend split).
+- **Mixed** — about like any day (USD Trend + IBS-dip, SSO MACD): the card shows the odds, no LINE message.
+- **No signal** — worse than any day, or fewer than 6 past falls to judge (USD · SMH, gold, silver).
+
+Each day is ranked only against the days before it (3 years of warm-up, so the odds start in 2009): no hindsight.
+
+**Dashboard:** "Where to put extra money now" lists the strategies in the add window, best first: depth, the past times as
+small green/red bars, the typical year, and what $1,000 typically became.
+
+**LINE "Good time to add money"** (LINE alerts → "Good time to add money"): once per fall, when a Good-time or OK-safer
+strategy reaches its 85th percentile, armed again only after it climbs back above its 70th. It carries the same odds: the
+times it got there and how many were up a year later, $1,000 → typical and bad year, and the dip to expect first. Strategies
+that are stopped get no message.
+
+**Honest check:** these are backtests of strategies picked on these same years, so real results will be less tidy; and at
+the 100th percentile no past day was quite this deep. History, not a promise.
+
+## Earlier research (27 Oct 2026)
 
 The bot's own strategy code on TradingView prices, Webull's real fee. Buying on days in the zone, compared with any day,
 over the last 10 years (12 months later: median return / share of times up):
@@ -44,7 +78,7 @@ Checked two stricter ways (from 2008, and with each day's zone set only from the
   first. The advantage showed at 6–12 months.
 - Deep zones are rare (the 90–100 zone is 10% of days) and can be a year or more apart. Waiting with all the cash costs the
   gains of the waiting time.
-- A sensible use: put part of the money in now and add the rest when a strategy turns **solid dark green** (Strong buy zone).
+- A sensible use: put the money you planned in now, and keep extra money aside for the ▲▲ Good time to add pill.
 - The zone is about the strategy's backtest, not about your own entry price.
 
 **Why green:** analyst ratings use green for Buy and dark green for Strong buy (for example Zacks), and Webull shows gains in green. Buy zone is a light green pill with a green edge; Strong buy zone is a solid dark-green pill, the strongest mark on the page, so it invites the eye first.

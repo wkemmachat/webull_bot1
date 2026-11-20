@@ -234,6 +234,7 @@
       const sig = d.signals || [];
       return `${kpis()}
       ${idleBox()}
+      <div id="addmoney"></div>
       <div id="nextorders"></div>
       <div id="sorders"></div>
       ${fam === 'regime' ? regimeTiles() : ''}
@@ -362,6 +363,7 @@
       });
       if (tab === 'overview') {
         if (el.querySelector('#rulecheck')) V.ruleCheck(el.querySelector('#rulecheck'), sid);
+        if (V.addMoneyCard) V.addMoneyCard(el.querySelector('#addmoney'), d.add);
         el.querySelector('#ctool').innerHTML = chartToolbar();
         try { spec = spec || (await U.api(`/api/strategies/${sid}/chart?range=${cs.range}`)); } catch (e) { spec = { charts: [], error: e.message }; }
         drawChart();

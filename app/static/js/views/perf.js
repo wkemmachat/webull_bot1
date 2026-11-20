@@ -220,8 +220,8 @@
     const n = b.now, c = b.current || {}, vp = b.vs_past || {};
     if (!n) return '';
     const atHigh = !(n.depth < 0);
-    const zone = n.zone === 'deep' ? '<span class="pill dip2" style="margin-left:8px;vertical-align:middle;font-family:var(--font)">▲▲ Strong buy zone</span>'
-      : n.zone === 'dip' ? '<span class="pill dip1" style="margin-left:8px;vertical-align:middle;font-family:var(--font)">▲ Buy zone</span>' : '';
+    const lk = U.dipLook(n.zone ? { zone: n.zone, verdict: b.verdict } : null);
+    const zone = lk ? `<span class="pill ${lk.cls}" style="margin-left:8px;vertical-align:middle;font-family:var(--font)">${lk.text}</span>` : '';
     return `<span class="eyebrow">Right now · backtest to ${day(n.day)}</span>
       <div class="grid" style="--min:240px;gap:10px">
       ${tile('Now below its high', atHigh ? '0%' : pc(n.depth),

@@ -30,14 +30,6 @@
     }).join('');
   }
 
-  /* Home banner: strategies at their 80th underwater percentile or deeper (a buy-the-dip zone in the research) */
-  function dipBanner(list) {
-    const deep = list.filter((s) => s.dip && s.dip.zone === 'deep' && s.control !== 'stopped').sort((a, b) => b.dip.pct - a.dip.pct);
-    if (!deep.length) return '';
-    return `<div class="note dip" role="status" style="display:block;line-height:1.55"><b>▲▲ Strong buy zone:</b> ${deep.map((s) => `<a href="#/strategies/${U.esc(s.id)}">${U.esc(s.name)}</a> ${U.ordinal(s.dip.pct)} percentile (${s.dip.depth.toFixed(0)}% below its high)`).join(' · ')}.
-      <span style="opacity:.85">In the backtests, money added in this zone was more often up a year later — a statistic, not a promise; dips can go deeper first. <a href="#/docs/strategy-dips">How it works</a></span></div>`;
-  }
-
   V.dashboard = async function (el) {
     const mode = U.mode();
     let chart = null, range = 90;
@@ -60,7 +52,7 @@
       <div class="page-head"><div><div class="eyebrow">${U.esc(today)} · ${U.modeLabel[mode]} account</div><h1 class="h1">Dashboard</h1></div>
         <div class="row"><a class="btn" href="#/health">Run cross-check</a><button class="btn p" type="button" id="add">Add money</button></div></div>
       ${tokenBanner(d.logins)}
-      ${dipBanner(shown)}
+      ${V.addMoneyList ? V.addMoneyList(shown) : ''}
       <div id="nextorders"></div>
       ${d.account_error ? `<div class="note warn">Account not readable: ${U.esc(d.account_error)}</div>` : ''}
       <div class="grid" style="--min:340px">

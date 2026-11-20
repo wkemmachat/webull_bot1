@@ -356,3 +356,11 @@
   counted as a gain. Each strategy's Daily P&L tab gained a *By month* table, and the Dashboard's P&L card a *By month* link.
   The page has no "booked vs still open" split for months (the bot does not store a booked/open history per day); the
   buy-and-hold comparison was kept instead.
+- **Good time to add money** (20 Nov 2026, your request): research on every strategy's backtest (each day ranked only
+  against the days before it): at the 85th percentile below its high the Nasdaq/S&P strategies were more often up a year
+  later, by more, and fell less first (ROM · Split 2C: 30 of 30 times up, typically +51% vs +40% on any day); gold, silver and
+  USD · SMH had no edge; waiting for a dip with money you'd add anyway cost more than it saved. Now: a "Good time to add
+  money?" card on every strategy's Overview (where it is, the past times as bars, $1,000 bad/typical/good year, the rule),
+  "Where to put extra money now" on the Dashboard (replaces the Strong-buy banner), and the LINE message moved from the
+  80th to the 85th percentile and only for strategies where it worked, with the odds in plain words. Pills: ▲ Buy zone
+  70–84th, ▲▲ Good time to add 85th+, grey ▼ Deep fall where the signal has no edge. Docs → Buy zones: when to add money.

@@ -83,8 +83,8 @@ At the top, **Money in strategies** shows the same donut as the dashboard: each 
   - **Right now** (three cards, since 7 Nov 2026): **Now below its high** (how far the backtest is below its high today,
     how long, and what share of the worst fall that is); **Now percentile** (how deep today is compared with its own past
     days: the share of days in the last 20 years, or all it has, that were less deep, days at a high counting as 0, and
-    the same among only the days below a high; 70th–79th shows ▲ Buy zone and 80th or more ▲▲ Strong buy zone, the same
-    zones as the Dashboard banner); **Past falls deeper than now** (how many finished falls went deeper than today, out of
+    the same among only the days below a high; 70th–84th shows ▲ Buy zone and 85th or more ▲▲ Good time to add (grey
+    ▼ Deep fall where the strategy's past deep falls were not followed by gains; see Buy zones: when to add money)); **Past falls deeper than now** (how many finished falls went deeper than today, out of
     all of them, and the median time they took from today's depth back to their high).
   - **The charts** (TradingView, like the CME bot): on top the strategy's value (growth of $10,000, log scale), below it
     every day's fall from its last high in red, with today as a yellow dashed line and the 70th / 80th / 90th percentile

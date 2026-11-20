@@ -379,6 +379,8 @@ def strategy_risk(sid, mode) -> dict:
                 from . import dip
                 bt["now"] = dip.from_series(days, vals)
                 bt["vs_past"] = falls_now(days, vals)
+                from . import db as _db
+                bt["verdict"] = (_db.get_state(f"add:{sid}") or {}).get("verdict")      # add-money signal (addmoney.py)
             except Exception as e:
                 log.warning("risk now %s: %s", sid, e)
                 bt["now"] = None

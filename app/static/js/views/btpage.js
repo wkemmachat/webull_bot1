@@ -29,10 +29,9 @@
   ];
   // the dip zone, short (the depth is already on the line above): "▲▲ Strong buy", the percentile under it; full text on hover
   function zonePill(r) {
-    const d = r.dip;
-    if (!d || !d.zone) return `<span class="tiny muted">${U.ordinal(r.pct)} pct</span>`;
-    const full = U.dipPill(d), tip = (full.match(/title="([^"]*)"/) || [])[1] || '';
-    return `<span class="pill ${d.zone === 'deep' ? 'dip2' : 'dip1'}" title="${tip}">${d.zone === 'deep' ? '▲▲ Strong buy' : '▲ Buy zone'}</span><div class="tiny muted" style="margin-top:2px">${U.ordinal(d.pct)} pct</div>`;
+    const d = r.dip, l = U.dipLook(d);
+    if (!l) return `<span class="tiny muted">${U.ordinal(r.pct)} pct</span>`;
+    return `<span class="pill ${l.cls}" title="${U.esc(U.dipTip(d))}">${l.short}</span><div class="tiny muted" style="margin-top:2px">${U.ordinal(d.pct)} pct</div>`;
   }
 
   V.backtestAll = async function (el) {
@@ -90,7 +89,7 @@
               <span class="tiny muted" style="display:block">${U.esc(r.etf)} · ${r.timeframe === '1d' ? 'daily' : U.esc(r.timeframe || '')}${r.control === 'stopped' ? ' · stopped' : ''}</span></span></a></td>
               ${COLS.map((c) => `<td class="r num">${c.f(r)}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${COLS.length + 1}" class="muted">No strategy in this filter.</td></tr>`}
           </tbody></table></div>
-          <div class="muted small" style="padding:8px 16px 12px">How to read: <b>Return ÷ fall</b> = 10-year return a year ÷ 10-year worst fall: more return for each 1% you had to sit through is better. <b>Your money</b>: the red line under it is what you would lose if the 10-year worst fall came back. <b>Below a high</b> = share of weeks under the last peak. <b>Now</b> = how far below its high today, and where that ranks among all past days (Buy zone from the 70th, Strong buy from the 90th).
+          <div class="muted small" style="padding:8px 16px 12px">How to read: <b>Return ÷ fall</b> = 10-year return a year ÷ 10-year worst fall: more return for each 1% you had to sit through is better. <b>Your money</b>: the red line under it is what you would lose if the 10-year worst fall came back. <b>Below a high</b> = share of weeks under the last peak. <b>Now</b> = how far below its high today, and where that ranks among all past days (Buy zone from the 70th; ▲▲ Add from the 85th where past deep falls were followed by gains; grey Deep fall where they were not).
             Gold and silver: Yahoo keeps only about 2 years of hourly futures, so their 10 years come from the research on OANDA prices (<i>research</i>). Click a column to sort, a strategy for its own backtest.</div>
         </section>`;
     }

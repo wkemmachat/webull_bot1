@@ -102,14 +102,30 @@
     if (!n) return '';
     return `<span class="muted">${on ? '' : `${n} stopped with no money hidden`}</span><button class="btn s" data-idle="1">${on ? 'Hide stopped (' + n + ')' : 'Show stopped (' + n + ')'}</button>`;
   };
-  /* Buy zone of a strategy (its underwater percentile): 70–80 "Buy zone" (green), 80–100 "Strong buy zone" (solid dark green) */
-  U.dipCls = function (d) { return d && d.zone === 'deep' ? 'dipz2' : d && d.zone === 'dip' ? 'dipz1' : ''; };
+  /* Buy zone of a strategy (its underwater percentile): 70–85 "Buy zone" (green), 85+ "Good time to add" (solid dark green).
+     Where the strategy's past deep falls were NOT followed by gains (addmoney.py verdict "none": gold, silver, USD · SMH) the
+     pill is grey "Deep fall"; "mixed": the light green pill even at 85+. */
+  U.dipLook = function (d) {
+    if (!d || !d.zone) return null;
+    const v = d.verdict, deep = d.zone === 'deep';
+    if (v === 'none') return { cls: 'dip0', row: '', text: '▼ Deep fall', short: '▼ Deep fall' };
+    if (deep && v === 'good') return { cls: 'dip2', row: 'dipz2', text: '▲▲ Good time to add', short: '▲▲ Add' };
+    if (deep && v === 'safer') return { cls: 'dip2', row: 'dipz2', text: '▲▲ OK to add · safer', short: '▲▲ Add · safer' };
+    if (deep && !v) return { cls: 'dip2', row: 'dipz2', text: '▲▲ Strong buy zone', short: '▲▲ Strong buy' };
+    return { cls: 'dip1', row: 'dipz1', text: '▲ Buy zone', short: '▲ Buy zone' };
+  };
+  U.dipCls = function (d) { const l = U.dipLook(d); return l ? l.row : ''; };
   U.ordinal = function (n) { n = Math.round(n); const t = n % 100, e = n % 10; return n + (t >= 11 && t <= 13 ? 'th' : e === 1 ? 'st' : e === 2 ? 'nd' : e === 3 ? 'rd' : 'th'); };
+  U.dipTip = function (d) {
+    return `${d.depth}% below its backtest high: deeper than ${d.pct}% of its days in the last ${d.years} years (70th = ${d.p70}%, 80th = ${d.p80}%, 90th = ${d.p90}%). As of ${d.day}. ` +
+      (d.verdict === 'none' ? 'In its backtest, falls this deep were NOT followed by better results than other days: no add signal.'
+        : d.verdict === 'mixed' ? 'In its backtest, falls this deep did about as well as any other day.'
+          : 'In its backtest, money added on days this deep was more often up a year later — a statistic, not a promise. Open the strategy for the odds.');
+  };
   U.dipPill = function (d) {
-    if (!d || !d.zone) return '';
-    const deep = d.zone === 'deep';
-    const tip = `${d.depth}% below its backtest high: deeper than ${d.pct}% of its days in the last ${d.years} years (70th = ${d.p70}%, 80th = ${d.p80}%, 90th = ${d.p90}%). As of ${d.day}. In the backtests, money added in this zone was more often up a year later — a statistic, not a promise.`;
-    return `<span class="pill ${deep ? 'dip2' : 'dip1'}" title="${U.esc(tip)}">${deep ? '▲▲ Strong buy zone' : '▲ Buy zone'} · ${U.ordinal(d.pct)} pct · ${d.depth.toFixed(0)}%</span>`;
+    const l = U.dipLook(d);
+    if (!l) return '';
+    return `<span class="pill ${l.cls}" title="${U.esc(U.dipTip(d))}">${l.text} · ${U.ordinal(d.pct)} pct · ${d.depth.toFixed(0)}%</span>`;
   };
   /* Deep-fall warning: the strategy's fall from its high reached 75% of its worst 10-year fall (amber) or went past it (red) */
   U.fallPill = function (d) {

@@ -47,9 +47,10 @@ EVENTS = {
                 "(sells exact, buys estimated). Arrives after quiet hours.", "instant", False),
     "etf2x": ("New 2x ETF found", "Weekly search after the Nasdaq-100 ranking: a 2x ETF that passed the checks for a stock in the "
               "C2-7 2x list. Nothing changes until you add it on the strategy page.", "instant", False),
-    "dip": ("Strong buy zone: a strategy reached its 80th percentile", "Once a day after the US close: a strategy fell deeper below its "
-            "backtest high than on 80% of its days in the last 10 years (a buy-the-dip zone in the research). Once per dip.",
-            "instant", False),
+    "dip": ("Good time to add money: a strategy reached its 85th percentile", "Once a day after the US close: a strategy fell "
+            "deeper below its backtest high than on 85% of its past days, and in its backtest such falls were followed by gains "
+            "(the times it got there and how many were up a year later, $1,000 typically became …). Only strategies where this "
+            "worked; once per fall.", "instant", False),
     "drawdown": ("Deep fall: a strategy near or past its worst backtest fall", "Once a day after the US close: a strategy fell to 75% "
                  "of its worst fall in the last 10 years of its backtest, and again when it goes past it. Once per fall; with your own "
                  "money's fall in each mode. A warning only: nothing is sold.", "instant", False),

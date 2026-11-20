@@ -6,10 +6,12 @@ later). It is a statistic, not a promise: in 2008 deep dips kept falling.
 
   pct      share of the window's days (last 20 years of the backtest, or all it has) that were LESS deep than today
            (0 = at a new high). 10 years until 28 Oct 2026; 20 years since, at your choice (stricter: 2008 counts too).
-  zone     "dip"  for 70 ≤ pct < 80     ("Buy zone", green)
-           "deep" for pct ≥ 80          ("Strong buy zone", solid dark green; LINE alert + Home banner on entry)
-Refreshed once a day after the US close (and on start when missing). LINE fires when a strategy enters ≥ 80 and is armed
-again only after it climbs back above the 70th percentile.
+  zone     "dip"  for 70 ≤ pct < 85     ("Buy zone", green)
+           "deep" for pct ≥ 85          ("Strong buy zone", solid dark green; grey "Deep fall" where the add signal has no edge)
+Refreshed once a day after the US close (and on start when missing). Since 20 Nov 2026 (addmoney.py) the LINE message is
+"Good time to add money": at the 85th percentile, only for strategies whose past deep falls were followed by gains, with the
+odds; armed again only after the strategy climbs back above the 70th percentile. (Before: "Strong buy zone" at the 80th for
+every strategy.)
 
 Deep-fall warning (6 Nov 2026): the same backtest also gives today's fall below the strategy's high next to its worst fall in
 the last 10 years BEFORE this one (the current fall is left out, so a new record shows as more than 100%). LINE warns once
@@ -27,7 +29,7 @@ from . import db, notify
 from . import strategies as S
 
 log = logging.getLogger("dip")
-DIP, DEEP = 70.0, 80.0
+DIP, DEEP = 70.0, 85.0
 WARN_LEVELS = (75, 100)          # % of the worst 10-year fall: "near its worst", "deeper than its worst"
 WORST_YEARS = 10
 VERSION = 2                      # bump when the backtests behind these numbers change (2: gold & silver from 2008, 7 Nov 2026)
@@ -122,7 +124,7 @@ def compute(s, now=None) -> dict | None:
     return from_series(t, ser["strategy"])
 
 
-KEYS = ("depth", "pct", "zone", "p70", "p80", "p90", "day", "from", "years", "peak_day", "worst10", "worst10_from", "worst10_to",
+KEYS = ("verdict", "depth", "pct", "zone", "p70", "p80", "p90", "day", "from", "years", "peak_day", "worst10", "worst10_from", "worst10_to",
         "worst10_years", "worst_all", "worst_all_from", "worst_all_to", "of_worst")
 
 
@@ -168,20 +170,35 @@ def refresh_all(now=None, send=True) -> dict:
             db.set_state(f"diptry:{s.id}", int(time.time()))     # no backtest yet: missing() waits a day before asking again
             continue
         old = db.get_state(f"dip:{s.id}") or {}
+        try:
+            from . import addmoney
+            am = addmoney.compute(s, now)
+        except Exception as e:                            # never stops the daily jobs
+            log.warning("add money %s: %s", s.id, e)
+            am = None
+        if am:
+            db.set_state(f"add:{s.id}", am)
+        else:
+            db.set_state(f"addtry:{s.id}", int(time.time()))     # too short a backtest (or it failed): ask again in a day
+        verdict = (am or db.get_state(f"add:{s.id}") or {}).get("verdict")
+        d["verdict"] = verdict
         alerted = bool(old.get("alerted"))
         new_deep = d["pct"] >= DEEP and not alerted
         if d["pct"] < DIP:
             alerted = False                               # armed again once it is out of the dip zones
-        if new_deep and (s.row or {}).get("control") != "stopped":
-            alerted = True
-            txt = (f"{s.name} is {d['depth']:.0f}% below its backtest high: deeper than {d['pct']:.0f}% of its days in the last "
-                   f"{d['years']:g} years (80th percentile = {d['p80']:.0f}%, 90th = {d['p90']:.0f}%). In the backtests, money added "
-                   "in this zone was more often up a year later — not a promise; dips can go deeper first.")
-            db.add_event("info", "strategy", f"{s.name}: strong buy zone ({ordinal(d['pct'])} percentile, {d['depth']:.0f}%)", txt, strategy=s.id)
-            if send:
-                notify.send("dip", f"Strong buy zone · {s.name}\n{txt}", strategy=s.id)
-        elif new_deep:
-            alerted = True                                # stopped: no message, but do not fire later for the same dip
+        if new_deep:
+            alerted = True                                # once per fall, whatever is sent
+            x = addmoney.get(s.id) if am else None
+            if x and verdict in ("good", "safer") and (s.row or {}).get("control") != "stopped":
+                txt = addmoney.line_text(s.name, x, d)
+                db.add_event("info", "strategy", f"{s.name}: good time to add money ({ordinal(d['pct'])} percentile, {d['depth']:.0f}%)",
+                             txt, strategy=s.id)
+                if send:
+                    notify.send("dip", txt, strategy=s.id)
+            elif x and verdict in ("mixed", "none"):
+                db.add_event("info", "strategy", f"{s.name}: {ordinal(d['pct'])} percentile fall ({d['depth']:.0f}%)",
+                             "Deeper than on 85% of its past days. No add-money alert: in its backtest, falls this deep were "
+                             "not followed by better results than any other day.", strategy=s.id)
         # deep-fall warning: once at 75% of the worst 10-year fall and once past it, per fall (armed again at a new high)
         lv = warn_level(d.get("of_worst"), d.get("worst10_years")) or 0
         warned = old.get("warned", 0) if old.get("warned_peak") == d.get("peak_day") else 0
@@ -206,6 +223,11 @@ def refresh_all(now=None, send=True) -> dict:
     return out
 
 
+def _add_version():
+    from . import addmoney
+    return addmoney.VERSION
+
+
 def missing() -> bool:
     """A strategy with nothing stored yet (a new default strategy: 15 Nov 2026 its zone appeared on its Backtest tab but not in
     the Expected table until the next close), or stored with another window or version: recompute now, not at the next close."""
@@ -216,4 +238,7 @@ def missing() -> bool:
             continue                                      # its backtest failed in the last day: wait for the next close
         if not x or x.get("win", 10) != WINDOW_YEARS or "worst10" not in x or x.get("v", 1) != VERSION:
             return True
+        a = db.get_state(f"add:{s.id}")
+        if (not a or a.get("v") != _add_version()) and now - (db.get_state(f"addtry:{s.id}") or 0) >= 86400:
+            return True                                   # the add-money odds (20 Nov 2026) not worked out yet
     return False
