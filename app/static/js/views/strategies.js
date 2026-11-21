@@ -108,7 +108,7 @@
 
     function kpis() {
       const pos = Object.entries(c.positions || {});
-      return `<div class="grid" style="--min:${d.dip && d.dip.worst10 != null ? 180 : 210}px">
+      return `<div class="grid kpis" style="--min:${d.dip && d.dip.worst10 != null ? (d.dip.pct != null ? 160 : 180) : 210}px">
         <div class="card"><div class="eyebrow">Value · ${U.modeLabel[mode]}</div><div class="num big" style="margin-top:6px">${U.usd(c.value)}</div>
           <div class="num small ${U.cls(c.pnl)}">${U.sgnUsd(c.pnl)} · ${U.pct(c.ret)} on ${U.usd(c.net_in, 0)}</div>${U.realDiffers(c) ? `<div class="num small">${U.realBit(c)} <span class="muted">since ${U.esc(U.ymd(c.real.since))}, money moved left out</span></div>` : ''}${c.today ? '<div>' + U.todayLine(c) + '</div>' : ''}</div>
         <div class="card"><div class="eyebrow">Holding</div><div class="num big" style="margin-top:6px">${pos.length ? pos.map(([k, p]) => `${U.qty(p.qty)} ${k}`).join(' · ') : 'Cash'}</div>
@@ -116,7 +116,7 @@
         <div class="card"><div class="eyebrow">Signal now</div><div style="margin-top:8px">${U.pill(c.state_cls + ' big', st.ok ? (fam === 'regime' ? st.state : (st.state || '').toUpperCase()) : 'ERROR')}</div>
           <div class="muted small" style="margin-top:6px">${st.ok ? U.esc(st.label) + (st.signal_time ? ' · since ' + U.dt(st.signal_time) : '') : U.esc(st.error || 'not evaluated yet')}</div></div>
         <div class="card"><div class="eyebrow">Next check</div><div class="num big" style="margin-top:6px">${c.next_check ? U.dt(c.next_check) : '—'}</div>
-          <div class="muted small">${U.esc(d.exec_text)}</div></div>${fallCard()}</div>`;
+          <div class="muted small">${U.esc(d.exec_text)}</div></div>${fallCard()}${pctCard()}</div>`;
     }
 
     /* Fall from its high: the strategy (backtest, the same for everyone running it) next to its worst fall in 10 years,
@@ -137,6 +137,26 @@
         ${short ? '' : `<div class="fallbar" aria-label="${of}% of its worst fall"><i style="width:${Math.min(100, of / 1.3)}%;background:${col}"></i><b style="left:${100 / 1.3}%"></b></div>
         <div class="small" style="color:${col}">${x.warn >= 100 ? '⚠ Deeper than its worst in ' + x.worst10_years + ' years' : x.warn >= 75 ? '⚠ ' + of + '% of the way to its worst' : of + '% of its worst'}</div>`}
         ${m ? `<div class="muted small num" style="margin-top:2px">Your money: <span class="${m.fall < -0.05 ? 'dn' : ''}">${m.fall.toFixed(1)}%</span>${m.high_day ? ' from its high of ' + U.esc(ymd(m.high_day)) : ''}</div>` : ''}</div>`;
+    }
+
+    /* Percentile now (21 Nov 2026): how deep today's fall is against the strategy's own days in the last 20 years.
+       70–85 is the buy zone, 85+ the "good time to add" zone; the pill is the add-money verdict (grey where deep falls were
+       not followed by better results). */
+    function pctCard() {
+      const x = d.dip;
+      if (!x || x.pct == null) return '';
+      const pct = Math.max(0, Math.min(100, x.pct)), look = U.dipLook(x), atHigh = !(x.depth < -0.05);
+      const p85 = x.p85 != null ? x.p85 : (d.add && d.add.zone_depth != null ? -Math.abs(d.add.zone_depth) : null);
+      const f = (v) => (v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + '%';
+      const good = look && look.cls !== 'dip0';
+      const pill = look ? `<span class="pill ${look.cls}">${look.text}</span>` : `<span class="pill dip0">${atHigh ? 'At its high' : 'Not cheap yet'}</span>`;
+      return `<div class="card pctcard ${good ? 'z' + (x.zone === 'deep' ? 2 : 1) : ''}" title="${U.esc(U.dipTip(x))}"><div class="eyebrow">Percentile now</div>
+        <div class="num big ${good ? 'up' : ''}" style="margin-top:6px">${U.ordinal(pct)}</div>
+        <div class="muted small">${atHigh ? 'At its high: no fall today' : `deeper than ${Math.round(pct)}% of its days in ${Math.round(x.years || 0)} years`}</div>
+        <div class="pctbar" role="img" aria-label="${U.ordinal(pct)} percentile; buy zone from the 70th, good time to add from the 85th"><i class="z1"></i><i class="z2"></i><b style="left:${pct}%"></b></div>
+        <div class="pctticks"><span style="left:0">0</span><span style="left:70%">70</span><span style="left:85%">85</span></div>
+        <div>${pill}</div>
+        <div class="muted small num"><span class="nw">70th ${f(x.p70)}</span>${p85 != null ? ' · <span class="nw">85th ' + f(p85) + '</span>' : ''}</div></div>`;
     }
 
     function regimeTiles() {

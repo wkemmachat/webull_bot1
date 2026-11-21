@@ -60,9 +60,9 @@ def from_series(t, v) -> dict | None:
     win = depth[depth.index >= depth.index[-1] - pd.DateOffset(years=WINDOW_YEARS)]
     cur = float(win.iloc[-1])
     pct = float(round((win.values < cur - 1e-12).mean() * 100)) if cur > 1e-9 else 0.0   # whole numbers: badge and zone agree
-    q = {p: float(np.percentile(win.values, p)) for p in (70, 80, 90)}
+    q = {p: float(np.percentile(win.values, p)) for p in (70, 80, 85, 90)}
     return {"depth": round(-cur * 100, 1), "pct": pct, "zone": zone_of(pct),
-            "p70": round(-q[70] * 100, 1), "p80": round(-q[80] * 100, 1), "p90": round(-q[90] * 100, 1),
+            "p70": round(-q[70] * 100, 1), "p80": round(-q[80] * 100, 1), "p85": round(-q[85] * 100, 1), "p90": round(-q[90] * 100, 1),
             "day": str(s.index[-1].date()), "from": str(win.index[0].date()),
             "years": round((win.index[-1] - win.index[0]).days / 365.25, 1), **worst_before(s)}
 
@@ -124,7 +124,7 @@ def compute(s, now=None) -> dict | None:
     return from_series(t, ser["strategy"])
 
 
-KEYS = ("verdict", "add_since", "depth", "pct", "zone", "p70", "p80", "p90", "day", "from", "years", "peak_day", "worst10", "worst10_from", "worst10_to",
+KEYS = ("verdict", "add_since", "depth", "pct", "zone", "p70", "p80", "p85", "p90", "day", "from", "years", "peak_day", "worst10", "worst10_from", "worst10_to",
         "worst10_years", "worst_all", "worst_all_from", "worst_all_to", "of_worst")
 
 

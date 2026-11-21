@@ -59,6 +59,13 @@ At the top, **Money in strategies** shows the same donut as the dashboard: each 
   - Backtests shorter than 5 years show the fall but get no warning: there is too little history to call anything the
     worst. Gold and silver used to be such a case (Yahoo keeps about 2 years of hourly futures); since 7 Nov 2026 their
     backtests go back to December 2008 with OANDA spot before the bot's own bars ([Backtest](#/docs/backtest)).
+- **Percentile now** (the sixth card in Overview, since 21 Nov 2026): how deep today's fall is compared with the
+  strategy's own days in the last 20 years (its backtest). The *96th* means today's fall is deeper than 96% of those days.
+  The bar shows the zones: light green from the 70th (*buy zone*), dark green from the 85th (*good time to add*), the
+  black mark is today. The pill is the same add-money label as the Dashboard (grey *Deep fall* for strategies whose past
+  deep falls were not followed by better results, grey *Not cheap yet* below the 70th). The last line is how far below
+  its high the strategy has to be to reach the 70th and the 85th. Details and the odds: *Good time to add money?* lower
+  on the page and [Strategy dips](#/docs/strategy-dips).
 - **Real** (under the value, when it differs): the result of your own money since you started, **time-weighted**, so
   money added or taken out does not change it. The simple *% on money put in* does change: in Nov 2026 $5,500 went into
   ROM Trend + RSI(2), it fell about 24%, then $2,500 was moved out, so the $940 loss showed as −31% on the $3,000 left

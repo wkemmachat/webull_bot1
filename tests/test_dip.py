@@ -24,7 +24,7 @@ def test_percentile_and_zones():
     t, v = _series(-0.99)
     d = dip.from_series(t, v)
     assert d["pct"] >= 99 and d["zone"] == "deep" and d["depth"] < -90
-    assert d["p70"] > d["p80"] > d["p90"]                 # deeper percentiles are more negative
+    assert d["p70"] > d["p80"] > d["p85"] > d["p90"]      # deeper percentiles are more negative
     assert dip.zone_of(75) == "dip" and dip.zone_of(84.9) == "dip" and dip.zone_of(85) == "deep" and dip.zone_of(69.9) is None
 
 
