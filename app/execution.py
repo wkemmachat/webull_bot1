@@ -99,6 +99,9 @@ FRAC_DP = 2                     # buys: shares to 0.01 (Webull reports fractiona
 SELL_DP = 6                     # sells: the exact booked quantity
 MIN_FRACTION_USD = 5.0          # smallest order that is less than one share
 EPS = 1e-6
+BP_RESUME_USD = 100.0           # buys waiting for Webull buying power resume once it is this much higher than when they stopped
+BP_CHECK_S = 180                # while waiting: read Webull's buying power at most every 3 minutes
+MARKETABLE_EXTRA = 0.005        # an order for less than one share must be marketable at Webull: 0.5% through the bid / ask
 
 
 def _down(x, dp) -> float:
@@ -409,12 +412,30 @@ def _buy_qty(mode, strat, plan, o, limit, broker, cash_buffer):
     return q
 
 
+def _inflight_buys(mode) -> float:
+    """Value of buy orders sent to Webull whose fills the bot has not booked yet. Webull takes the cash for a fill at once,
+    the bot books it when it next reads the order (seconds to a minute later): until then the account's cash is lower
+    than the bot's books by this much, which is not money that left the account."""
+    r = db.one(f"SELECT COALESCE(SUM(MAX(0, COALESCE(qty,0) - COALESCE(applied_qty,0)) * COALESCE(limit_price,0)), 0) v "
+               f"FROM orders WHERE mode=? AND side='BUY' AND status IN ({_q(len(WORKING))})", (mode, *WORKING))
+    return float(r["v"] or 0)
+
+
+def bp_wait(mode):
+    """Buys waiting for Webull's buying power ({at, bp, cash, sids, ...}) or None."""
+    return db.get_state(f"bpwait:{mode}") or None
+
+
 class Guard:
     """Hard limit for buys, checked against Webull's own numbers right before each order:
-      1. the bot's cash in its books (strategies + bot unassigned) must not be more than the account's cash;
+      1. the bot's cash in its books (strategies + bot unassigned) must not be more than the account's cash — less the buy
+         orders already sent whose fills the bot has not booked yet (Webull took that cash a moment ago);
       2. after the order, account cash must stay at or above the protected floor (Money page);
-      3. the order must fit in Webull's buying power.
-    Any money that is not the bot's therefore stays untouched even if the books were wrong."""
+      3. the order must fit in Webull's buying power. When the buying power is below the account's cash (Webull does not let
+         all of it be used yet, e.g. a sale that has not settled), it is shared between the strategies that are buying by
+         their cash, so the first lot due does not take it all.
+    Any money that is not the bot's therefore stays untouched even if the books were wrong. After a refusal `kind` says why:
+    'account', 'books', 'floor' or 'bp' (buying power)."""
 
     def __init__(self, mode, acct, settings):
         self.mode, self.ok = mode, acct is not None and acct.get("cash") is not None
@@ -426,30 +447,66 @@ class Guard:
         except ValueError:
             self.floor = 0.0
         self.bot_cash = ledger.bot_cash(mode) if self.ok else None
+        self.inflight = _inflight_buys(mode) if self.ok else 0.0
+        self.kind, self.fair, self.given = None, None, {}
 
-    def allow(self, value):
+    def bp_limited(self) -> bool:
+        return self.ok and self.bp is not None and self.bp < self.cash - self.floor - 1.0
+
+    def share_fairly(self, mode):
+        """Buying power below the cash: each strategy with buys waiting may use bp × its cash ÷ their cash together."""
+        if not self.bp_limited():
+            return
+        cash = {}
+        for r in db.rows("SELECT DISTINCT o.strategy FROM orders o JOIN plans p ON p.id=o.plan_id WHERE o.mode=? AND o.side='BUY' "
+                         "AND o.status='scheduled' AND p.status='active'", (mode,)):
+            c = ledger.tradable_cash(ledger.get(mode, r["strategy"]))
+            if c > 1:
+                cash[r["strategy"]] = c
+        tot = sum(cash.values())
+        if len(cash) > 1 and tot > self.bp:
+            self.fair = {k: max(0.0, self.bp) * v / tot for k, v in cash.items()}
+
+    def allow(self, value, sid=None):
         """(allowed_value, reason). allowed_value may be smaller than asked; 0 = block."""
+        self.kind = None
         if not self.ok:
+            self.kind = "account"
             return 0.0, "cannot read the account cash"
-        if self.bot_cash > self.cash + 1.0:
+        if self.bot_cash - self.inflight > self.cash + 1.0:
+            self.kind = "books"
             return 0.0, (f"the bot's books show ${self.bot_cash:,.2f} cash but the account has ${self.cash:,.2f} "
                          "(money left the account?)")
         room = self.cash - self.floor
-        if self.bp is not None:
-            room = min(room, self.bp)
+        bp_lim = self.bp_limited()
+        if bp_lim:
+            room = self.bp
+            if self.fair is not None and sid in self.fair:
+                room = min(room, max(0.0, self.fair[sid] - self.given.get(sid, 0.0)))
         if room <= 0:
-            return 0.0, f"account cash ${self.cash:,.2f} is at the protected floor ${self.floor:,.2f}"
-        return min(value, room), (None if value <= room else f"only ${room:,.2f} above the protected floor / buying power")
+            self.kind = "bp" if bp_lim else "floor"
+            return 0.0, (f"Webull's buying power is ${max(self.bp, 0):,.2f} while the account holds ${self.cash:,.2f} cash" if bp_lim
+                         else f"account cash ${self.cash:,.2f} is at the protected floor ${self.floor:,.2f}")
+        if value <= room:
+            return value, None
+        self.kind = "bp" if bp_lim else "floor"
+        return room, (f"only ${room:,.2f} of Webull's buying power is free for it (account cash ${self.cash:,.2f})" if bp_lim
+                      else f"only ${room:,.2f} above the protected floor / buying power")
 
-    def spent(self, value):
+    def spent(self, value, sid=None):
         if self.ok:
             self.cash -= value
             self.bot_cash -= value
             if self.bp is not None:
                 self.bp -= value
+            if sid:
+                self.given[sid] = self.given.get(sid, 0.0) + value
 
 
-def _blocked(mode, o, strat, why):
+def _blocked(mode, o, strat, why, kind=None):
+    if kind == "bp":
+        _wait_for_bp(mode, o, strat, why)
+        return
     db.run("UPDATE orders SET status='skipped', qty=0, error=?, updated_at=? WHERE id=?",
            (f"blocked by the money guard: {why}"[:300], int(time.time()), o["id"]))
     db.add_event("error", "orders", f"Buy blocked: {o['symbol']} for {strat.name}", why, strategy=strat.id, mode=mode)
@@ -459,6 +516,97 @@ def _blocked(mode, o, strat, why):
         notify.send("lot_failed", f"{brokers.MODE_LABEL[mode]} · BUY BLOCKED by the money guard: {why}. "
                     "No money outside the bot's allocation was used. Check the Money page.", critical=True)
         db.set_state(f"guard_alert:{mode}", int(time.time()))
+
+
+def _wait_for_bp(mode, o, strat, why):
+    """Webull's buying power is below the account's cash: the lot is skipped (no order), the strategy waits, and one event
+    and one LINE message say so for the whole wait — not one per lot. process() reads the buying power every few minutes
+    and resumes the buys when it is back (_bp_watch)."""
+    db.run("UPDATE orders SET status='skipped', qty=0, error=?, updated_at=? WHERE id=?",
+           (f"waiting for Webull buying power: {why}"[:300], int(time.time()), o["id"]))
+    w = bp_wait(mode)
+    if w:
+        if strat.id not in w["sids"]:
+            w["sids"].append(strat.id)
+        w["blocked"] = w.get("blocked", 0) + 1
+        db.set_state(f"bpwait:{mode}", w)
+        return
+    acct = (db.get_state(f"bpacct:{mode}") or {})
+    w = {"at": int(time.time()), "bp": acct.get("bp"), "cash": acct.get("cash"), "sids": [strat.id], "blocked": 1, "why": why}
+    db.set_state(f"bpwait:{mode}", w)
+    txt = (f"Webull lets the bot use only ${max(0, acct.get('bp') or 0):,.2f} of the account's ${acct.get('cash') or 0:,.2f} cash "
+           "right now (buying power), so buys wait. The bot checks every few minutes and buys as soon as Webull frees the money. "
+           "Most often this is money from a sale that has not settled yet; the Webull app shows it. Nothing is sold or lost.")
+    db.add_event("warn", "orders", "Buys wait for Webull buying power", txt, strategy=strat.id, mode=mode)
+    notify.send("lot_failed", f"{brokers.MODE_LABEL[mode]} · {txt}", critical=False)
+
+
+def _bp_watch(mode, broker, acct=None):
+    """While buys wait for buying power: read it every BP_CHECK_S; resume when it is BP_RESUME_USD higher than when the
+    wait started, or no longer below the cash."""
+    w = bp_wait(mode)
+    if not w:
+        return
+    if acct is None:
+        if time.time() - (db.get_state(f"bpchk:{mode}") or 0) < BP_CHECK_S:
+            return
+        db.set_state(f"bpchk:{mode}", int(time.time()))
+        try:
+            acct = broker.account()
+        except brokers.BrokerError as e:
+            log.warning("buying power check %s: %s", mode, e)
+            return
+    _note_acct(mode, acct)
+    bp, cash = acct.get("buying_power"), acct.get("cash")
+    try:
+        floor = max(0.0, float(db.get_setting(f"protect_floor_{mode}") or 0))
+    except ValueError:
+        floor = 0.0
+    if bp is not None and cash is not None and float(bp) < float(w.get("bp") or 0) + BP_RESUME_USD and float(bp) < float(cash) - floor - 1:
+        return
+    db.set_state(f"bpwait:{mode}", None)
+    for sid in w.get("sids") or []:
+        db.set_state(f"noplan:{mode}:{sid}", None)           # top-ups are planned again on the next round
+    names = ", ".join((S.row(x) or {}).get("name", x) for x in (w.get("sids") or []))
+    txt = (f"Webull's buying power is back (${float(bp or 0):,.2f}), so the waiting buys go ahead now" + (f": {names}." if names else "."))
+    db.add_event("info", "orders", "Buys resume: buying power is back", txt, mode=mode)
+    notify.send("lot_failed", f"{brokers.MODE_LABEL[mode]} · {txt}", critical=False)
+
+
+def _note_acct(mode, acct):
+    if acct and acct.get("cash") is not None:
+        db.set_state(f"bpacct:{mode}", {"at": int(time.time()), "cash": float(acct["cash"]),
+                                        "bp": float(acct["buying_power"]) if acct.get("buying_power") is not None else None})
+
+
+def _marketable(q, side, limit) -> float:
+    """Webull fills an order for less than one share only at a marketable price: a buy at or above the ask, a sell at or
+    below the bid. A limit through the market still fills at the best price there."""
+    if side == "BUY":
+        return max(limit, round((q.get("ask") or q["price"]) * (1 + MARKETABLE_EXTRA), 2))
+    return min(limit, round((q.get("bid") or q["price"]) * (1 - MARKETABLE_EXTRA), 2))
+
+
+def _needs_marketable(e) -> bool:
+    t = f"{getattr(e, 'code', '') or ''} {e}".upper()
+    return "QUANTITY_TOO_SMALL" in t or "MARKETABLE PRICE" in t
+
+
+def repair_marketable_refusals():
+    """Bot 1.0 took Webull's "a fractional order below 1 share must be at a marketable price" as "no fractions for this ETF"
+    and switched it to whole shares for good. That refusal was about the price (now always marketable): undo it."""
+    for m in brokers.MODES:
+        b = fraction_refused(m)
+        bad = [k for k, v in b.items() if "QUANTITY_TOO_SMALL" in f"{v.get('code') or ''} {v.get('msg') or ''}".upper()
+               or "MARKETABLE PRICE" in (v.get("msg") or "").upper()]
+        if not bad:
+            continue
+        for k in bad:
+            b.pop(k, None)
+        db.set_state(f"frac_refused:{m}", b)
+        db.add_event("info", "orders", f"Fractional shares back on: {', '.join(bad)}",
+                     "Webull had refused a sell of less than one share because its limit was not at the market price. Such orders "
+                     "are now always priced at the market, so fractions stay on for this ETF.", mode=m)
 
 
 # ---------------------------------------------------------------- settling opposite orders inside the bot
@@ -602,6 +750,10 @@ def send_due(mode, now, broker, settings, positions=None, acct=None):
     if settings.get("trading_paused") == "1":
         return []
     guard = Guard(mode, acct, settings) if acct is not None or mode != "paper" else None
+    if acct is not None:
+        _note_acct(mode, acct)
+    if guard is not None:
+        guard.share_fairly(mode)
     due = db.rows("SELECT * FROM orders WHERE mode=? AND status='scheduled' AND scheduled_at<=? ORDER BY scheduled_at, step, id",
                   (mode, _ts(now)))
     sent = []
@@ -661,11 +813,11 @@ def send_due(mode, now, broker, settings, positions=None, acct=None):
         if c_["max_order_usd"] > 0 and qty * limit > c_["max_order_usd"]:
             qty = _down(c_["max_order_usd"] / limit, dp)
         if o["side"] == "BUY" and guard is not None and not _too_small(o["side"], qty, limit):
-            allowed, why = guard.allow(qty * limit)
+            allowed, why = guard.allow(qty * limit, strat.id)
             if allowed < qty * limit:
                 q2 = _down(allowed / limit, dp)
                 if _too_small("BUY", q2, limit):
-                    _blocked(mode, o, strat, why or "no room")
+                    _blocked(mode, o, strat, why or "no room", guard.kind)
                     continue
                 db.add_event("warn", "orders", f"Buy reduced by the money guard: {o['symbol']}", f"{qs(qty)} → {qs(q2)} shares · {why}",
                              strategy=strat.id, mode=mode)
@@ -675,6 +827,8 @@ def send_due(mode, now, broker, settings, positions=None, acct=None):
                    (limit, "nothing to trade (less than 1 share)" if dp == 0 or qty <= EPS else
                     f"nothing to trade (less than ${MIN_FRACTION_USD:g} as a fraction)", int(time.time()), o["id"]))
             continue
+        if is_fraction(qty) and qty < 1:
+            limit = _marketable(q, o["side"], limit)           # Webull: under one share only at a marketable price
         db.run("UPDATE orders SET qty=?, limit_price=?, updated_at=? WHERE id=?", (qty, limit, int(time.time()), o["id"]))
         if o["lot"] == 1 and o["step"] in (0, 1) and o["retry"] == 0:
             first = db.one("SELECT COUNT(*) n FROM orders WHERE plan_id=? AND status NOT IN ('scheduled','skipped')", (o["plan_id"],))["n"]
@@ -682,17 +836,21 @@ def send_due(mode, now, broker, settings, positions=None, acct=None):
                 notify.send("plan_start", f"{brokers.MODE_LABEL[mode]} · {strat.name}: plan started — {plan['lots']} lot(s) every "
                             f"{plan['interval_min']:g} min", strategy=strat.id)
         if o["side"] == "BUY" and guard is not None:
-            guard.spent(qty * limit)
+            guard.spent(qty * limit, strat.id)
         try:
             res = broker.place(o["symbol"], o["side"], qty, limit, sess, cid)
             new, err = "submitted", None
             db.run("UPDATE orders SET broker_order_id=? WHERE id=?", (str((res or {}).get("order_id") or ""), o["id"]))
         except brokers.BrokerRejected as e:            # refused for sure: nothing was placed
             if o["side"] == "BUY" and guard is not None:
-                guard.spent(-qty * limit)
+                guard.spent(-qty * limit, strat.id)
             db.run("UPDATE orders SET status='failed', error=?, updated_at=? WHERE id=? AND status='sending'",
                    (f"refused: {e}"[:300], int(time.time()), o["id"]))
             sent.append(o["id"])
+            if _needs_marketable(e):                   # a price matter, not "no fractions": send again at the market price
+                if plan["status"] == "active":
+                    _retry(o, qty, now, f"refused: {e}", int(_f(settings.get("exec_retries"), 3)))
+                continue
             if is_fraction(qty) and o["symbol"] not in fraction_refused(mode):
                 refuse_fraction(mode, o["symbol"], e, strat)          # whole shares from now on for this ETF
                 whole = int(math.floor(qty + 1e-9))
@@ -1110,6 +1268,8 @@ def reconcile(mode, strat, ev, now, broker, settings):
     applied = L["applied_target"]
     changed = applied is None or json.dumps(json.loads(applied), sort_keys=True) != tkey
     if not changed:
+        if buys and bp_wait(mode):
+            return None                                 # buys wait for Webull's buying power: no top-up plans until it is back
         cool = db.get_state(f"noplan:{mode}:{strat.id}")
         if cool and cool.get("k") == tkey and time.time() - cool.get("t", 0) < 1800:
             return None
@@ -1210,6 +1370,7 @@ def process(now=None, settings=None):
         try:
             repair_cancel_refusals()
             repair_fraction_fills()
+            repair_marketable_refusals()
             dedupe_retries()
         except Exception as e:
             log.warning("repair: %s", e)
@@ -1246,6 +1407,10 @@ def process(now=None, settings=None):
                         log.warning("account for the money guard: %s", e)
                         positions = {} if m != "paper" else None
                 sent = send_due(m, now, broker, s, positions, acct)
+                try:
+                    _bp_watch(m, broker, acct)             # buys waiting for Webull's buying power: resume when it is back
+                except Exception as e:
+                    log.warning("buying power watch %s: %s", m, e)
                 finish_plans(m)
                 try:
                     testtrade.tick(m, now)

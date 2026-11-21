@@ -17,6 +17,7 @@
         <div class="muted" style="margin-top:4px;max-width:760px">Three layers: your ${mode === 'paper' ? 'paper' : 'Webull'} account → the part you <b>allocate to the bot</b> → each strategy. The bot only ever uses money you allocate to it; the rest stays yours.</div></div>
         <div class="row"><button class="btn" data-f="out">Return to ${mode === 'paper' ? 'account' : 'Webull'}</button><button class="btn" data-f="in">Allocate to bot</button><button class="btn p" data-split="1">Give to strategies</button></div></div>
       ${d.account_error ? `<div class="note warn">${U.esc(d.account_error)}</div>` : ''}
+      ${f.bp_wait ? `<div class="note warn"><b>Buys wait for Webull's buying power</b> (since ${U.ago(f.bp_wait.at)}): Webull lets the bot use only ${U.usd(f.buying_power != null ? f.buying_power : f.bp_wait.bp)} of the account's ${U.usd(f.account_cash, 0)} cash. The bot checks every few minutes and buys as soon as Webull frees the money — most often cash from a sale that has not settled yet.</div>` : ''}
       ${f.guard_block ? `<div class="note err"><b>A buy was blocked by the money guard ${U.ago(f.guard_block.at)}:</b> ${U.esc(f.guard_block.why)}. No money outside the bot's allocation was used.</div>` : ''}
       <section class="card col" style="gap:16px">
         <div style="display:flex;align-items:stretch;height:14px;border-radius:7px;overflow:hidden;gap:2px;background:var(--line2)">
@@ -25,7 +26,7 @@
           ${seg(f.not_bot, 'var(--line)', 'Not for the bot')}</div>
         <div class="flow">
           <div class="fl"><div class="eyebrow">In ${mode === 'paper' ? 'the paper account' : 'Webull'}${mode === 'paper' ? '' : ' · USD'}</div><div class="num big" style="font-size:26px;margin-top:4px">${U.usd(f.account_total)}</div>
-            <div class="muted small">cash ${U.usd(f.account_cash, 0)}${d.account && d.account._at ? ' · updated ' + U.time(d.account._at) : ''}</div>
+            <div class="muted small">cash ${U.usd(f.account_cash, 0)}${f.buying_power != null && mode !== 'paper' ? ` · <span class="${f.buying_power < (f.account_cash || 0) - (f.protect_floor || 0) - 1 ? 'warn-t' : ''}" title="What Webull lets you spend now. Lower than the cash when money from a sale has not settled yet.">buying power ${U.usd(f.buying_power, 0)}</span>` : ''}${d.account && d.account._at ? ' · updated ' + U.time(d.account._at) : ''}</div>
             ${d.account && (d.account.other_cash || []).length ? `<div class="muted small" style="margin-top:4px">Also in Webull: ${d.account.other_cash.map((o) => `${U.esc(o.currency)} ${U.n(o.cash, 0)}`).join(' · ')} — not counted here (HKD has its own block below)</div>` : ''}</div>
           <div class="arrow" aria-hidden="true">=</div>
           <div class="fl" style="border-color:color-mix(in srgb,var(--accent) 45%,var(--line))"><div class="eyebrow">Allocated to the bot</div><div class="num big" style="font-size:26px;margin-top:4px">${U.usd(f.allocated)}</div>

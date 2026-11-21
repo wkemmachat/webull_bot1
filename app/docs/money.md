@@ -83,10 +83,20 @@ enforced by the bot, in three independent layers:
    money you allocate; broker fees are taken from the strategy that traded.
 2. **Money guard, checked against Webull right before every buy.** The bot reads the account's cash and buying power, and refuses
    or shrinks the order if
-   - the bot's cash in its books (strategies + bot unassigned) is more than the account's cash (money left the account?), or
+   - the bot's cash in its books (strategies + bot unassigned) is more than the account's cash (money left the account?) —
+     not counting buy orders already sent whose fills the bot has not booked yet: Webull takes the cash for a fill at once,
+     the bot books it a moment later (since 20 Nov 2026; before, 1-minute lots were sometimes blocked by this), or
    - the order would take the account's cash below your **protected cash floor**, or
    - the order is bigger than Webull's buying power.
    A blocked buy is never sent; LINE tells you at once (critical) and the Money page shows why.
+
+   **Buying power below the cash.** Sometimes Webull lets you spend less than the cash it shows — most often money from a
+   sale that has not settled yet. Then the buys **wait**: the lots are skipped without an order, you get one LINE message
+   and a Dashboard / Money banner ("Buys are waiting for Webull's buying power"), and no top-up plans are made every few
+   minutes. The bot reads the buying power every 3 minutes and resumes the buys when it is at least $100 higher than when
+   they stopped (or no longer below the cash), with one "Buys resume" message. While the buying power is short, it is
+   shared between the strategies that are buying by their cash, so the first lot due does not take all of it. The Money
+   page shows the buying power next to the cash (amber when it is lower).
 3. **Sells** only sell shares the bot bought (its books) and never more than the account really holds, so your own shares are
    never sold.
 

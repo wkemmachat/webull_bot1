@@ -278,6 +278,7 @@ def dashboard(mode):
         log.warning("holdings: %s", e)
         hold = None
     return {"mode": mode, "account": acct, "account_error": err, "strategies": cards, "exposure": expo, "holdings": hold,
+            "bp_wait": _bp_wait_view(mode, acct),
             "bot": {"value": bot_v, "net_in": bot_in, "pnl": bot_v - bot_in, "ret": (bot_v / bot_in - 1) if bot_in else None,
                     "today": today, "today_pct": (today / base_today) if today is not None and base_today else None,
                     "real": _real(mode, "*", bot_v, bot_in),
@@ -381,6 +382,17 @@ def strategy_detail(mode, sid):
             "plans": execution.plans_view(mode, sid=sid, limit=5), "money": [m for m in ledger.moves(mode, 200) if m["strategy"] == sid or m["other"] == sid][:10]}
 
 
+def _bp_wait_view(mode, acct):
+    """Buys waiting for Webull's buying power (execution._wait_for_bp): the Dashboard banner."""
+    w = execution.bp_wait(mode)
+    if not w:
+        return None
+    names = [(S.row(x) or {}).get("name", x) for x in (w.get("sids") or [])]
+    bp = (acct or {}).get("buying_power")
+    return {"since": w.get("at"), "bp": bp if bp is not None else w.get("bp"), "cash": (acct or {}).get("cash") or w.get("cash"),
+            "names": names, "resume_at": (w.get("bp") or 0) + execution.BP_RESUME_USD}
+
+
 def _add_brief(sid):
     try:
         from . import addmoney
@@ -450,7 +462,8 @@ def money(mode):
     gb = db.get_state(f"guard_block:{mode}") or {}
     fund = {"protect_floor": floor, "guard_block": gb if gb and time.time() - gb.get("at", 0) < 86400 else None,
             "account_total": total, "account_cash": cash, "allocated": tot + un, "strategies": tot, "pool": un,
-            "outside_cash": outside, "not_bot": not_bot, "own_shares": (not_bot - outside) if (not_bot is not None and outside is not None) else None}
+            "outside_cash": outside, "not_bot": not_bot, "own_shares": (not_bot - outside) if (not_bot is not None and outside is not None) else None,
+            "buying_power": (acct or {}).get("buying_power"), "bp_wait": execution.bp_wait(mode)}
     mv = [m for m in mv if (m.get("ccy") or "USD") == "USD"]            # HKD moves are listed in the HKD block
     return {"mode": mode, "account": acct, "account_error": err, "rows": rows, "total": tot, "unassigned": un, "fund": fund, "moves": mv,
             "new_money_start": db.get_setting("new_money_start") or "now", "hkd": moneyops.hkd_view(mode, acct)}

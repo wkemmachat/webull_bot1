@@ -52,6 +52,7 @@
       <div class="page-head"><div><div class="eyebrow">${U.esc(today)} · ${U.modeLabel[mode]} account</div><h1 class="h1">Dashboard</h1></div>
         <div class="row"><a class="btn" href="#/health">Run cross-check</a><button class="btn p" type="button" id="add">Add money</button></div></div>
       ${tokenBanner(d.logins)}
+      ${d.bp_wait ? `<div class="note warn" role="status"><b>Buys are waiting for Webull's buying power.</b> Webull lets the bot use only ${U.usd(d.bp_wait.bp || 0)} of the account's ${U.usd(d.bp_wait.cash || 0, 0)} cash right now${d.bp_wait.names.length ? ` (waiting: ${d.bp_wait.names.map(U.esc).join(', ')})` : ''}. The bot checks every few minutes and buys as soon as Webull frees the money — most often cash from a sale that has not settled yet. Nothing is sold or lost. <a href="#/money">Money</a></div>` : ''}
       ${V.addMoneyList ? V.addMoneyList(d.strategies) : ''}
       <div id="nextorders"></div>
       ${d.account_error ? `<div class="note warn">Account not readable: ${U.esc(d.account_error)}</div>` : ''}

@@ -371,3 +371,11 @@
 - **Add-money cards for every strategy, three colours, percent** (20 Nov 2026, your request): stopped strategies and
   strategies without money that are in the add window are shown too — green = money in it, blue = on, no money yet, grey
   dashed = stopped (Open to start) — and each card leads with the typical gain a year later in percent next to $1,000 →.
+- **Buying power and 1-minute lots** (20 Nov 2026, after the Live open): (1) the money guard no longer blocks a buy as
+  "money left the account" when the difference is buy orders already filled at Webull but not booked yet (it blocked lots
+  2–3 of QLD · Split 2C and USD · Trend split with 1-minute spacing); (2) when Webull's buying power is below the cash
+  ($15.70 of $21,497 that day), buys wait with one LINE message and a Dashboard/Money banner instead of an error per lot and
+  a new top-up plan every few minutes; they resume when the buying power is back (+$100), and a short buying power is shared
+  between the buying strategies by their cash; (3) orders under one share are priced at the market (Webull refused a 0.38
+  GLD sell), and such a refusal no longer turns fractions off for the ETF (undone for GLD); (4) the Money page shows
+  Webull's buying power next to the cash.
