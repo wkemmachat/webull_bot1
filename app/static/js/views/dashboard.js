@@ -30,7 +30,16 @@
     }).join('');
   }
 
-  V.dashboard = async function (el) {
+  function backupNote(b) {
+  if (!b) return '';
+  const head = b.last ? `No backup downloaded for ${b.days} ${b.days === 1 ? 'day' : 'days'}` : "You haven't downloaded a backup yet";
+  const sub = (b.last ? `Last download ${U.dt(b.last)}. ` : '') + 'The server keeps 7 nights, all on the same server. Keep a copy on your Mac or in Google Drive.';
+  return `<div class="note warn fx" role="status" style="align-items:center;flex-wrap:wrap"><span aria-hidden="true" style="font-size:20px">💾</span>
+    <div style="flex:1 1 220px;min-width:0"><b>${head}</b><div class="small">${sub}</div></div>
+    <a class="btn p s" href="/api/backup" data-bk style="white-space:nowrap">Download backup${b.size ? ' · ≈' + Math.max(1, Math.round(b.size / 4e6)) + ' MB' : ''}</a></div>`;
+}
+
+V.dashboard = async function (el) {
     const mode = U.mode();
     let chart = null, range = 90;
     async function load() {
@@ -53,6 +62,7 @@
         <div class="row"><a class="btn" href="#/health">Run cross-check</a><button class="btn p" type="button" id="add">Add money</button></div></div>
       ${tokenBanner(d.logins)}
       ${d.bp_wait ? `<div class="note warn" role="status"><b>Buys are waiting for Webull's buying power.</b> Webull lets the bot use only ${U.usd(d.bp_wait.bp || 0)} of the account's ${U.usd(d.bp_wait.cash || 0, 0)} cash right now${d.bp_wait.names.length ? ` (waiting: ${d.bp_wait.names.map(U.esc).join(', ')})` : ''}. The bot checks every few minutes and buys as soon as Webull frees the money — most often cash from a sale that has not settled yet. Nothing is sold or lost. <a href="#/money">Money</a></div>` : ''}
+      ${backupNote(d.backup)}
       ${V.addMoneyList ? V.addMoneyList(d.strategies) : ''}
       <div id="nextorders"></div>
       ${d.account_error ? `<div class="note warn">Account not readable: ${U.esc(d.account_error)}</div>` : ''}
@@ -136,6 +146,7 @@
       };
       el.querySelector('#add').onclick = () => (d.unassigned > 0 ? V.splitDialog(load) : V.fundDialog('in', load));
       if (V.addMoneyBind) V.addMoneyBind(el, load);
+      { const bk = el.querySelector('[data-bk]'); if (bk) bk.onclick = () => { U.toast('Preparing the backup… the download starts in a few seconds'); setTimeout(load, 8000); }; }
     }
     await load();
     return { cleanup: () => { if (chart) chart.remove(); }, refresh: () => load().catch(() => {}), every: 60000 };

@@ -120,7 +120,7 @@ DEFAULTS = {
     "webull_test_app_key": "", "webull_test_app_secret": "", "webull_test_account_id": "", "webull_test_endpoint": "",
     # data + display
     "metals_source": "yahoo", "show_thb": "0", "usdthb": "", "theme": "light",
-    "health_time_ny": "16:45", "backup_keep_days": "30",
+    "health_time_ny": "16:45", "backup_keep_days": "7",
     # backtests: fee per side on every trade (Webull TH 0.10% + 7% VAT = 0.107%; 0.11 leaves a little for the spread)
     "backtest_cost_pct": "0.11",
 }

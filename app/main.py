@@ -1003,7 +1003,9 @@ def settings_get(request: Request, u=Depends(user)):
             "data": {"source": md.source(), "metals_source": s.get("metals_source"),
                      "rolls": db.rows("SELECT * FROM rolls ORDER BY t DESC LIMIT 30"), "status": db.get_state("data_status") or {}},
             "server": {"scheduler": SCHEDULER_ENABLED, "version": VERSION, "public_url": PUBLIC_URL,
-                       "backups": [{"name": f.name, "size": f.stat().st_size, "t": int(f.stat().st_mtime)} for f in files[-5:]],
+                       "backups": [{"name": f.name, "size": f.stat().st_size, "t": int(f.stat().st_mtime)} for f in files[-7:]],
+                       "backup_keep": int(s.get("backup_keep_days") or 7), "backup_last": db.get_state("backup_last"),
+                       "backup_downloaded": db.get_state("backup_downloaded"),
                        "started": (db.get_state("heartbeat") or {}).get("since")},
             "paper": {"start_cash": s.get("paper_start_cash"), "strategy_cash": s.get("paper_strategy_cash"),
                       "spread_pct": s.get("paper_spread_pct"), "fee_pct": s.get("paper_fee_pct")},
@@ -1108,8 +1110,16 @@ async def stop_all(request: Request, u=Depends(user)):
 
 @app.get("/api/backup")
 def backup_download(u=Depends(user)):
-    p = engine.backup()
-    return FileResponse(p, filename=p.name, media_type="application/octet-stream")
+    """A secret-free, compressed copy of the database (no Webull keys, LINE token, password, sign-ins, or prices the bot
+    can download again). The nightly copies with secrets stay on the server."""
+    import shutil
+    from starlette.background import BackgroundTask
+    try:
+        p = engine.backup_download()
+    except Exception as e:
+        raise HTTPException(500, f"Backup failed: {e}")
+    return FileResponse(p, filename=p.name, media_type="application/gzip",
+                        background=BackgroundTask(shutil.rmtree, str(p.parent), True))
 
 
 @app.post("/api/run-now")

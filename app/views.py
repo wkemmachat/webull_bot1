@@ -238,6 +238,14 @@ def pnl_breakdown(mode, period="all", points=160):
             "empty": [r["name"] for r in rows if r["empty"]], "series": series}
 
 
+def _backup_reminder():
+    from . import engine
+    try:
+        return engine.backup_reminder()
+    except Exception:
+        return None
+
+
 def dashboard(mode):
     acct, err = account(mode)
     strats = S.all_instances()
@@ -279,6 +287,7 @@ def dashboard(mode):
         hold = None
     return {"mode": mode, "account": acct, "account_error": err, "strategies": cards, "exposure": expo, "holdings": hold,
             "bp_wait": _bp_wait_view(mode, acct),
+            "backup": _backup_reminder(),
             "bot": {"value": bot_v, "net_in": bot_in, "pnl": bot_v - bot_in, "ret": (bot_v / bot_in - 1) if bot_in else None,
                     "today": today, "today_pct": (today / base_today) if today is not None and base_today else None,
                     "real": _real(mode, "*", bot_v, bot_in),

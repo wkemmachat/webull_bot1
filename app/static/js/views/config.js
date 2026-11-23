@@ -169,7 +169,22 @@
   };
 
   /* ---------------------------------------------------------------- settings */
-  V.settings = async function (el) {
+  function backupRows(sv) {
+  const setRow = (t, h, c) => `<div style="display:grid;grid-template-columns:minmax(200px,1fr) minmax(240px,1.3fr);gap:16px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line2)"><div><b style="font-weight:500">${t}</b>${h ? `<div class="muted small">${h}</div>` : ''}</div><div>${c}</div></div>`;
+  const mb = (b) => (b / 1e6).toFixed(1) + ' MB', last = sv.backup_last, dl = sv.backup_downloaded;
+  const files = sv.backups || [], f = files[files.length - 1];
+  const nightly = `03:30 Bangkok · kept ${sv.backup_keep || 7} days · ` + (last ? `last ${U.esc(last.name)} · ${mb(last.size)} · ${last.ok ? U.pill('ok', 'checked') : U.pill('err', 'check failed')}`
+    : f ? `last ${U.esc(f.name)} · ${mb(f.size)}` : 'none yet')
+    + '<br>Prices are left out (re-downloaded after a restore); Webull keys and LINE token stay, because these copies never leave the server.';
+  const ago = dl ? Math.floor((Date.now() / 1000 - dl.at) / 86400) : null;
+  const down = (dl ? `Last downloaded ${U.dt(dl.at)} · ${ago === 0 ? 'today' : ago + (ago === 1 ? ' day' : ' days') + ' ago'} · ${mb(dl.size)}` : 'Not downloaded yet')
+    + '<br>Left out: Webull keys, LINE token, your password, sign-ins, and prices the bot can download again.';
+  return `${setRow('Nightly backup on the server', nightly, '')}
+    ${setRow('Download a backup (no secrets)', down, '<a class="btn s" href="/api/backup" data-bk>Download backup</a>')}
+    ${setRow('How to restore', 'Put the file back on the server, reset your password, enter the Webull keys and LINE token again. Prices download by themselves in a few minutes.', '<a class="btn s" href="#/docs/backups">Open help</a>')}`;
+}
+
+V.settings = async function (el) {
     const d = await U.api('/api/settings');
     let theme = (localStorage.getItem('theme') || d.display.theme || 'light');
     const sec = (id, title, inner, extra) => `<section class="card" id="${id}" ${extra || ''}><h2 class="h2" style="margin-bottom:4px">${title}</h2>${inner}</section>`;
@@ -202,11 +217,12 @@
         ${sec('srv', 'Server & backups', `${set('Scheduler on this copy', 'Only ONE copy may run it. Turn it off on your Mac (SCHEDULER_ENABLED=0 in .env) once the server is live.', `${U.pill(d.server.scheduler ? 'ok' : 'err', d.server.scheduler ? 'running here' : 'off here')}`)}
           ${set('Version', '', `<span class="num">v${U.esc(d.server.version)} · started ${U.dt(d.server.started)}</span>`)}
           ${set('Public address', 'PUBLIC_URL in .env, used in LINE messages', `<span class="num small">${U.esc(d.server.public_url)}</span>`)}
-          ${set('Nightly backup', '03:30 Bangkok · kept 30 days · ' + (d.server.backups.length ? 'last ' + U.esc(d.server.backups[d.server.backups.length - 1].name) : 'none yet'), '<a class="btn s" href="/api/backup">Download backup now</a>')}`)}
+          ${backupRows(d.server)}`)}
         ${sec('dz', 'Danger zone', `${set('Paper settings', 'Start balance and money per strategy for the next reset', `<div class="row"><input class="in num" id="pc" value="${U.esc(d.paper.start_cash)}" style="width:120px"><input class="in num" id="ps" value="${U.esc(d.paper.strategy_cash)}" style="width:110px"></div>`)}
           ${set('Reset the paper account', 'Clears paper trades and money; test and live are untouched. Asks you to type RESET.', '<button class="btn d s" id="reset">Reset paper…</button>')}
           ${set('Sell everything and stop', 'All strategies: Stop & sell, in every mode that is on. Asks you to type STOP.', '<button class="btn d s" id="stopall">Stop all…</button>')}`, 'style="border-color:color-mix(in srgb, var(--dn) 35%, var(--line))"')}
       </div></div>`;
+    U.on(el, '[data-bk]', 'click', () => { U.toast('Preparing the backup… the download starts in a few seconds'); setTimeout(() => V.settings(el), 8000); });
     U.on(el, '[data-jump]', 'click', (e, a) => { e.preventDefault(); el.querySelector('#' + a.dataset.jump).scrollIntoView({ behavior: 'smooth', block: 'start' }); });
     U.on(el, '[data-mode]', 'click', async (e, b) => {
       const m = b.dataset.mode, on = !b.classList.contains('on');

@@ -386,3 +386,8 @@
   on the LINE page). The weekly report compared a ROM fill from before the 3-for-1 split with the split-adjusted open
   (−199.95%); fills at about 2×, 3×, 4× … (or ½, ⅓ …) of the open are now compared with the open before the split, other
   far-off fills are left out, and the stored reports were corrected once (no LINE).
+- **Backups** (23 Nov 2026, your choice): nightly copies on the server kept 7 days (was 30) and small (prices the bot can
+  download again left out; hourly gold/silver bars older than 700 days kept), each checked by SQLite. The download button
+  makes a fresh compressed copy without secrets (Webull keys, LINE token, password hash, sign-ins, sign-in IPs) instead of
+  the full database. The Dashboard reminds you when nothing was downloaded in 7 days. No automatic copy off the server: you
+  download it.

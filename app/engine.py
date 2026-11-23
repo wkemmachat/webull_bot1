@@ -9,6 +9,7 @@ import sqlite3
 import threading
 import time
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from . import brokers, db, execution, ledger, marketdata as md, markethours as mh, metals, notify
@@ -279,22 +280,88 @@ def queue_reports(now):
             notify.send("report", "\n".join(lines), strategy=s.id)
 
 
-def backup():
-    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-    name = BACKUP_DIR / f"bot-{datetime.now(TZ).strftime('%Y-%m-%d')}.db"
+KEEP_HOURLY_DAYS = 700        # Yahoo keeps ~730 days of hourly bars: older ones could not be downloaded again
+
+
+def slim_copy(dst_path, no_secrets: bool) -> dict:
+    """A copy of the database at dst_path without the prices the bot can download again (daily bars, hourly bars of the
+    last ~2 years, the backtests' full histories) and without the 'last downloaded' marks, so a restored copy downloads
+    them at once. no_secrets also blanks the Webull keys and LINE token, the password hash, sign-ins and sign-in IPs.
+    Returns {'size', 'ok'} (ok = SQLite's quick_check of the copy)."""
+    from pathlib import Path
+    dst_path = Path(dst_path)
+    dst_path.unlink(missing_ok=True)
     src = sqlite3.connect(str(DB_PATH))
-    dst = sqlite3.connect(str(name))
+    dst = sqlite3.connect(str(dst_path))
     with dst:
         src.backup(dst)
     src.close()
-    dst.close()
-    keep = int(db.get_setting("backup_keep_days") or 30)
+    try:
+        cut = int(time.time()) - KEEP_HOURLY_DAYS * 86400
+        with dst:
+            dst.execute("DELETE FROM bars WHERE NOT (tf='1h' AND t<?)", (cut,))
+            dst.execute("DELETE FROM state WHERE k LIKE 'bt_upd:%' OR k LIKE 'data_updated:%'")
+            if no_secrets:
+                q = ",".join("?" * len(db.SECRET_KEYS))
+                dst.execute(f"UPDATE settings SET v='' WHERE k IN ({q})", tuple(db.SECRET_KEYS))
+                dst.execute("UPDATE users SET pw_hash=''")
+                dst.execute("DELETE FROM sessions")
+                dst.execute("DELETE FROM login_attempts")
+        dst.execute("VACUUM")
+        ok = dst.execute("PRAGMA quick_check").fetchone()[0] == "ok"
+    finally:
+        dst.close()
+    return {"size": dst_path.stat().st_size, "ok": ok}
+
+
+def backup():
+    """Nightly copy on the server (03:30 Bangkok): small (no prices the bot can download again), secrets kept because it
+    never leaves the server, checked, the last `backup_keep_days` (7) kept."""
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    name = BACKUP_DIR / f"bot-{datetime.now(TZ).strftime('%Y-%m-%d')}.db"
+    r = slim_copy(name, no_secrets=False)
+    keep = int(db.get_setting("backup_keep_days") or 7)
     files = sorted(BACKUP_DIR.glob("bot-*.db"))
     for f in files[:-keep]:
         f.unlink(missing_ok=True)
-    db.add_event("info", "server", "Database backup", f"{name.name} · {name.stat().st_size / 1e6:.1f} MB")
+    if r["ok"]:
+        db.add_event("info", "server", "Database backup", f"{name.name} · {r['size'] / 1e6:.1f} MB · checked")
+    else:
+        db.add_event("error", "server", "Database backup check failed", f"{name.name}: SQLite's check of the copy failed")
+        notify.send("health_warning", f"Last night's database backup ({name.name}) failed its check. Settings → Download backup "
+                    "makes a new one; if that fails too, the database itself may be damaged.")
+    db.set_state("backup_last", {"at": int(time.time()), "name": name.name, "size": r["size"], "ok": r["ok"]})
     _ = shutil
     return name
+
+
+def backup_download():
+    """A fresh, compressed, secret-free copy for you to keep off the server. Returns the .gz path (a temporary file)."""
+    import gzip
+    import tempfile
+    tmp = Path(tempfile.mkdtemp(prefix="wbbak-"))
+    day = datetime.now(TZ).strftime("%Y-%m-%d")
+    raw = tmp / f"webull-bot-{day}-no-secrets.db"
+    r = slim_copy(raw, no_secrets=True)
+    if not r["ok"]:
+        raise RuntimeError("The backup copy failed SQLite's check; the database may be damaged.")
+    gz = tmp / (raw.name + ".gz")
+    with open(raw, "rb") as fi, gzip.open(gz, "wb", compresslevel=6) as fo:
+        shutil.copyfileobj(fi, fo, 1 << 20)
+    raw.unlink(missing_ok=True)
+    db.set_state("backup_downloaded", {"at": int(time.time()), "name": gz.name, "size": gz.stat().st_size})
+    db.add_event("info", "server", "Backup downloaded", f"{gz.name} · {gz.stat().st_size / 1e6:.1f} MB · no secrets")
+    return gz
+
+
+def backup_reminder() -> dict | None:
+    """Dashboard reminder: no backup downloaded in the last 7 days (or never)."""
+    d = db.get_state("backup_downloaded") or {}
+    at = d.get("at")
+    if at and time.time() - at < 7 * 86400:
+        return None
+    last = db.get_state("backup_last") or {}
+    return {"last": at, "days": int((time.time() - at) // 86400) if at else None, "size": last.get("size")}
 
 
 # ---------------------------------------------------------------- the tick
@@ -363,6 +430,7 @@ def startup():
         moneyops.seed_new_paper(sid)
         db.add_event("info", "strategy", f"New default strategy added: {sid}", "Created by the update", strategy=sid)
     _single_stock_rule_from_tests()
+    db.run("UPDATE settings SET v='7' WHERE k='backup_keep_days' AND v='30'")      # 23 Nov 2026: 7 days (was 30)
     _note_restart()
     threading.Thread(target=_repair_weekly, daemon=True, name="weekly-repair").start()
 

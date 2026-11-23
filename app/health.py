@@ -318,12 +318,16 @@ def run(now=None, send=True):
               (f" · quota {q.get('used')} / {q.get('limit')}" if q.get("limit") else ""), link="#/line")
 
     files = sorted(BACKUP_DIR.glob("bot-*.db")) if BACKUP_DIR.exists() else []
-    if files and time.time() - files[-1].stat().st_mtime < 36 * 3600:
+    bl = db.get_state("backup_last") or {}
+    if files and bl.get("name") == files[-1].name and bl.get("ok") is False:
+        _item(items, "backup", "Server", "Last night's database backup", "warn", f"{files[-1].name} failed SQLite's check.",
+              "Settings → Download backup checks a fresh copy; if that fails too, the database itself may be damaged.", "#/settings")
+    elif files and time.time() - files[-1].stat().st_mtime < 36 * 3600:
         _item(items, "backup", "Server", "Last night's database backup", "ok", f"{files[-1].name} · {files[-1].stat().st_size / 1e6:.1f} MB",
               link="#/settings")
     else:
         _item(items, "backup", "Server", "Last night's database backup", "warn", "No backup in the last 36 h.",
-              "Backups run at 03:30 Bangkok while the bot runs. Settings → Download backup makes one now.", "#/settings")
+              "Backups run at 03:30 Bangkok while the bot runs (kept 7 days on the server).", "#/settings")
 
     counts = {k: sum(1 for i in items if i["status"] == k) for k in ("ok", "warn", "error")}
     rep = {"t": int(time.time()), "took": round(time.time() - t0, 2), "items": items, "counts": counts}
