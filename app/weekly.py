@@ -107,6 +107,27 @@ def day_open(sym: str, d: date) -> float | None:
     return px
 
 
+SPLITS = (2, 3, 4, 5, 6, 8, 10, 15, 20, 25, 30, 40, 50)
+
+
+def split_factor(avg: float, ref: float):
+    """1 when a fill is within 35% of the open (a normal fill). When the stored open is split-adjusted and the fill was
+    before the split, fill / open is close to the split ratio (3 for a 3-for-1, 1/4 for a 1-for-4 reverse split): that
+    ratio. None when it is neither (a bad price), so the fill is left out of the vs-the-open figures."""
+    r = avg / ref
+    if 0.65 <= r <= 1.35:
+        return 1
+    for k in SPLITS:
+        for kk in (k, 1 / k):
+            if abs(r / kk - 1) <= 0.08:
+                return kk
+    return None
+
+
+def split_text(k) -> str:
+    return f"{k:g}-for-1 split" if k >= 1 else f"1-for-{1 / k:g} reverse split"
+
+
 def fills(mode, since_ts: int, until_ts: int | None = None, sid: str | None = None) -> list:
     q = ("SELECT id, strategy, symbol, side, applied_qty q, applied_value v, COALESCE(fee,0) fee, submitted_at, updated_at "
          "FROM orders WHERE mode=? AND applied_qty>0 AND COALESCE(submitted_at, updated_at)>=?")
@@ -123,11 +144,18 @@ def fills(mode, since_ts: int, until_ts: int | None = None, sid: str | None = No
         d = datetime.fromtimestamp(t, NY).date()
         avg = r["v"] / r["q"] if r["q"] else None
         ref = day_open(r["symbol"], d)
+        split = None
+        if ref and avg:
+            k = split_factor(avg, ref)
+            if k is None:
+                ref = None                              # too far from the open to be a real fill price: left out
+            elif k != 1:
+                ref, split = ref * k, k                 # stored opens are split-adjusted; the fill was before the split
         cost = None
         if ref and avg:
             cost = (avg - ref) * r["q"] if r["side"] == "BUY" else (ref - avg) * r["q"]
         out.append({"id": r["id"], "strategy": r["strategy"], "symbol": r["symbol"], "side": r["side"], "qty": r["q"],
-                    "avg": avg, "value": r["v"], "fee": r["fee"], "day": str(d), "open": ref, "cost": cost,
+                    "avg": avg, "value": r["v"], "fee": r["fee"], "day": str(d), "open": ref, "cost": cost, "split": split,
                     "cost_pct": cost / (ref * r["q"]) if cost is not None and ref else None})
     return out
 
@@ -201,7 +229,8 @@ def text(r: dict) -> str:
     w = r.get("worst")
     if w and w["cost_pct"] and w["cost_pct"] > 0.002:
         lines.append(f"Costliest fill: {w['name']} {w['side'].lower()} {brokers.qty_text(round(w['qty'], 4))} {w['symbol']} "
-                     f"@ ${w['avg']:,.2f} vs open ${w['open']:,.2f} ({_p(-w['cost_pct'], 2)})")
+                     f"@ ${w['avg']:,.2f} vs open ${w['open']:,.2f} ({_p(-w['cost_pct'], 2)})"
+                     + (f" · open before the {split_text(w['split'])}" if w.get("split") else ""))
     if sc["fills"]:
         lines.append(f"Since {r['since_from']}: fees ${sc['fees']:,.2f} · vs the open "
                      f"{'−' if sc['cost'] > 0 else '+'}${abs(sc['cost']):,.2f} ({_p(-sc['cost_pct'], 2)}) on ${sc['traded']:,.0f} traded")
@@ -222,6 +251,41 @@ def send(mode: str, now: datetime | None = None, line: bool = True) -> dict:
     if line:
         notify.send("weekly", r["text"])
     return r
+
+
+def repair_stored():
+    """Once (21 Nov 2026 fix): recompute the vs-the-open figures of the stored reports with the split check. Everything
+    else in a stored report (values, returns) stays as it was sent. No LINE."""
+    if db.get_state("weekly_split_fix"):
+        return
+    for mode in brokers.MODE_LABEL:
+        reps = stored(mode)
+        if not reps:
+            continue
+        first = db.one("SELECT MIN(submitted_at) t FROM orders WHERE mode=? AND applied_qty>0", (mode,))
+        for r in reps:
+            try:
+                start, end = date.fromisoformat(r["from"]), date.fromisoformat(r["to"])
+                t0 = int(datetime.combine(start, datetime.min.time(), NY).timestamp())
+                t1 = int(datetime.combine(end + timedelta(days=1), datetime.min.time(), NY).timestamp())
+                wk = fills(mode, t0, t1)
+                for f in wk:
+                    st = S.get(f["strategy"])
+                    f["name"] = st.name if st else f["strategy"]
+                all_f = fills(mode, int(first["t"]), r.get("at")) if first and first["t"] else []
+                by = {}
+                for f in all_f:
+                    by.setdefault(f["strategy"], []).append(f)
+                since = [{"id": k, "name": (S.get(k).name if S.get(k) else k), **cost_summary(v)} for k, v in by.items()]
+                since.sort(key=lambda x: -x["traded"])
+                r.update({"fills": wk[-60:], "week_costs": cost_summary(wk), "since": since, "since_costs": cost_summary(all_f),
+                          "worst": max((f for f in wk if f["cost_pct"] is not None), key=lambda f: f["cost_pct"], default=None)})
+                r["text"] = text(r)
+            except Exception as e:
+                log.exception("weekly repair %s %s", mode, r.get("week"))
+                db.add_event("warn", "server", "Weekly report repair skipped one week", f"{mode} {r.get('week')}: {e}"[:300])
+        db.set_state(f"weekly:{mode}", reps)
+    db.set_state("weekly_split_fix", int(time.time()))
 
 
 def modes_to_report(settings=None) -> list:

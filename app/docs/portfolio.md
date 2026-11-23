@@ -59,7 +59,9 @@ and Webull test; Paper only when no real mode is on). LINE alerts → *Weekly re
 - **Trading this week** and **since the first Live order**: fees Webull charged, and every fill against that day's
   **opening price**, where the daily backtests buy and sell. That difference is the real cost of trading on top of the
   backtest (spread, limit offset, timing, retries). Shown like any result: **− in red = a cost**, **+ in green = a better
-  price than the open**. The costliest fill of the week is named. For the 4H metals
+  price than the open**. The costliest fill of the week is named. The stored opening prices are split-adjusted, so a fill made before a split
+(ROM's 3-for-1 on 19 Nov 2026) is compared with the open before the split (*open before the 3-for-1 split*); a fill that is
+neither near the open nor at a clean split ratio is left out of these figures. For the 4H metals
   strategies, which trade at other times, it is a rough guide.
 
 The Portfolio page shows the latest report, the earlier weeks, trading costs per strategy and the latest fills.

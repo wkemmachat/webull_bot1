@@ -38,6 +38,9 @@
           <div class="row" style="gap:12px;flex-wrap:nowrap;align-items:flex-start"><button class="sw ${s.quiet ? 'on' : ''}" id="quiet" role="switch" aria-label="Quiet hours"></button>
             <div><b style="font-weight:500">Quiet hours</b> <input class="in num" id="qf" value="${s.quiet_from}" style="width:76px;height:30px"> – <input class="in num" id="qt" value="${s.quiet_to}" style="width:76px;height:30px">
             <div class="muted small">Instant alerts wait until quiet hours end — except critical ones (failed order, Webull disconnected, new sign-in, health problem).</div></div></div>
+          <div class="row" style="gap:12px;flex-wrap:nowrap;align-items:flex-start"><button class="sw ${s.weekend_pause ? 'on' : ''}" id="wkp" role="switch" aria-label="Pause digests at the weekend"></button>
+            <div><b style="font-weight:500">Pause digests at the weekend</b>
+            <div class="muted small">From Saturday 12:00 to Monday 08:00 (Bangkok). Saturday 08:00 still comes with Friday's US close; anything after waits for Monday 08:00. Instant and critical alerts are not paused.</div></div></div>
           <div class="row" style="gap:12px"><button class="sw ${s.per_strategy ? 'on' : ''}" id="per" role="switch" aria-label="One message per strategy"></button><span>One digest message per strategy <span class="muted small">(off = one combined message)</span></span></div>
         </section>
       </div>
@@ -75,7 +78,7 @@
         readRec();
         await U.api('/api/line', { body: { token: el.querySelector('#tok').value.trim() || undefined, recipients: rec.filter((r) => r.id), digest_times: times,
           quiet: el.querySelector('#quiet').classList.contains('on'), quiet_from: el.querySelector('#qf').value, quiet_to: el.querySelector('#qt').value,
-          per_strategy: el.querySelector('#per').classList.contains('on'), auto, events: ev, strategies: strat } });
+          per_strategy: el.querySelector('#per').classList.contains('on'), weekend_pause: el.querySelector('#wkp').classList.contains('on'), auto, events: ev, strategies: strat } });
         U.toast('LINE settings saved'); V.line(el);
       });
       el.querySelector('#test').onclick = (e) => U.busy(e.target, async () => { await U.api('/api/line/test', { body: {} }); U.toast('Test message sent'); });

@@ -379,3 +379,10 @@
   between the buying strategies by their cash; (3) orders under one share are priced at the market (Webull refused a 0.38
   GLD sell), and such a refusal no longer turns fractions off for the ETF (undone for GLD); (4) the Money page shows
   Webull's buying power next to the cash.
+- **Restarts, weekend digests and splits** (23 Nov 2026, your request after a Saturday "Bot started."): the bot records a
+  normal shutdown and its version (git commit); at the next start a new version is *Bot updated* and the same version a
+  normal restart, both in Logs only. Only a start without a recorded shutdown (crash, out of memory, power loss) sends LINE
+  (*Bot restarted unexpectedly*, its own event, instant). Digests pause from Saturday 12:00 to Monday 08:00 Bangkok (switch
+  on the LINE page). The weekly report compared a ROM fill from before the 3-for-1 split with the split-adjusted open
+  (−199.95%); fills at about 2×, 3×, 4× … (or ½, ⅓ …) of the open are now compared with the open before the split, other
+  far-off fills are left out, and the stored reports were corrected once (no LINE).

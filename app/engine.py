@@ -363,8 +363,74 @@ def startup():
         moneyops.seed_new_paper(sid)
         db.add_event("info", "strategy", f"New default strategy added: {sid}", "Created by the update", strategy=sid)
     _single_stock_rule_from_tests()
-    db.add_event("info", "server", "Bot started", f"data source: {md.source()}")
-    notify.send("system", "Bot started.")
+    _note_restart()
+    threading.Thread(target=_repair_weekly, daemon=True, name="weekly-repair").start()
+
+
+def _repair_weekly():
+    try:
+        from . import weekly
+        weekly.repair_stored()
+    except Exception:
+        log.exception("weekly report repair")
+
+
+def code_version() -> str | None:
+    """The deployed git commit (short), read from the checkout's .git folder; None when there is none."""
+    from pathlib import Path
+    g = Path(__file__).resolve().parents[1] / ".git"
+    try:
+        head = (g / "HEAD").read_text().strip()
+        if head.startswith("ref:"):
+            ref = head.split(None, 1)[1].strip()
+            f = g / ref
+            if f.exists():
+                head = f.read_text().strip()
+            else:
+                head = next((ln.split()[0] for ln in (g / "packed-refs").read_text().splitlines()
+                             if ln.strip().endswith(" " + ref)), "")
+        return head[:7] or None
+    except Exception:
+        return None
+
+
+def mark_stop():
+    """Called on a normal shutdown (deploy, systemctl restart, server reboot): the next start knows it was planned."""
+    try:
+        db.set_state("run_stop", {"at": int(time.time()), "version": code_version()})
+    except Exception:
+        log.exception("could not record the shutdown")
+
+
+def _note_restart():
+    """Logs every start; LINE only when the last run did not shut down normally (crash, out of memory, power loss).
+    A deploy (new version) or a normal restart is written to Logs only."""
+    now, ver = int(time.time()), code_version()
+    prev, stop = db.get_state("run_start"), db.get_state("run_stop")
+    src = f"data source: {md.source()}"
+    if not prev:                                            # first start with this check: nothing to compare with yet
+        db.add_event("info", "server", "Bot started", f"version {ver or '?'} · {src}")
+    elif stop and stop.get("at", 0) >= prev.get("at", 0):
+        if ver and prev.get("version") and ver != prev["version"]:
+            db.add_event("info", "server", "Bot started", f"Bot updated {prev['version']} → {ver} · {src}")
+        else:
+            db.add_event("info", "server", "Bot started", f"Bot restarted (shut down normally) · version {ver or '?'} · {src}")
+    else:
+        tick = (db.get_state("last_tick") or {}).get("at") or 0
+        seen = max(int(tick), int(prev.get("at", 0)))
+        hm = lambda t: datetime.fromtimestamp(t, notify.TZ).strftime("%H:%M")
+        mins = max(0, round((now - seen) / 60))
+        off = f"{mins} min" if mins < 120 else f"{mins / 60:.1f} hours"
+        day = "" if datetime.fromtimestamp(seen, notify.TZ).date() == datetime.fromtimestamp(now, notify.TZ).date() \
+            else datetime.fromtimestamp(seen, notify.TZ).strftime(" %a %d %b")
+        db.add_event("info", "server", "Bot started", f"after an unexpected stop · version {ver or '?'} · {src}")
+        db.add_event("warn", "server", "Bot restarted unexpectedly",
+                     f"No normal shutdown was recorded. Last seen running{day} {hm(seen)}, back {hm(now)} (off {off}).")
+        notify.send("restart", "⚠️ Bot restarted unexpectedly\n"
+                    "It didn't shut down normally (a crash, out of memory or the server lost power).\n"
+                    f"Last seen running{day} {hm(seen)} · back {hm(now)} (off {off})\n"
+                    "Plans and orders carry on from where they were; Health check flags anything missed. Details: Logs.")
+    db.set_state("run_start", {"at": now, "version": ver})
 
 
 def _single_stock_rule_from_tests():

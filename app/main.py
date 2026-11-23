@@ -73,6 +73,7 @@ def _startup():
 
 @app.on_event("shutdown")
 def _shutdown():
+    engine.mark_stop()                      # first, so a slow stop still counts as a normal shutdown
     scheduler.stop()
 
 

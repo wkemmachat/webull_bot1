@@ -24,6 +24,15 @@ everything or only the daily reports. The daily report per strategy shows its va
 **Quiet hours** (default 00:30–07:00) hold instant alerts until they end, except **critical** ones: a lot that failed, Webull not
 connected, a new sign-in, a health-check problem. Critical alerts cannot be switched off.
 
+**Weekend pause** (on by default, *When to send*): no digest from Saturday 12:00 to Monday 08:00 (Bangkok). The Saturday
+08:00 digest still comes (it carries Friday's US close); anything collected after it waits for Monday 08:00, in one
+message. Instant and critical alerts are not paused.
+
+**Restarts**: a deploy (a new version) and a normal restart or server reboot are written to Logs only (*Bot started* with
+*Bot updated 75a13aa → 4f2c9e1* or *shut down normally*). LINE gets *Bot restarted unexpectedly* (instant, waits for quiet
+hours) only when the bot did not shut down normally: a crash, out of memory or a power loss, with the last time it was seen
+running and how long it was off.
+
 The page shows the monthly quota from LINE's API. Above 90% of the quota, non-critical instant alerts move to the digest.
 Every strategy also has its own LINE switch. With **Automatic** on (LINE alerts page → *Strategies sending alerts*, on by
 default) the switches set themselves: a strategy's LINE is **on while it is not Stopped** (Active, Pause buys or Stop & sell)

@@ -2,7 +2,8 @@
 
 Every alert is queued in `line_queue` first. Each event type is sent:
   instant  right away (several alerts in the same minute are joined into one message to save quota)
-  digest   collected and sent at the digest times (default 08:00 and 21:00 Bangkok)
+  digest   collected and sent at the digest times (default 08:00 and 21:00 Bangkok); paused from Saturday 12:00 to
+           Monday 08:00 (Bangkok) unless switched off: what comes in then waits for Monday 08:00
   off      not sent (still listed in Logs)
 Quiet hours hold instant alerts until they end, except CRITICAL ones (a failed order, Webull disconnected,
 a new sign-in, a health-check problem). Each strategy has its own LINE switch (Strategies page).
@@ -42,7 +43,10 @@ EVENTS = {
     "data": ("Data problem", "Prices could not be downloaded (at most one alert per 6 hours).", "instant", False),
     "broker": ("Webull disconnected or token expiring", "Webull's login token is ending or was refused; approve again in the Webull app.", "instant", True),
     "login": ("Sign-in from a new device", "Or 5 wrong passwords in a row.", "instant", True),
-    "system": ("Bot started / stopped / updated", "Server restarts and settings changes.", "digest", False),
+    "system": ("Settings and strategy changes", "New strategies, Stop & sell, pausing trading and other changes. Deploys and "
+               "normal restarts are only written to Logs.", "digest", False),
+    "restart": ("Bot restarted unexpectedly", "The bot did not shut down normally (a crash, out of memory or the server lost "
+                "power). Deploys and normal restarts send nothing.", "instant", False),
     "preview": ("Orders for the next US open", "After the US close: what each strategy will buy or sell at the next open "
                 "(sells exact, buys estimated). Arrives after quiet hours.", "instant", False),
     "etf2x": ("New 2x ETF found", "Weekly search after the Nasdaq-100 ranking: a 2x ETF that passed the checks for a stock in the "
@@ -273,6 +277,7 @@ def dispatch(now: datetime | None = None):
             db.add_event("error", "line", "LINE alert not delivered", err or "")
     # digests
     times = db.get_json_setting("line_digest_times", ["08:00", "21:00"])
+    pause = weekend_pause_on()
     today = local.strftime("%Y-%m-%d")
     done = db.get_state("line_digest_done") or {}
     for hhmm in sorted(times):
@@ -280,13 +285,26 @@ def dispatch(now: datetime | None = None):
             due = _hm(hhmm) <= local.hour * 60 + local.minute
         except ValueError:
             continue
-        if due and done.get(hhmm) != today and local.hour * 60 + local.minute - _hm(hhmm) < 120:
+        if due and done.get(hhmm) != today and pause and weekend_paused(local, hhmm):
+            done[hhmm] = today                      # weekend pause: what was collected waits for Monday 08:00
+            db.set_state("line_digest_done", done)
+        elif due and done.get(hhmm) != today and local.hour * 60 + local.minute - _hm(hhmm) < 120:
             send_digest(hhmm)
             done[hhmm] = today
             db.set_state("line_digest_done", done)
         elif due and done.get(hhmm) != today:
             done[hhmm] = today                      # missed by more than 2 hours (bot was off): skip, next digest picks it up
             db.set_state("line_digest_done", done)
+
+
+def weekend_pause_on() -> bool:
+    return (db.get_setting("line_weekend_pause") or "1") == "1"
+
+
+def weekend_paused(day: datetime, hhmm: str) -> bool:
+    """A digest time falls in the weekend pause: Saturday from 12:00 to Monday before 08:00 (Bangkok)."""
+    wd, m = day.weekday(), _hm(hhmm)
+    return (wd == 5 and m >= 12 * 60) or wd == 6 or (wd == 0 and m < 8 * 60)
 
 
 def send_digest(label: str = "") -> bool:
@@ -337,15 +355,16 @@ def preview() -> list:
 def next_digest(now: datetime | None = None):
     now = (now or datetime.now(TZ)).astimezone(TZ)
     times = sorted(db.get_json_setting("line_digest_times", ["08:00", "21:00"]))
-    for d in (0, 1):
+    pause = weekend_pause_on()
+    for d in range(0, 4):
         for hhmm in times:
             try:
                 h, m = (int(x) for x in hhmm.split(":"))
             except ValueError:
                 continue
             t = (now + timedelta(days=d)).replace(hour=h, minute=m, second=0, microsecond=0)
-            if t > now:
-                return t.strftime("%H:%M")
+            if t > now and not (pause and weekend_paused(t, hhmm)):
+                return t.strftime("%H:%M") if d <= 1 else t.strftime("%a %H:%M")
     return None
 
 
@@ -368,7 +387,8 @@ def settings_public() -> dict:
     return {"token_set": bool(tok), "token_hint": ("…" + tok[-6:]) if tok else "", "recipients": recipients(),
             "digest_times": db.get_json_setting("line_digest_times", ["08:00", "21:00"]), "quiet": s.get("line_quiet") == "1",
             "quiet_from": s.get("line_quiet_from"), "quiet_to": s.get("line_quiet_to"), "lang": s.get("line_lang"),
-            "detail": s.get("line_detail"), "per_strategy": s.get("line_per_strategy") == "1", "auto": s.get("line_auto", "1") == "1",
+            "detail": s.get("line_detail"), "per_strategy": s.get("line_per_strategy") == "1",
+            "weekend_pause": weekend_pause_on(), "auto": s.get("line_auto", "1") == "1",
             "events": [{"key": k, "label": v[0], "desc": v[1], "critical": v[3], "mode": event_modes()[k]} for k, v in EVENTS.items()]}
 
 
@@ -399,7 +419,7 @@ def save_settings(d: dict):
         if k in d:
             h, m = (int(x) for x in str(d[k]).split(":"))
             upd[f"line_{k}"] = f"{h:02d}:{m:02d}"
-    for k in ("quiet", "per_strategy", "auto"):
+    for k in ("quiet", "per_strategy", "auto", "weekend_pause"):
         if k in d:
             upd[f"line_{k}"] = "1" if d[k] else "0"
     for k in ("lang", "detail"):
