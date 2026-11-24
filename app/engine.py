@@ -95,6 +95,9 @@ def _daily_due(sym, now, last):
     after_close = datetime.combine(ny.date(), datetime.strptime("16:07", "%H:%M").time(), NY)
     if ny >= after_close and last < after_close.timestamp() and mh.is_trading_day(ny.date()):
         return True                                   # the closing bar
+    b = mh.session_bounds(ny.date())
+    if b and b[0] - timedelta(minutes=5) <= now <= b[0] + timedelta(minutes=20) and last:
+        return False                                  # the open: orders first (signals are decided at the close anyway)
     return time.time() - last > 30 * 60               # charts during the day
 
 
@@ -111,10 +114,16 @@ def _signal_text(s, h):
     return f"{word} · {s.name}\n{h['text']}\nMoves to {tgt}"
 
 
+STOPPED_EVERY_S = 600       # stopped strategies (no money, no plans) are re-evaluated every 10 minutes, not every tick
+
+
 def evaluate_all(now):
     out = {}
     for s in S.all_instances():
         prev = db.one("SELECT * FROM strategy_state WHERE strategy=?", (s.id,))
+        if (s.row.get("control") == "stopped" and prev and prev.get("computed_at")
+                and time.time() - prev["computed_at"] < STOPPED_EVERY_S):
+            continue
         try:
             ev = s.evaluate(now)
         except Exception as e:

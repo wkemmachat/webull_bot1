@@ -90,3 +90,17 @@ def clean():
     from app import brokers
     for m in brokers.MODES:
         brokers.set_override(m, None)
+
+
+@pytest.fixture(autouse=True)
+def _no_webull_pacing(monkeypatch):
+    """Tests talk to fake brokers: no one-call-a-second pacing, no account cache (tests for those turn them on)."""
+    from app import brokers, execution
+    monkeypatch.setattr(brokers, "ORDER_GAP_S", 0)
+    monkeypatch.setattr(brokers, "ACCOUNT_CACHE_S", 0)
+    brokers._ACCT_CACHE.clear()
+    execution._LAST_CHECK.clear()
+    execution._LAST_OK.clear()
+    execution._UNSEEN_ALERTED.clear()
+    execution._COOLDOWN.clear()
+    yield

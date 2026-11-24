@@ -21,12 +21,33 @@ from . import db, hk, marketdata as md
 from .config import DATA_DIR
 
 log = logging.getLogger("broker")
+# The Webull SDK logs every failed request with its full headers (access token, app key, signature). The bot's own
+# messages keep Webull's error code and text, so the SDK's messages stay out of the server log (journalctl): they only go
+# to the SDK's own file next to the Webull login (set_file_logger below), which never leaves the server.
+
+
+def quiet_sdk_log():
+    for name in ("webull", "webull.core"):
+        logging.getLogger(name).propagate = False
+
+
+quiet_sdk_log()
+
+ORDER_GAP_S = 1.0          # order status / open orders: at most one call a second per account (Webull answered 429 above)
+ACCOUNT_CACHE_S = 15       # balance + positions = 2 calls; Webull TH allows 10 / 30 s: reused for 15 s (cleared after a fill)
+NOSUB_RECHECK_S = 24 * 3600  # no market-data subscription: ask Webull for quotes again once a day
+
+
 MODES = ("paper", "test", "live")
 MODE_LABEL = {"paper": "Paper", "test": "Webull test", "live": "Live"}
 
 
 class BrokerError(Exception):
     pass
+
+
+class RateLimited(BrokerError):
+    """Webull answered 429 'too many requests': nothing is wrong with the order; ask again a little later."""
 
 
 class BrokerRejected(BrokerError):
@@ -281,6 +302,7 @@ class WebullBroker:
             api.set_token_dir(str(self.tok_dir))
             api.set_file_logger(path=str(self.tok_dir / "webull_sdk.log"), log_level=logging.INFO,
                                 format_string="%(asctime)s %(name)s %(levelname)s %(message)s", backup_count=48)
+            quiet_sdk_log()
             db.set_state(conn_key(self.env), {"status": "connecting", "at": int(time.time()),
                                               "msg": "Waiting for approval: open the Webull app and enter the SMS code "
                                                      "(Menu → Messages → OpenAPI Notifications). You have 5 minutes."})
@@ -392,9 +414,26 @@ class WebullBroker:
         db.set_settings({self.prefix + "account_id": aid})
         return aid
 
+    def _pace(self):
+        """One order-status call a second per account; waits (briefly) instead of letting Webull answer 429."""
+        with _PACE_LOCK:
+            last = _PACE.get(self.env, 0.0)
+            wait = last + ORDER_GAP_S - time.time()
+            if wait > 0:
+                time.sleep(min(wait, ORDER_GAP_S))
+            _PACE[self.env] = time.time()
+
+    @staticmethod
+    def _limited(e) -> bool:
+        m = str(e)
+        return "429" in m or "TOO_MANY" in m.upper()
+
     def quote(self, symbol):
         if hk.is_hk(symbol):
             return self._quote_hk(symbol)
+        nosub = db.get_state(f"quote_nosub:{self.env}") or 0
+        if time.time() - nosub < NOSUB_RECHECK_S:
+            return md.live_quote(symbol)             # this account has no Webull market data: straight to Yahoo
         try:
             _, data = self._clients()
             res = self._call(lambda: data.market_data.get_snapshot(symbol, "US_ETF", extend_hour_required=True,
@@ -409,8 +448,12 @@ class WebullBroker:
                 return {"price": px, "bid": _num(row.get("bid")), "ask": _num(row.get("ask")),
                         "time": int((row.get("last_trade_time") or 0) / 1000), "source": "webull"}
         except BrokerError as e:
-            log.warning("Webull quote failed for %s, using Yahoo: %s", symbol, e)
-        return md.quote(symbol)
+            if "MARKET_DATA_NOT_SUBSCRIBED" in str(e):
+                db.set_state(f"quote_nosub:{self.env}", int(time.time()))
+                log.info("Webull market data not subscribed: quotes from Yahoo (asked again in 24 h)")
+            else:
+                log.warning("Webull quote failed for %s, using Yahoo: %s", symbol, e)
+        return md.live_quote(symbol)
 
     def _quote_hk(self, symbol):
         """Hong Kong quote: Webull's HK snapshot when this account may read it, else Yahoo (7234.HK, ~15 min delayed)."""
@@ -440,7 +483,18 @@ class WebullBroker:
         p = self._json(self._call(lambda: trade.account_v2.get_account_position(aid), "positions"), "positions")
         return aid, b, p
 
+    def invalidate_account(self):
+        _ACCT_CACHE.pop(self.env, None)
+
     def account(self):
+        hit = _ACCT_CACHE.get(self.env)
+        if hit and time.time() - hit[0] < ACCOUNT_CACHE_S:
+            return hit[1]
+        out = self._account()
+        _ACCT_CACHE[self.env] = (time.time(), out)
+        return out
+
+    def _account(self):
         aid, b, p = self.raw_account()
         b = b.get("data", b) if isinstance(b, dict) else b
         # Webull TH can hold several currencies (USD, THB, CNY, HKD …). US ETFs are bought with USD only, so the bot
@@ -529,8 +583,30 @@ class WebullBroker:
     def order(self, cid):
         trade, _ = self._clients()
         aid = self._acct_id()
-        js = self._json(self._call(lambda: trade.order_v3.get_order_detail(aid, cid), "order status"), "order status")
+        self._pace()
+        try:
+            js = self._json(self._call(lambda: trade.order_v3.get_order_detail(aid, cid), "order status"), "order status")
+        except BrokerError as e:
+            if self._limited(e):
+                raise RateLimited(str(e)) from e
+            raise
         return self.parse_detail(js, cid)
+
+    def open_ids(self):
+        """client_order_ids of the orders still open at Webull, in one call (instead of one status call per order).
+        None when the answer cannot be read: the caller then asks for each order as before."""
+        trade, _ = self._clients()
+        aid = self._acct_id()
+        self._pace()
+        try:
+            res = self._call(lambda: trade.order_v3.get_order_open(aid, page_size=100), "open orders")
+            js = self._json(res, "open orders")
+        except BrokerError as e:
+            if self._limited(e):
+                raise RateLimited(str(e)) from e
+            log.info("open orders: %s", e)
+            return None
+        return parse_open_ids(js)
 
     def order_raw(self, cid):
         """Webull's own order detail, unchanged (shown on the Go-live page when a test order does not fill)."""
@@ -561,6 +637,31 @@ class WebullBroker:
         aid = self._acct_id()
         self._json(self._call(lambda: trade.order_v3.cancel_order(aid, cid), "cancel order"), "cancel order")
         return True
+
+
+_PACE: dict = {}
+_PACE_LOCK = threading.Lock()
+_ACCT_CACHE: dict = {}
+
+
+def parse_open_ids(js):
+    """Every client_order_id in Webull's open-orders answer (any nesting). None when no list of orders is found at all,
+    so an unknown answer shape never makes an order look open."""
+    found, lists = set(), [0]
+
+    def walk(x):
+        if isinstance(x, dict):
+            cid = x.get("client_order_id")
+            if isinstance(cid, str) and cid:
+                found.add(cid)
+            for v in x.values():
+                walk(v)
+        elif isinstance(x, list):
+            lists[0] += 1
+            for v in x:
+                walk(v)
+    walk(js)
+    return found if (found or lists[0]) else None
 
 
 def qty_text(qty) -> str:

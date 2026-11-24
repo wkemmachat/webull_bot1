@@ -238,6 +238,15 @@ def pnl_breakdown(mode, period="all", points=160):
             "empty": [r["name"] for r in rows if r["empty"]], "series": series}
 
 
+def _traded(mode):
+    from . import marketdata as md, traded
+    try:
+        return traded.build(mode, md.now_utc())
+    except Exception:
+        log.exception("traded")
+        return None
+
+
 def _backup_reminder():
     from . import engine
     try:
@@ -288,6 +297,7 @@ def dashboard(mode):
     return {"mode": mode, "account": acct, "account_error": err, "strategies": cards, "exposure": expo, "holdings": hold,
             "bp_wait": _bp_wait_view(mode, acct),
             "backup": _backup_reminder(),
+            "traded": _traded(mode),
             "bot": {"value": bot_v, "net_in": bot_in, "pnl": bot_v - bot_in, "ret": (bot_v / bot_in - 1) if bot_in else None,
                     "today": today, "today_pct": (today / base_today) if today is not None and base_today else None,
                     "real": _real(mode, "*", bot_v, bot_in),
@@ -508,7 +518,7 @@ def execution_settings():
     s = db.get_settings()
     strats = S.all_instances()
     return {"defaults": {k: s.get(k) for k in ("exec_lots", "exec_interval_min", "exec_start_mode", "exec_start_time", "exec_exit_mode",
-                                               "exec_session", "exec_limit_offset_pct", "exec_retries", "exec_min_lot_usd",
+                                               "exec_session", "exec_limit_offset_pct", "exec_sell_offset_pct", "exec_retries", "exec_min_lot_usd",
                                                "exec_min_trade_usd", "exec_max_order_usd", "new_money_start", "exec_cross")},
             "strategies": [{"id": x.id, "name": x.name, "color": x.color, "family": x.family, "override": x.row.get("exec") or {},
                             "type_defaults": x.EXEC_DEFAULTS, "effective": execution.exec_cfg(x), "text": execution.describe_cfg(execution.exec_cfg(x))}

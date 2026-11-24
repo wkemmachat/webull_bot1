@@ -64,3 +64,19 @@
   it, so your eyes don't travel to the far left and right edges.
 - **Next up**: queued plans, the next 4H bar close, the next regime decision, the cross-check and the LINE digest, all in
   Bangkok time.
+
+## Traded (last 3 US sessions)
+
+Under *Next US open*: what the bot bought and sold in the last three US sessions, newest first (today's session counts once the
+US market has opened). Times are Bangkok, so a session runs from about 21:30 to 04:00. A session with no trades still shows
+(*Every strategy kept what it held*); the newest session with trades is marked **last trade**.
+
+- Totals per session: bought, sold and the fees Webull charged.
+- One line per strategy, largest first, with its lots combined per ETF (*Buy 142 USD @ $43.31*), the 4 largest shown and
+  *+ N more* for the rest. Tap a line to open the strategy.
+- The tag says why: *signal · dip*, *signal · exit* (or the signal's new state), *top-up*, *move*, *stop & sell*, and
+  *inside the bot* when shares moved between two strategies without a Webull order.
+- An amber note when a strategy's buys that day filled for less than 90% of what its signal asked for (top-ups the same day
+  count); the Orders page shows why (buying power, a refused lot …).
+- On a phone, one session at a time with tabs.
+

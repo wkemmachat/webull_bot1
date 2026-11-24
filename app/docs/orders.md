@@ -10,7 +10,7 @@ A **plan** moves one strategy from what it holds to its target.
 - **Exits** start as soon as the market is open by default (selling is usually more urgent).
 - **Sizing**: sells are fixed share counts decided when the plan is made. Buys are sized when each lot is sent, from the
   strategy's free cash and how far each symbol is from target, so the last lot uses what is left.
-- **Limit price**: ask + 0.10% for buys, bid − 0.10% for sells. Unfilled lots are cancelled after the interval and re-sent at a fresh
+- **Limit price**: ask + 0.10% for buys, bid − 0.5% for sells (Execution → Price room for sells). Unfilled lots are cancelled after the interval and re-sent at a fresh
   price, up to 3 times; then the lot is marked failed and LINE tells you (critical).
 - **Small plans** use fewer lots so each lot is at least $200 (Execution → Smallest lot).
 - **Fractional shares** (Execution → Fractional shares, on for Live since 27 Oct 2026): lots buy whole shares and the last lot of
@@ -80,3 +80,25 @@ So, with Execution → **Opposite orders between strategies** on (the default):
 
 The research behind QLD regime and 2x Semis filled at the **next open** after the decision (39.7% a year vs 37.4% at the same
 close for F, 2016–2026), so the bot decides after the US close and trades from the next market open.
+
+## How fast the bot sees fills (24 Nov 2026)
+
+- **Its own loop.** Orders are handled every 5 seconds while any order is working or a lot is due: fills are booked, unfilled
+  lots are cancelled and re-priced, and the next lot goes. Price refreshes and strategy checks run in the slower main loop
+  and cannot hold orders up. The routine 30-minute price refresh is skipped from 5 minutes before to 20 minutes after the
+  US open; stopped strategies are checked every 10 minutes instead of every loop.
+- **Fewer questions to Webull.** One "open orders" call per round; an order still open is only asked about when it is due
+  for re-pricing. Status questions are spaced one a second per account. When Webull answers *too many requests* (429), the
+  bot waits 3 seconds and continues with the orders it asked about least recently, so no order can be skipped round after
+  round. On 24 Nov 2026 (Live) this happened at the open: Webull filled lots within seconds and the bot noticed 7–13 minutes later.
+- **An alert when Webull does not answer.** An order Webull has not answered for in 2 minutes gets one Logs entry and one
+  LINE message (*No answer from Webull …*); the bot keeps asking.
+- **Prices.** This account has no Webull market-data subscription (Webull answers *MARKET_DATA_NOT_SUBSCRIBED*), so lot
+  prices come from Yahoo's 1-minute bars, refreshed every 5 seconds for orders (was a 1-minute cache). The bot stops asking
+  Webull for quotes for 24 hours after that answer.
+- **Price room for sells** (Execution, default 0.5%): sells are priced this far below the market (buys keep *Limit price*,
+  0.10%). It is a floor, not the price: Webull fills at the best bid. With a price that can lag the market by up to a
+  minute, more room gets exits done when prices fall fast.
+- **Re-pricing** of an unfilled lot after 1.5 minutes (was 2) for plans with 1-minute lots.
+- The Webull library no longer writes failed requests (with the access token and app key) to the server log.
+

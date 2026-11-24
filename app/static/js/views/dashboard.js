@@ -65,6 +65,7 @@ V.dashboard = async function (el) {
       ${backupNote(d.backup)}
       ${V.addMoneyList ? V.addMoneyList(d.strategies) : ''}
       <div id="nextorders"></div>
+      <div id="traded">${V.traded ? V.traded(d.traded) : ''}</div>
       ${d.account_error ? `<div class="note warn">Account not readable: ${U.esc(d.account_error)}</div>` : ''}
       <div class="grid" style="--min:340px">
         <section class="card span2 col" style="gap:14px">
@@ -146,6 +147,7 @@ V.dashboard = async function (el) {
       };
       el.querySelector('#add').onclick = () => (d.unassigned > 0 ? V.splitDialog(load) : V.fundDialog('in', load));
       if (V.addMoneyBind) V.addMoneyBind(el, load);
+      if (V.tradedBind) V.tradedBind(el, d.traded);
       { const bk = el.querySelector('[data-bk]'); if (bk) bk.onclick = () => { U.toast('Preparing the backup… the download starts in a few seconds'); setTimeout(load, 8000); }; }
     }
     await load();

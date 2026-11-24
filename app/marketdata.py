@@ -191,6 +191,30 @@ def quote(sym: str, max_age: int = 60) -> dict:
     return q
 
 
+_lqcache: dict = {}
+
+
+def live_quote(sym: str, max_age: int = 5) -> dict:
+    """Price for an order (Yahoo, when Webull has no market data for the account): today's 1-minute bars only, refreshed
+    every few seconds, so a limit is not set from a minute-old price. Falls back to quote() (1-minute cache)."""
+    if source() == "csv":
+        return quote(sym)
+    hit = _lqcache.get(sym)
+    if hit and time.time() - hit[0] < max_age:
+        return hit[1]
+    try:
+        import yfinance as yf
+        h = yf.Ticker(yahoo_ticker(sym)).history(period="1d", interval="1m", prepost=True, auto_adjust=False)
+        if h is None or h.empty:
+            return quote(sym)
+        q = {"price": float(h["Close"].iloc[-1]), "bid": None, "ask": None, "time": int(h.index[-1].timestamp()),
+             "source": "yahoo"}
+    except Exception:
+        return quote(sym)
+    _lqcache[sym] = (time.time(), q)
+    return q
+
+
 _m1cache: dict = {}
 
 

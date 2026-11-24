@@ -63,7 +63,8 @@ def exec_cfg(strat, settings=None) -> dict:
     base["interval_min"] = max(0.5, min(120, _f(base["interval_min"], 10)))
     if base["session"] not in ("CORE", "ALL"):
         base["session"] = "CORE"
-    base.update({"offset": _f(s.get("exec_limit_offset_pct"), 0.10) / 100, "retries": int(_f(s.get("exec_retries"), 3)),
+    base.update({"offset": _f(s.get("exec_limit_offset_pct"), 0.10) / 100, "sell_offset": _f(s.get("exec_sell_offset_pct"), 0.5) / 100,
+                 "retries": int(_f(s.get("exec_retries"), 3)),
                  "min_lot_usd": _f(s.get("exec_min_lot_usd"), 200), "min_trade_usd": _f(s.get("exec_min_trade_usd"), 100),
                  "max_order_usd": _f(s.get("exec_max_order_usd"), 25000)})
     return base
@@ -781,7 +782,8 @@ def send_due(mode, now, broker, settings, positions=None, acct=None):
             continue
         try:
             q = broker.quote(o["symbol"])
-            limit = lot_limit(o, q, o["side"], c_["offset"], now)
+            off = max(c_["offset"], c_["sell_offset"]) if o["side"] == "SELL" else c_["offset"]
+            limit = lot_limit(o, q, o["side"], off, now)
         except Exception as e:
             _release(o["id"])
             log.warning("no price for %s: %s (next minute)", o["symbol"], e)
@@ -968,12 +970,38 @@ def unblock_symbols(mode):
     db.set_state(f"blocked_sym:{mode}", {})
 
 
+_LAST_CHECK: dict = {}       # order id -> last time its status was asked (or seen in the open-orders list)
+_LAST_OK: dict = {}          # order id -> last time Webull answered for it
+_UNSEEN_ALERTED: set = set()
+_COOLDOWN: dict = {}         # mode -> no status calls before this time (after "too many requests")
+COOLDOWN_S = 3
+UNSEEN_ALERT_S = 120
+
+
 def poll(mode, now, broker, only_id=None, settings=None):
+    """Read the working orders' status from the broker. Oldest-checked first, so an order Webull did not answer for
+    (too many requests) is first in line next time. One open-orders call tells which orders are still open: those are
+    only asked about once they are due to be cancelled and re-priced; the rest (filled, cancelled, refused) are read."""
     settings = settings or db.get_settings()
     retries = int(_f(settings.get("exec_retries"), 3))
     q = f"SELECT * FROM orders WHERE mode=? AND status IN ({_q(len(WORKING))})" + (" AND id=?" if only_id else "")
     args = (mode, *WORKING, only_id) if only_id else (mode, *WORKING)
-    for o in db.rows(q, args):
+    rows = sorted(db.rows(q, args), key=lambda r: _LAST_CHECK.get(r["id"], 0))
+    if not rows:
+        return
+    if not only_id and time.time() < _COOLDOWN.get(mode, 0):
+        return
+    still_open = None
+    if not only_id and hasattr(broker, "open_ids") and any(r["status"] == "submitted" and r["client_order_id"] for r in rows):
+        try:
+            still_open = broker.open_ids()
+        except brokers.RateLimited:
+            _COOLDOWN[mode] = time.time() + COOLDOWN_S
+            _unseen_alerts(mode, now)
+            return
+        except brokers.BrokerError as e:
+            log.info("open orders %s: %s", mode, e)
+    for o in rows:
         plan = db.one("SELECT * FROM plans WHERE id=?", (o["plan_id"],))
         err = o["error"] or ""
         # only a refused PLACE settles an order; a refused CANCEL ("status cannot be modified") means the order is
@@ -990,12 +1018,21 @@ def poll(mode, now, broker, only_id=None, settings=None):
                 _retry(o, o["qty"] or 0, now, f"refused: {rej}", retries)
             continue
         interval = (plan or {}).get("interval_min") or 10
-        timeout = timedelta(minutes=max(2.0, interval - 0.5))
+        timeout = timedelta(minutes=max(1.5, interval - 0.5))
         age = now - _dt(o["submitted_at"] or _ts(now))
         if o["status"] == "sending" and age < timedelta(minutes=2):
             continue
+        if still_open is not None and o["status"] == "submitted" and o["client_order_id"] in still_open and age <= timeout:
+            _LAST_CHECK[o["id"]] = _LAST_OK[o["id"]] = time.time()   # still open at Webull and not due for re-pricing
+            continue
+        _LAST_CHECK[o["id"]] = time.time()
         try:
             st = broker.order(o["client_order_id"])
+        except brokers.RateLimited as e:
+            _COOLDOWN[mode] = time.time() + COOLDOWN_S
+            log.warning("order status %s: Webull says too many requests; the next orders are read in %ss (%s)",
+                        o["client_order_id"], COOLDOWN_S, str(e)[:120])
+            break
         except brokers.BrokerError as e:
             if o["status"] in ("unknown", "sending") or "not found" in str(e):
                 checks = (o["checks"] or 0) + 1
@@ -1007,6 +1044,7 @@ def poll(mode, now, broker, only_id=None, settings=None):
             else:
                 log.warning("order status %s: %s", o["client_order_id"], e)
             continue
+        _LAST_OK[o["id"]] = time.time()
         filled = float(st.get("filled_qty") or 0)
         if (st.get("status") or "").upper() == "FILLED" and is_fraction(o["qty"]) and abs(filled - float(o["qty"])) < 0.01:
             # Webull fills the exact fractional quantity but reports it rounded to 2 decimals (1.6581 → "1.66"):
@@ -1021,6 +1059,8 @@ def poll(mode, now, broker, only_id=None, settings=None):
                               (filled, filled * avg, o["id"], o["applied_qty"] or 0)).rowcount
             if n == 1:
                 ledger.book_fill(mode, o["strategy"], o["symbol"], o["side"], dq, dv)
+                if hasattr(broker, "invalidate_account"):
+                    broker.invalidate_account()                   # the next money check reads the new balance
                 notify.send("lot_filled", f"{brokers.MODE_LABEL[mode]} · {o['side']} {qs(dq)} {o['symbol']} @ ${avg:,.2f} "
                             f"(lot {o['lot']}/{o['lots']})", strategy=o["strategy"])
         fee = float(st.get("fee") or 0.0)
@@ -1067,6 +1107,23 @@ def poll(mode, now, broker, only_id=None, settings=None):
             left = (o["qty"] or 0) - filled
             if _worth_retry(mode, o, left) and plan and plan["status"] == "active":
                 _retry(o, left, now, f"order {status.lower()} with {qs(left)} left", retries)
+
+
+def _unseen_alerts(mode, now):
+    """An order Webull has not answered for in 2 minutes: one Logs entry and one LINE message (the bot keeps asking)."""
+    for o in db.rows(f"SELECT * FROM orders WHERE mode=? AND status='submitted'", (mode,)):
+        if o["id"] in _UNSEEN_ALERTED or not o["submitted_at"]:
+            continue
+        seen = _LAST_OK.get(o["id"], o["submitted_at"])
+        if time.time() - o["submitted_at"] > UNSEEN_ALERT_S and time.time() - seen > UNSEEN_ALERT_S:
+            _UNSEEN_ALERTED.add(o["id"])
+            mins = int((time.time() - seen) // 60)
+            txt = (f"{brokers.MODE_LABEL[mode]} · No answer from Webull for {mins} min about {o['side']} {qs(o['qty'])} {o['symbol']} "
+                   f"(lot {o['lot']}/{o['lots']}): too many requests or a connection problem. The bot keeps asking; the Webull app "
+                   "shows whether it filled.")
+            db.add_event("warn", "orders", f"Order status not read for {mins} min: {o['side']} {qs(o['qty'])} {o['symbol']}", txt,
+                         strategy=o["strategy"], mode=mode)
+            notify.send("lot_failed", txt, strategy=o["strategy"])
 
 
 def dedupe_retries() -> int:
@@ -1360,6 +1417,13 @@ def equity_series(mode, sid="*", days=90, max_points=400):
 
 
 # ---------------------------------------------------------------- the pass every tick
+def orders_busy(now=None) -> bool:
+    """Is there order work right now (an order at the broker, or a lot due)? The fast order loop runs only then."""
+    t = _ts(now or md.now_utc())
+    return bool(db.one(f"SELECT 1 x FROM orders WHERE status IN ({_q(len(WORKING))}) OR (status='scheduled' AND scheduled_at<=?) LIMIT 1",
+                       (*WORKING, t)))
+
+
 def process(now=None, settings=None):
     if not _LOCK.acquire(blocking=False):
         return {"busy": True}
@@ -1392,6 +1456,7 @@ def process(now=None, settings=None):
                         db.set_state(f"not_ready_alert:{m}", int(time.time()))
                     continue
                 poll(m, now, broker, settings=s)
+                _unseen_alerts(m, now)
                 try:
                     cross(m, now, broker, s)               # opposite orders of two strategies: settled inside the bot first
                 except Exception as e:

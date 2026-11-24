@@ -391,3 +391,12 @@
   makes a fresh compressed copy without secrets (Webull keys, LINE token, password hash, sign-ins, sign-in IPs) instead of
   the full database. The Dashboard reminds you when nothing was downloaded in 7 days. No automatic copy off the server: you
   download it.
+- **Dashboard → Traded** (23 Nov 2026, your request): the last 3 US sessions side by side, one line per strategy (lots
+  combined per ETF), with why it traded and a note when a signal's buys filled for less than 90%.
+- **Fills seen in seconds, not minutes** (24 Nov 2026, Live): at the open Webull answered 429 *too many requests* to order-status
+  checks; the bot skipped those orders and booked fills 7–13 minutes late (Webull's own times: filled 0.4 s to 2½ min after
+  sending), so the next lots waited while USD fell about 4%. Now a separate 5-second order loop, one open-orders call per round,
+  status calls one a second, a 3-second cooldown on 429 with the least-recently-checked order first, an alert after 2
+  minutes without an answer, fresher Yahoo prices for orders (no Webull market data on this account), 0.5% price room
+  for sells, no routine price refresh around the open, and the Webull library's request dumps (with the access token) off.
+

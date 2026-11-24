@@ -106,7 +106,7 @@ DEFAULTS = {
     "trading_paused": "0",                   # kill switch: no new orders are sent while 1
     # execution defaults (strategies may override)
     "exec_lots": "10", "exec_interval_min": "10", "exec_start_mode": "time", "exec_start_time": "22:00",
-    "exec_exit_mode": "asap", "exec_session": "CORE", "exec_limit_offset_pct": "0.10", "exec_retries": "3",
+    "exec_exit_mode": "asap", "exec_session": "CORE", "exec_limit_offset_pct": "0.10", "exec_sell_offset_pct": "0.5", "exec_retries": "3",
     "exec_min_lot_usd": "200", "exec_min_trade_usd": "100", "exec_max_order_usd": "25000", "exec_cash_buffer_pct": "1.0",
     "exec_cross": "1",                       # settle opposite orders of two strategies inside the bot (only the rest goes to Webull)
     # LINE

@@ -183,6 +183,7 @@
         ${row('Start entries', '"Not before" this time. A later signal starts at once if the market is open.', `<div class="row"><div class="seg" id="sm"><button data-v="time" class="${x.exec_start_mode === 'time' ? 'on' : ''}">At a set time</button><button data-v="asap" class="${x.exec_start_mode !== 'time' ? 'on' : ''}">At market open</button></div><input class="in num" id="stime" value="${x.exec_start_time}" style="width:90px"></div>`)}
         ${row('Start exits', 'Selling is usually more urgent than buying.', `<div class="seg" id="em"><button data-v="asap" class="${x.exec_exit_mode !== 'same' ? 'on' : ''}">As soon as the market is open</button><button data-v="same" class="${x.exec_exit_mode === 'same' ? 'on' : ''}">Same as entries</button></div>`)}
         ${row('Limit price', 'Each lot is a limit order this far through the market (%).', `<input class="in num" id="off" value="${x.exec_limit_offset_pct}" style="width:110px">`)}
+        ${row('Price room for sells', 'Sells are priced this far below the market (%). Only a floor: Webull still fills at the best bid. More room gets exits done when prices fall fast.', `<input class="in num" id="soff" value="${x.exec_sell_offset_pct ?? 0.5}" style="width:110px">`)}
         ${row('Retries per lot', 'After this many re-sends a lot is marked failed and LINE tells you.', `<input class="in num" id="ret" value="${x.exec_retries}" style="width:110px">`)}
         ${row('Smallest lot (USD)', 'Small plans use fewer lots so each lot is at least this big.', `<input class="in num" id="minlot" value="${x.exec_min_lot_usd}" style="width:110px">`)}
         ${row('Largest single order (USD)', 'A safety cap per order.', `<input class="in num" id="maxo" value="${x.exec_max_order_usd}" style="width:110px">`)}
@@ -220,7 +221,7 @@
     el.querySelector('#save').onclick = (e) => U.busy(e.target, async () => {
       const v = (id) => el.querySelector(id).value.trim();
       await U.api('/api/settings/execution', { body: { defaults: { exec_lots: v('#lots'), exec_interval_min: v('#int'), exec_start_mode: el.querySelector('#sm .on').dataset.v,
-        exec_start_time: v('#stime'), exec_exit_mode: el.querySelector('#em .on').dataset.v, exec_limit_offset_pct: v('#off'), exec_retries: v('#ret'),
+        exec_start_time: v('#stime'), exec_exit_mode: el.querySelector('#em .on').dataset.v, exec_limit_offset_pct: v('#off'), exec_sell_offset_pct: v('#soff'), exec_retries: v('#ret'),
         exec_min_lot_usd: v('#minlot'), exec_max_order_usd: v('#maxo'), new_money_start: el.querySelector('#nm .on').dataset.v,
         exec_cross: el.querySelector('#xc .on').dataset.v,
         ...Object.fromEntries([...el.querySelectorAll('[data-fr]')].map((g) => ['exec_fractional_' + g.dataset.fr, g.querySelector('.on').dataset.v])) } } });
