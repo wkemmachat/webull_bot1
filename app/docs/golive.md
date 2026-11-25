@@ -67,7 +67,8 @@ can force On or Off per mode there.
   included, so nothing is left over.
 - **Safety switch**: if Webull refuses a fractional order for an ETF, the bot sends the lot again as whole shares, uses whole
   shares for that ETF from then on (in that account only) and tells you once on LINE. Execution → Fractional shares lists those
-  ETFs with a **Reset** button.
+  ETFs with a **Reset** button. A refusal for *buying power* or for a *non-marketable price* does not count: those are about
+  money or price, not fractions ([Orders](#/docs/orders)).
 - Paper follows Live unless you set it yourself.
 
 ## Hong Kong test (removed)

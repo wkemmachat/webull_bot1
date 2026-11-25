@@ -491,6 +491,7 @@ class WebullBroker:
         if hit and time.time() - hit[0] < ACCOUNT_CACHE_S:
             return hit[1]
         out = self._account()
+        out["_read_at"] = time.time()                      # the money guard adds buys sent after this (execution.Guard)
         _ACCT_CACHE[self.env] = (time.time(), out)
         return out
 

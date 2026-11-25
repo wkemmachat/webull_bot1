@@ -101,6 +101,7 @@ SELL_DP = 6                     # sells: the exact booked quantity
 MIN_FRACTION_USD = 5.0          # smallest order that is less than one share
 EPS = 1e-6
 BP_RESUME_USD = 100.0           # buys waiting for Webull buying power resume once it is this much higher than when they stopped
+BP_FIT = 0.97                   # a buy refused for buying power is sent again using at most 97% of what Webull frees
 BP_CHECK_S = 180                # while waiting: read Webull's buying power at most every 3 minutes
 MARKETABLE_EXTRA = 0.005        # an order for less than one share must be marketable at Webull: 0.5% through the bid / ask
 
@@ -422,6 +423,17 @@ def _inflight_buys(mode) -> float:
     return float(r["v"] or 0)
 
 
+def _buys_sent_since(mode, read_at) -> float:
+    """Value of buys sent to Webull at or after an account read and not booked as filled yet: Webull's buying power
+    from that read does not count them (a fill clears the cached read, so filled buys are in a newer one)."""
+    if not read_at:
+        return 0.0
+    r = db.one(f"SELECT COALESCE(SUM(MAX(0, COALESCE(qty,0) - COALESCE(applied_qty,0)) * COALESCE(limit_price,0)), 0) v "
+               f"FROM orders WHERE mode=? AND side='BUY' AND status IN ({_q(len(WORKING))}) AND submitted_at>=?",
+               (mode, *WORKING, int(read_at)))
+    return float(r["v"] or 0)
+
+
 def bp_wait(mode):
     """Buys waiting for Webull's buying power ({at, bp, cash, sids, ...}) or None."""
     return db.get_state(f"bpwait:{mode}") or None
@@ -443,6 +455,8 @@ class Guard:
         self.cash = float(acct["cash"]) if self.ok else None
         bp = (acct or {}).get("buying_power")
         self.bp = float(bp) if bp is not None else None
+        if self.bp is not None:                            # Webull's figure was read up to 15 s ago (brokers.ACCOUNT_CACHE_S):
+            self.bp -= _buys_sent_since(mode, (acct or {}).get("_read_at"))   # buys sent since then are not in it yet
         try:
             self.floor = max(0.0, float(settings.get(f"protect_floor_{mode}") or 0))
         except ValueError:
@@ -591,6 +605,57 @@ def _marketable(q, side, limit) -> float:
 def _needs_marketable(e) -> bool:
     t = f"{getattr(e, 'code', '') or ''} {e}".upper()
     return "QUANTITY_TOO_SMALL" in t or "MARKETABLE PRICE" in t
+
+
+def _bp_refusal(e) -> bool:
+    t = f"{getattr(e, 'code', '') or ''} {e}".upper()
+    return "BUYING_POWER" in t or "INSUFFICIENT BUYING POWER" in t
+
+
+def _bp_refused(mode, o, qty, limit, e, strat, plan, broker, now, settings, dp):
+    """Webull refused a buy for buying power (OPENAPI_ORDER_BUYING_POWER_NOT_ENOUGH). That is about money, not about
+    fractional shares (bot 1.0 switched the ETF to whole shares for good: repair_bp_refusals). Read Webull's buying power
+    again and send the lot once more sized to fit it (BP_FIT of it) a minute later; when not even a small lot fits, the
+    strategy's buys wait for buying power (_wait_for_bp) like a money-guard stop."""
+    if hasattr(broker, "invalidate_account"):
+        broker.invalidate_account()
+    bp = None
+    try:
+        acct = broker.account()
+        _note_acct(mode, acct)
+        bp = acct.get("buying_power")
+        bp = float(bp) - _buys_sent_since(mode, acct.get("_read_at")) if bp is not None else None
+    except brokers.BrokerError as x:
+        log.warning("buying power after a refusal %s: %s", mode, x)
+    # the retry's limit may be up to CHASE_CAP higher (lot_limit): size it so it still fits at that price
+    fit = _down(min(qty, max(0.0, bp) * BP_FIT / (limit * (1 + CHASE_CAP))), dp) if bp is not None and limit > 0 else 0
+    if plan["status"] == "active" and fit < qty - EPS and not _too_small("BUY", fit, limit):
+        db.add_event("warn", "orders", f"Buy resized for Webull buying power: {o['symbol']}",
+                     f"{strat.name}: Webull refused {qs(qty)} {o['symbol']} (${qty * limit:,.2f}) for buying power; it frees "
+                     f"${bp:,.2f}, so the lot is sent again as {qs(fit)} shares in a minute.", strategy=strat.id, mode=mode)
+        _retry(o, fit, now, f"refused for buying power: {e}", int(_f(settings.get("exec_retries"), 3)))
+        return
+    why = (f"Webull refused {qs(qty)} {o['symbol']} (${qty * limit:,.2f}) for buying power"
+           + (f"; it frees ${max(0.0, bp):,.2f}" if bp is not None else ""))
+    _wait_for_bp(mode, o, strat, why)
+
+
+def repair_bp_refusals():
+    """Bot 1.0 took Webull's "Insufficient Buying Power" on a fractional lot as "no fractions for this ETF" and switched it
+    to whole shares for good (Live: USD on 6 Nov, QLD on 23 Nov 2026). Fractions were never the problem: undo it."""
+    for m in brokers.MODES:
+        b = fraction_refused(m)
+        bad = [k for k, v in b.items() if "BUYING_POWER" in f"{v.get('code') or ''} {v.get('msg') or ''}".upper()
+               or "INSUFFICIENT BUYING POWER" in (v.get("msg") or "").upper()]
+        if not bad:
+            continue
+        for k in bad:
+            b.pop(k, None)
+        db.set_state(f"frac_refused:{m}", b)
+        db.add_event("info", "orders", f"Fractional shares back on: {', '.join(bad)}",
+                     "Webull had refused a buy for buying power, and the bot took it as \"no fractional shares for this ETF\". "
+                     "Fractions were never the problem, so they are on again; a buying-power refusal now resizes the lot to "
+                     "what Webull frees, or the buys wait for buying power.", mode=m)
 
 
 def repair_marketable_refusals():
@@ -852,6 +917,9 @@ def send_due(mode, now, broker, settings, positions=None, acct=None):
             if _needs_marketable(e):                   # a price matter, not "no fractions": send again at the market price
                 if plan["status"] == "active":
                     _retry(o, qty, now, f"refused: {e}", int(_f(settings.get("exec_retries"), 3)))
+                continue
+            if o["side"] == "BUY" and _bp_refusal(e):      # a money matter, not "no fractions": resize to fit, or wait
+                _bp_refused(mode, o, qty, limit, e, strat, plan, broker, now, settings, dp)
                 continue
             if is_fraction(qty) and o["symbol"] not in fraction_refused(mode):
                 refuse_fraction(mode, o["symbol"], e, strat)          # whole shares from now on for this ETF
@@ -1435,6 +1503,7 @@ def process(now=None, settings=None):
             repair_cancel_refusals()
             repair_fraction_fills()
             repair_marketable_refusals()
+            repair_bp_refusals()
             dedupe_retries()
         except Exception as e:
             log.warning("repair: %s", e)

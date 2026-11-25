@@ -399,4 +399,10 @@
   status calls one a second, a 3-second cooldown on 429 with the least-recently-checked order first, an alert after 2
   minutes without an answer, fresher Yahoo prices for orders (no Webull market data on this account), 0.5% price room
   for sells, no routine price refresh around the open, and the Webull library's request dumps (with the access token) off.
+- **Buying-power refusals are not fraction refusals** (25 Nov 2026): Webull's *Insufficient Buying Power* on a fractional lot
+  had switched Live USD (6 Nov) and QLD (23 Nov) to whole shares for good, which left 0.99 and 0.95 QLD unsold in two
+  strategies that were out. Now such a lot is re-read and sent again sized to 97% of the buying power Webull frees (at the
+  highest re-priced limit), or the buys wait for buying power; the two switches are undone. The money guard subtracts buys
+  sent after the (15-second cached) balance read. `app.webull_check` also reads the open-orders list, to confirm on the real
+  account that the fast order loop can use it.
 

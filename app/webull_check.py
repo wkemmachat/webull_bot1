@@ -1,4 +1,5 @@
-"""Show the accounts this API key can see, and what Webull sends back for the bot's account (balance and positions).
+"""Show the accounts this API key can see, and what Webull sends back for the bot's account (balance, positions and the
+open-orders list the order loop uses).
 
   Mac:     ./.venv/bin/python -m app.webull_check test        (or live)
   Server:  cd /opt/webull_bot1 && sudo -u thbot .venv/bin/python -m app.webull_check test
@@ -43,7 +44,29 @@ def main():
     print("-- what the bot reads:")
     print(json.dumps({k: acct[k] for k in ("total", "cash", "market_value", "buying_power")}, indent=1))
     print(f"   positions: {len(acct['positions'])} symbol(s)")
+    open_orders(b)
     return 0
+
+
+def open_orders(b):
+    """The open-orders list the order loop reads every few seconds while orders work (execution.poll): one call instead of
+    one status call per order. Read-only. If the bot cannot read it, orders still work, checked one by one (slower)."""
+    trade, _ = b._clients()
+    print("-- open orders (raw, first 2000 characters):")
+    try:
+        js = b._json(b._call(lambda: trade.order_v3.get_order_open(b._acct_id(), page_size=100), "open orders"), "open orders")
+    except brokers.BrokerError as e:
+        print("   Webull:", e)
+        print("-- open orders: NOT readable. Orders still work: the bot asks for each order one by one (slower).")
+        return
+    print(json.dumps(js, indent=1)[:2000])
+    ids = brokers.parse_open_ids(js)
+    if ids is None:
+        print("-- open orders: answer NOT understood (no list in it). Orders still work, checked one by one (slower).")
+    else:
+        mine = sorted(x for x in ids if x.startswith("tsb"))
+        print(f"-- open orders: readable · {len(ids)} open now ({len(mine)} sent by the bot)"
+              + (": " + ", ".join(mine[:10]) if mine else ""))
 
 
 if __name__ == "__main__":

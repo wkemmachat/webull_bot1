@@ -101,4 +101,18 @@ close for F, 2016–2026), so the bot decides after the US close and trades from
   minute, more room gets exits done when prices fall fast.
 - **Re-pricing** of an unfilled lot after 1.5 minutes (was 2) for plans with 1-minute lots.
 - The Webull library no longer writes failed requests (with the access token and app key) to the server log.
+- **Check it on your account** (read-only, prints no keys): on the server run
+  `cd /opt/webull_bot1 && sudo -u thbot .venv/bin/python -m app.webull_check live`. The last line says whether the bot can read
+  Webull's open-orders list (*readable · N open now*). If it says *NOT readable* or *NOT understood*, orders still work: the bot
+  then asks about each order one by one, as before (slower).
+- **Webull's balance is reused for 15 seconds** (Webull Thailand allows 10 balance/position calls per 30 seconds); a fill
+  clears it. The money guard adds the buys sent since that read, so it never counts the same buying power twice.
+
+## Webull refuses a buy for buying power (25 Nov 2026)
+
+Webull's *Insufficient Buying Power* (OPENAPI_ORDER_BUYING_POWER_NOT_ENOUGH) is about money, not about fractional shares.
+The bot reads the buying power again and sends the lot once more a minute later, sized to fit it (97%, leaving room for the
+re-priced limit) — Logs: *Buy resized for Webull buying power*. When not even a small lot fits, the strategy's buys wait for
+buying power ([Money](#/docs/money)). Before, the bot took this refusal as "no fractions for this ETF" and switched the ETF
+to whole shares for good: Live USD (6 Nov) and QLD (23 Nov). That is undone, and fractions are on again for both.
 
