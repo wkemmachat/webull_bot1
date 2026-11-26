@@ -182,8 +182,11 @@ def _insert_order(c, plan_id, mode, sid, step, lot, lots, symbol, side, when, se
 
 
 def build_plan(mode, strat, target: dict, reason: str, now, broker=None, buys=True, sell_override: dict | None = None,
-               on_done: dict | None = None, note: str = "", signal_id=None, settings=None, goal: dict | None = None):
-    """Create a plan that moves `strat` toward `target`. Returns plan id, or None when nothing needs trading."""
+               on_done: dict | None = None, note: str = "", signal_id=None, settings=None, goal: dict | None = None,
+               rest: dict | None = None):
+    """Create a plan that moves `strat` toward `target`. Returns plan id, or None when nothing needs trading.
+    rest: {symbol: {limit, until}} — a buy of that symbol is ONE order at that fixed limit, resting until `until` (the session's
+    close): not re-priced, not retried (a day limit order, e.g. the CWEB small-crash buy)."""
     c_ = exec_cfg(strat, settings)
     broker = broker or brokers.get(mode)
     L = ledger.get(mode, strat.id)
@@ -224,6 +227,9 @@ def build_plan(mode, strat, target: dict, reason: str, now, broker=None, buys=Tr
     sell_v = sum(q * px[s] for s, q in sells.items())
     trade_v = max(sell_v, sum(need.values()))
     lots = max(1, min(c_["lots"], int(trade_v // max(1.0, c_["min_lot_usd"]))))
+    rest = {s: v for s, v in (rest or {}).items() if s in need} or None
+    if rest:
+        lots = 1                                         # one resting order, not lots
     cash_like = set(strat.cash_target()) | {strat.params.get("off_symbol")} - {None}
     exitish = not need or all(s in cash_like for s in need) or reason in ("stop", "withdraw", "move")
     smode = c_["start_mode"] if (not exitish or c_["exit_mode"] == "same") else "asap"
@@ -232,11 +238,11 @@ def build_plan(mode, strat, target: dict, reason: str, now, broker=None, buys=Tr
     resume = (lambda t: mh.start_time(t, smode, c_["start_time"], sess)) if smode == "time" else None
     times = mh.spread_lots(start, lots, c_["interval_min"], sess, resume)
     with db.tx() as c:
-        cur = c.execute("INSERT INTO plans(mode,strategy,reason,status,created_at,start_at,target,note,on_done,lots,interval_min,signal_id,goal) "
-                        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        cur = c.execute("INSERT INTO plans(mode,strategy,reason,status,created_at,start_at,target,note,on_done,lots,interval_min,signal_id,goal,rest) "
+                        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                         (mode, strat.id, reason, "active", int(time.time()), _ts(start), json.dumps(target), note,
                          json.dumps(on_done) if on_done else None, lots, c_["interval_min"], signal_id,
-                         json.dumps(goal) if goal is not None else None))
+                         json.dumps(goal) if goal is not None else None, json.dumps(rest) if rest else None))
         pid = cur.lastrowid
         split = {s: _split(q, lots) for s, q in sells.items()}
         for k, t in enumerate(times):
@@ -245,10 +251,22 @@ def build_plan(mode, strat, target: dict, reason: str, now, broker=None, buys=Tr
                     _insert_order(c, pid, mode, strat.id, 2 * k, k + 1, lots, s, "SELL", t, sess, plan_qty=split[s][k])
             for s in sorted(need, key=lambda x: -need[x]):
                 _insert_order(c, pid, mode, strat.id, 2 * k + 1, k + 1, lots, s, "BUY", t, sess)
-    parts = [f"sell {qs(q)} {s}" for s, q in sells.items()] + [f"buy ≈${v:,.0f} {s}" for s, v in need.items()]
+    parts = [f"sell {qs(q)} {s}" for s, q in sells.items()] + [f"buy ≈${v:,.0f} {s}" + (f" with a day limit at ${rest[s]['limit']:,.2f}" if rest and s in rest else "")
+                                                               for s, v in need.items()]
     db.add_event("info", "orders", f"{strat.name}: plan created ({reason})",
                  f"{', '.join(parts)} · {lots} lot(s) every {c_['interval_min']:g} min from {local(start)}", strategy=strat.id, mode=mode)
     return pid
+
+
+def rest_of(plan, symbol, side):
+    """The fixed day limit of a plan's buy of `symbol` (build_plan rest), or None."""
+    if side != "BUY" or not plan or not plan.get("rest"):
+        return None
+    try:
+        r = (json.loads(plan["rest"]) or {}).get(symbol)
+    except (TypeError, ValueError):
+        return None
+    return r if r and r.get("limit") else None
 
 
 def local(dt) -> str:
@@ -849,6 +867,13 @@ def send_due(mode, now, broker, settings, positions=None, acct=None):
             q = broker.quote(o["symbol"])
             off = max(c_["offset"], c_["sell_offset"]) if o["side"] == "SELL" else c_["offset"]
             limit = lot_limit(o, q, o["side"], off, now)
+            rl = rest_of(plan, o["symbol"], o["side"])
+            if rl:
+                if now.timestamp() >= float(rl.get("until") or 0):
+                    db.run("UPDATE orders SET status='skipped', qty=0, error=?, updated_at=? WHERE id=?",
+                           ("its day (day limit) is over", int(time.time()), o["id"]))
+                    continue
+                limit = round(float(rl["limit"]), 2)            # a day limit: this price, not the market's
         except Exception as e:
             _release(o["id"])
             log.warning("no price for %s: %s (next minute)", o["symbol"], e)
@@ -1087,6 +1112,9 @@ def poll(mode, now, broker, only_id=None, settings=None):
             continue
         interval = (plan or {}).get("interval_min") or 10
         timeout = timedelta(minutes=max(1.5, interval - 0.5))
+        rl = rest_of(plan, o["symbol"], o["side"])
+        if rl:
+            timeout = timedelta(days=1)                   # a day limit rests until the session's close (cancelled 2 min before)
         age = now - _dt(o["submitted_at"] or _ts(now))
         if o["status"] == "sending" and age < timedelta(minutes=2):
             continue
@@ -1173,7 +1201,11 @@ def poll(mode, now, broker, only_id=None, settings=None):
                (filled, avg if filled else o["avg_price"], new, int(time.time()), o["id"]))
         if new in ("partial", "cancelled", "failed"):
             left = (o["qty"] or 0) - filled
-            if _worth_retry(mode, o, left) and plan and plan["status"] == "active":
+            if rl:
+                db.add_event("info", "orders", f"Day limit not filled: {o['symbol']}" if filled <= 0 else f"Day limit partly filled: {o['symbol']}",
+                             f"Buy {qs(o['qty'])} {o['symbol']} at ${o['limit_price'] or 0:,.2f}: filled {qs(filled)}; the rest is not sent again "
+                             "(a day limit is for its day only)", strategy=o["strategy"], mode=mode)
+            elif _worth_retry(mode, o, left) and plan and plan["status"] == "active":
                 _retry(o, left, now, f"order {status.lower()} with {qs(left)} left", retries)
 
 
@@ -1392,7 +1424,10 @@ def reconcile(mode, strat, ev, now, broker, settings):
         cancel_plan(ap["id"], "the target changed", broker)
     applied = L["applied_target"]
     changed = applied is None or json.dumps(json.loads(applied), sort_keys=True) != tkey
+    rest = ev.get("rest") if buys else None
     if not changed:
+        if rest:
+            return None                                 # a day limit is working (or did not fill): no market top-up today
         if buys and bp_wait(mode):
             return None                                 # buys wait for Webull's buying power: no top-up plans until it is back
         cool = db.get_state(f"noplan:{mode}:{strat.id}")
@@ -1417,7 +1452,7 @@ def reconcile(mode, strat, ev, now, broker, settings):
             return None
         w, _ = ledger.weights(mode, strat.id, prices)
         goal, target = target, strat.adjust_target(target, w)
-    pid = build_plan(mode, strat, target, reason, now, broker, buys=buys, settings=settings, goal=goal)
+    pid = build_plan(mode, strat, target, reason, now, broker, buys=buys, settings=settings, goal=goal, rest=rest)
     if pid is None:
         if changed:
             ledger.set_applied_target(mode, strat.id, goal if goal is not None else target)

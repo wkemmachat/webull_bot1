@@ -146,7 +146,7 @@ def con():
 
 # columns added after the first release: (table, column, definition)
 MIGRATIONS = [("ledger", "hold_amt", "REAL DEFAULT 0"), ("orders", "fee", "REAL DEFAULT 0"), ("plans", "goal", "TEXT"), ("test_trades", "order_type", "TEXT"),
-              ("money", "ccy", "TEXT"), ("orders", "cross_with", "TEXT")]
+              ("money", "ccy", "TEXT"), ("orders", "cross_with", "TEXT"), ("plans", "rest", "TEXT")]
 
 
 def init():

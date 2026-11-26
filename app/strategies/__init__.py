@@ -128,6 +128,13 @@ DEFAULTS = [
       "mkt_symbol": "SPY", "mkt_ma_days": 200, "dip_entry": "IBS", "entry_ibs_max": 0.25, "dip_exit": "PREVHIGH", "dip_max_days": 5,
       "rsi_buy": 0.0, "rsi_len": 2, "rsi_1d_buy": 5.0, "dip_ibs_max": 0.0, "jumpy_ibs_max": 0.0, "target_vol_pct": 60.0,
       "size_vol_days": 20, "size_band_pct": 20.0}, {}),
+    # 26 Nov 2026 "CWEB (2x China internet): best buy/sell rules", Pick 4+: KWEB breakout + FXI above SMA200 (size 30% ÷ CWEB
+    # volatility, 15% trailing stop), 100% at the US open after a Hang Seng close of −3% or worse (take-profit 4% at the next
+    # open, else sold two days later) and a one-day 40% limit buy after a −1.75% to −3% close. Added with no money.
+    ("cweb_trend_crash", "hk_crash", "CWEB · Trend + Hang Seng crash buys", "#E03131",
+     {"trade": "CWEB", "signal": "KWEB", "gate": "FXI", "hk_index": "^HSI", "don_entry": 20, "don_exit": 15, "gate_ma": 200,
+      "target_vol_pct": 30.0, "vol_days": 20, "size_band_pct": 20.0, "trail_pct": 15.0, "big_drop_pct": 3.0, "tp_pct": 4.0,
+      "small_drop_pct": 1.75, "small_size_pct": 40.0, "small_limit_pct": 1.0, "cash_buffer_pct": 1.0, "rebalance_band_pct": 5.0}, {}),
 ]
 # Earlier defaults: a strategy still on exactly these settings is moved to the new ones once (lower-cost versions, 26 Oct 2026:
 # IBS-dip T-bill half as cash + QLD IBS < 0.15; metals flat in cash instead of SGOV).
@@ -157,7 +164,7 @@ UPGRADE_WHY = {"cash_parking_2026_10": "Parks in cash instead of BIL (each BIL r
 # Added with LINE alerts off: they hold no money until you move some to them (turn LINE on in the strategy when you do).
 QUIET_DEFAULTS = {"usd_smh_ibs", "rom_vol_ibs", "gold_trend_calm", "silver_gold_ok", "silver_lead_1x", "ddm_calm_guard",
                   "sso_calm_guard", "rxl_calm_guard", "usd_trend_split", "qld_split_2c",
-                  "rom_split_2c", "sso_macd_calm", "rxl_ichi_calm"}
+                  "rom_split_2c", "sso_macd_calm", "rxl_ichi_calm", "cweb_trend_crash"}
 PALETTE = ["#3DC9C0", "#E8875A", "#E46AA8", "#9BCB4E", "#F2C14E", "#5B8DEF", "#B084F5"]
 
 

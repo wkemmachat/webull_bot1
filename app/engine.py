@@ -88,9 +88,19 @@ def refresh_data(now, force=False):
     return errors
 
 
+HK_INDEXES = {"^HSI": ("Asia/Hong_Kong", "16:15")}   # index → (time zone, when its daily close is final)
+
+
 def _daily_due(sym, now, last):
     if md.source() == "csv":
         return time.time() - last > 60
+    if sym in HK_INDEXES:                             # Hong Kong: its close (15:15 Bangkok) decides the CWEB crash buys
+        tz = ZoneInfo(HK_INDEXES[sym][0])
+        loc = now.astimezone(tz)
+        fin = datetime.combine(loc.date(), datetime.strptime(HK_INDEXES[sym][1], "%H:%M").time(), tz)
+        if loc.weekday() < 5 and now >= fin and last < fin.timestamp():
+            return True
+        return time.time() - last > 30 * 60
     ny = now.astimezone(NY)
     after_close = datetime.combine(ny.date(), datetime.strptime("16:07", "%H:%M").time(), NY)
     if ny >= after_close and last < after_close.timestamp() and mh.is_trading_day(ny.date()):

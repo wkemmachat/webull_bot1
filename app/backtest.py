@@ -781,7 +781,9 @@ def _series_on(days, df):
 def _build(strat, now, cost, delay=0):
     from . import execution
     cfg = execution.exec_cfg(strat)
-    if strat.type == "momentum_basket":
+    if hasattr(strat, "backtest_run"):                   # a strategy that trades inside the day (CWEB crash buys) simulates itself
+        r = strat.backtest_run(now, cost, delay)
+    elif strat.type == "momentum_basket":
         r = _run_basket(strat, now, cost, delay)
     elif strat.family == "regime":
         r = _run_daily(strat, now, cost, delay)

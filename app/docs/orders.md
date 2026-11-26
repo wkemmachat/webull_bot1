@@ -116,3 +116,14 @@ re-priced limit) — Logs: *Buy resized for Webull buying power*. When not even 
 buying power ([Money](#/docs/money)). Before, the bot took this refusal as "no fractions for this ETF" and switched the ETF
 to whole shares for good: Live USD (6 Nov) and QLD (23 Nov). That is undone, and fractions are on again for both.
 
+## Day limit orders (26 Nov 2026)
+
+One strategy, [CWEB · Trend + Hang Seng crash buys](#/docs/strategy-cweb-trend-crash), places a **day limit order** after a small
+Hang Seng drop: a buy at a fixed price (1% under CWEB's previous close) for that day only.
+
+- It is **one order, not lots**. It goes out at the US open at that price, whatever the market does.
+- It is **not re-priced** after 1.5 minutes like other lots, and **not sent again**. Two minutes before the close it is
+  cancelled if it has not filled (Logs: *Day limit not filled*).
+- While it rests, the bot makes no market-priced top-up for that strategy.
+- The plan's line on the Orders page says "with a day limit at $…".
+

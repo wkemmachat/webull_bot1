@@ -2,7 +2,8 @@
 
   python scripts/make_demo_data.py [--dir data/csv] [--days 500]
 
-GC/SI: hourly futures bars in COMEX session hours. ETFs: daily bars (QQQ, SMH, QLD, USD, GLD, BIL, SGOV, UGL, AGQ, SLV, IYW, ROM, DIA, DDM, SSO, XLV, RXL, LQD, IEF).
+GC/SI: hourly futures bars in COMEX session hours. ETFs: daily bars (QQQ, SMH, QLD, USD, GLD, BIL, SGOV, UGL, AGQ, SLV, IYW, ROM, DIA, DDM, SSO, XLV, RXL, LQD, IEF, KWEB, CWEB, FXI)
+and the Hang Seng (^HSI).
 The prices are random walks, NOT real market data.
 """
 from __future__ import annotations
@@ -81,6 +82,10 @@ def main(out: Path, days: int, now=None):
         df.to_csv(out / f"{name}_1d.csv", index=False)
     for name, df in {"LQD": daily(13, nd, 110, 0.0001, 0.004, now), "IEF": daily(14, nd, 96, 0.00005, 0.004, now)}.items():
         df.to_csv(out / f"{name}_1d.csv", index=False)                # credit check of USD · Trend split (LQD ÷ IEF)
+    kweb = daily(15, nd, 30, 0.0003, 0.022, now)                    # China internet 1x, CWEB (2x), FXI and the Hang Seng
+    for name, df in {"KWEB": kweb, "CWEB": lever(kweb, 2, 25), "FXI": daily(16, nd, 32, 0.0002, 0.015, now),
+                     "^HSI": daily(17, nd, 22000, 0.0001, 0.016, now)}.items():
+        df.to_csv(out / f"{name}_1d.csv", index=False)
     return out
 
 

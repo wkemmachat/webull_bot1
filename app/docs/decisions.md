@@ -399,6 +399,16 @@
   status calls one a second, a 3-second cooldown on 429 with the least-recently-checked order first, an alert after 2
   minutes without an answer, fresher Yahoo prices for orders (no Webull market data on this account), 0.5% price room
   for sells, no routine price refresh around the open, and the Webull library's request dumps (with the access token) off.
+- **CWEB · Trend + Hang Seng crash buys added** (26 Nov 2026, your choice of Pick 4+ after comparing the falls of Pick 4 and
+  Pick 4+): the first strategy outside US markets ([page](#/docs/strategy-cweb-trend-crash)). New in the bot for it:
+  - a Hang Seng check after Hong Kong's close (15:15 Bangkok) that plans a buy for that day's US open;
+  - a take-profit read from the first minute's open;
+  - day limit orders (one order at a fixed price, not re-priced, cancelled before the close);
+  - a backtest that trades inside the day;
+  - signals on dividend-adjusted KWEB and FXI, as in the research.
+  The bot's backtest matches the research within about a point a year (40.5% / −24.7% over 10 years against 40.4% / −23.0%).
+  The research advises planning on 17–24% a year, below what the haircut leaves (the page says so). Added with no money;
+  run a Webull test trade of CWEB before any Live money.
 - **Buying-power refusals are not fraction refusals** (25 Nov 2026): Webull's *Insufficient Buying Power* on a fractional lot
   had switched Live USD (6 Nov) and QLD (23 Nov) to whole shares for good, which left 0.99 and 0.95 QLD unsold in two
   strategies that were out. Now such a lot is re-read and sent again sized to 97% of the buying power Webull frees (at the
