@@ -135,6 +135,14 @@ DEFAULTS = [
      {"trade": "CWEB", "signal": "KWEB", "gate": "FXI", "hk_index": "^HSI", "don_entry": 20, "don_exit": 15, "gate_ma": 200,
       "target_vol_pct": 30.0, "vol_days": 20, "size_band_pct": 20.0, "trail_pct": 15.0, "big_drop_pct": 3.0, "tp_pct": 4.0,
       "small_drop_pct": 1.75, "small_size_pct": 40.0, "small_limit_pct": 1.0, "cash_buffer_pct": 1.0, "rebalance_band_pct": 5.0}, {}),
+    # 26 Nov 2026 "QPUX: two best strategies per window", round 3 Safe: 0.4 × one-day dip after a weak close of the quantum-stock
+    # basket + 0.5 × trend (QPUX > SMA50, QQQ > SMA200, size 60% ÷ volatility) + 0.25 × RSI(2) bounce, every leg only while
+    # Bitcoin is above its 100-day average. Added with no money.
+    ("qpux_safe", "quantum_mix", "QPUX · Dip + trend + RSI, Bitcoin check (Safe)", "#7950F2",
+     {"trade": "QPUX", "basket": "QUBT:2021-10-01,IONQ:2021-10-01,RGTI:2022-03-02,QBTS:2022-08-08", "market": "QQQ", "btc": "BTC-USD",
+      "dip_weight": 0.4, "dip_ibs_max": 0.2, "dip_ma": 200, "trend_weight": 0.5, "trend_ma": 50, "market_ma": 200, "target_vol_pct": 60.0,
+      "vol_days": 20, "size_band_pct": 5.0, "rsi_weight": 0.25, "rsi_len": 2, "rsi_buy": 10.0, "rsi_exit_ma": 5, "btc_ma": 100,
+      "btc_all": True, "model_cost_pct": 21.3, "cash_buffer_pct": 1.0, "rebalance_band_pct": 5.0}, {}),
 ]
 # Earlier defaults: a strategy still on exactly these settings is moved to the new ones once (lower-cost versions, 26 Oct 2026:
 # IBS-dip T-bill half as cash + QLD IBS < 0.15; metals flat in cash instead of SGOV).
@@ -164,7 +172,7 @@ UPGRADE_WHY = {"cash_parking_2026_10": "Parks in cash instead of BIL (each BIL r
 # Added with LINE alerts off: they hold no money until you move some to them (turn LINE on in the strategy when you do).
 QUIET_DEFAULTS = {"usd_smh_ibs", "rom_vol_ibs", "gold_trend_calm", "silver_gold_ok", "silver_lead_1x", "ddm_calm_guard",
                   "sso_calm_guard", "rxl_calm_guard", "usd_trend_split", "qld_split_2c",
-                  "rom_split_2c", "sso_macd_calm", "rxl_ichi_calm", "cweb_trend_crash"}
+                  "rom_split_2c", "sso_macd_calm", "rxl_ichi_calm", "cweb_trend_crash", "qpux_safe"}
 PALETTE = ["#3DC9C0", "#E8875A", "#E46AA8", "#9BCB4E", "#F2C14E", "#5B8DEF", "#B084F5"]
 
 

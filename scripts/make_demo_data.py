@@ -86,6 +86,9 @@ def main(out: Path, days: int, now=None):
     for name, df in {"KWEB": kweb, "CWEB": lever(kweb, 2, 25), "FXI": daily(16, nd, 32, 0.0002, 0.015, now),
                      "^HSI": daily(17, nd, 22000, 0.0001, 0.016, now)}.items():
         df.to_csv(out / f"{name}_1d.csv", index=False)
+    qb = {s: daily(18 + k, nd, 10 + 5 * k, 0.0005, 0.05, now) for k, s in enumerate(("IONQ", "RGTI", "QBTS", "QUBT"))}
+    for name, df in {**qb, "QPUX": lever(qb["IONQ"], 2, 20), "BTC-USD": daily(22, nd, 60000, 0.0005, 0.03, now)}.items():
+        df.to_csv(out / f"{name}_1d.csv", index=False)               # quantum stocks, QPUX (2x) and Bitcoin
     return out
 
 

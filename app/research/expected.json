@@ -497,6 +497,25 @@
     "maxdd": -23.0,
     "bench": "CWEB held −23.7% a year, worst fall −98.7%; Pick 4 (no trailing stop) 38.8% / −25.1%; walk-forward (2018–2026) 39.5% / −21.5%; every order a day late 7.5% / −69%"
    }
+  },
+  "qpux_safe": {
+   "doc": "strategy-qpux-safe",
+   "reviewed": "2026-11-26",
+   "history": "short",
+   "expect": {
+    "cagr": 15.0,
+    "maxdd": -40.0,
+    "basis": "planning figure (short history)",
+    "period": "Jul 2022 – Oct 2026",
+    "note": "Not the backtest: QPUX listed in Aug 2025, so the bot's backtest (127.5% a year, worst fall −23.3%, Jul 2022 – Oct 2026, real fee) runs mostly on a model of QPUX built from four quantum stocks, and the research's walk-forward check (rules picked on the past only) lost 26% a year with a −94% fall. 15% a year and a −40% fall are a deliberately low planning figure; change it after a year of real results."
+   },
+   "research": {
+    "source": "QPUX: two best strategies per window, 26 Nov 2026 · round 3 Safe (Bitcoin filter on every leg)",
+    "period": "Nov 2021 – Nov 2026 (modelled before Aug 2025)",
+    "cagr": 97.0,
+    "maxdd": -22.0,
+    "bench": "QPUX held −67% a year, worst fall −99.8%; round-3 pick 94% / −26%; Safe a day late 59% / −28%; real QPUX only (Aug 2025 – Nov 2026) +81% against −95% held"
+   }
   }
  },
  "log": [
@@ -547,6 +566,10 @@
   {
    "date": "2026-11-26",
    "what": "Added cweb_trend_crash (CWEB · Trend + Hang Seng crash buys, Pick 4+ of \"CWEB (2x China internet): best buy/sell rules\"): 40.8% a year, worst fall −24.7% over Oct 2016 – Oct 2026 in the bot's own backtest on Yahoo daily prices at the real fee (research 40.4% / −23.0% to Nov 2026). The research advises planning on 17–24% a year."
+  },
+  {
+   "date": "2026-11-26",
+   "what": "Added qpux_safe (QPUX · Dip + trend + RSI, Bitcoin check (Safe), round 3 Safe of \"QPUX: two best strategies per window\"): the bot's backtest 127.5% a year, worst fall −23.3% over Jul 2022 – Oct 2026, mostly on modelled QPUX prices; planned at 15% a year with a −40% fall because of the short real history."
   }
  ]
 }

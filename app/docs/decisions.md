@@ -399,6 +399,16 @@
   status calls one a second, a 3-second cooldown on 429 with the least-recently-checked order first, an alert after 2
   minutes without an answer, fresher Yahoo prices for orders (no Webull market data on this account), 0.5% price room
   for sells, no routine price refresh around the open, and the Webull library's request dumps (with the access token) off.
+- **QPUX · Dip + trend + RSI, Bitcoin check (Safe) added** (26 Nov 2026, your choice of the Safe version after comparing
+  three versions' growth and falls; allowed on Live after a Webull test trade): new type `quantum_mix`
+  ([page](#/docs/strategy-qpux-safe)).
+  - **Legs**: a one-day buy after a weak close of the quantum-stock basket (IONQ, RGTI, QBTS, QUBT), a volatility-sized trend leg
+    (QPUX above SMA50, QQQ above SMA200) and an RSI(2) bounce leg.
+  - **Bitcoin check**: every leg needs Bitcoin's previous daily close above its 100-day average.
+  - **Backtest**: QPUX before its listing (Aug 2025) is modelled from the basket. The bot's backtest made 124% a year with a
+    −23% worst fall since Jul 2022; on real QPUX only it made +122% against −95% held.
+  - **Expected return**: because the real history is 1.3 years and the research's walk-forward check lost money, the
+    Dashboard plans with a deliberately low 15% a year and a −40% fall. Added with no money.
 - **CWEB · Trend + Hang Seng crash buys added** (26 Nov 2026, your choice of Pick 4+ after comparing the falls of Pick 4 and
   Pick 4+): the first strategy outside US markets ([page](#/docs/strategy-cweb-trend-crash)). New in the bot for it:
   - a Hang Seng check after Hong Kong's close (15:15 Bangkok) that plans a buy for that day's US open;

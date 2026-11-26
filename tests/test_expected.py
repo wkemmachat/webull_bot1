@@ -248,5 +248,8 @@ def test_every_default_plans_on_the_same_ten_years():
     F = expected.load_file()
     for sid, spec in F["strategies"].items():
         e = spec["expect"]
-        assert e["period"] == "Oct 2016 – Oct 2026" and e["basis"] == "10 yr, real fee", sid
+        if spec.get("history") == "short":                 # under 10 years of history (QPUX): a planning figure, said so
+            assert e["basis"].startswith("planning figure") and e.get("note"), sid
+        else:
+            assert e["period"] == "Oct 2016 – Oct 2026" and e["basis"] == "10 yr, real fee", sid
         assert e["cagr"] > 0 and e["maxdd"] < 0, sid
