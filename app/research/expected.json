@@ -553,6 +553,25 @@
     "maxdd": -33.2,
     "bench": "Research half A3 / half R3 (two books, yearly rebalance); A3 23.7% / −37.4%, R3 29.5% / −34.1%; UWM held 7.2% / −71.5%"
    }
+  },
+  "tsxu_2plus": {
+   "doc": "strategy-tsxu-2plus",
+   "reviewed": "2026-11-27",
+   "history": "short",
+   "expect": {
+    "cagr": 32.5,
+    "maxdd": -82.2,
+    "basis": "planning figure (since 2002, modelled before Oct 2025)",
+    "period": "Dec 2002 – Nov 2026",
+    "note": "Not the 10-year backtest (99.5% a year to Nov 2026, worst fall −42.1%), which the AI chip boom dominates. The bot's own backtest since Dec 2002 (TSXU modelled as 2 × SMH minus 5% a year before it listed in Oct 2025, real fee) made 32.5% a year with a −82.2% worst fall; 2002–2012 alone lost 7.1% a year. TSXU itself has 14 months of real prices."
+   },
+   "research": {
+    "source": "TSXU: 2 best strategies, rounds 1–4, 26 Nov 2026 · Strategy 2+",
+    "period": "Oct 2016 – Oct 2026 (modelled before Oct 2025)",
+    "cagr": 103.1,
+    "maxdd": -44.0,
+    "bench": "Since Oct 2013 75.7% / −44.0%; Strategy 1 (no dips) 64.3% / −39.4%; fee 0.25% 89.7% / −45.3%; every order a day late 14.0% / −69.0%; on USD 111.0% / −40.1%; the research advises planning on 50–60% a year with a −47% fall"
+   }
   }
  },
  "log": [
@@ -615,6 +634,10 @@
   {
    "date": "2026-11-27",
    "what": "Added uwm_a3_r3 (UWM · Trend + credit + calm dips (A3 + R3)): rules A3 and R3 of the UWM research held half each in one position; 26.0% a year, worst fall −33.3% over Oct 2016 – Oct 2026 in the bot's own backtest at the real fee (research half-and-half 26.9% / −33.2%)."
+  },
+  {
+   "date": "2026-11-27",
+   "what": "Added tsxu_2plus (TSXU · Trend + calm + credit + dips (2+), Strategy 2+ of \"TSXU: 2 best strategies\"): the bot's backtest 99.5% a year, worst fall −42.1% over 10 years and 32.5% / −82.2% since Dec 2002 (TSXU modelled as 2 × SMH before Oct 2025); planned at the since-2002 figure because the rules lost money in 2002–2012, before the research's window."
   }
  ]
 }

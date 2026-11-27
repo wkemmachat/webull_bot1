@@ -16,7 +16,7 @@ from __future__ import annotations
 KNOWN = {
     "QQQ": ("nasdaq", 1), "QQQM": ("nasdaq", 1), "QLD": ("nasdaq", 2), "TQQQ": ("nasdaq", 3),
     "IYW": ("tech", 1), "XLK": ("tech", 1), "VGT": ("tech", 1), "ROM": ("tech", 2), "TECL": ("tech", 3),
-    "SMH": ("semis", 1), "SOXX": ("semis", 1), "USD": ("semis", 2), "SOXL": ("semis", 3),
+    "SMH": ("semis", 1), "SOXX": ("semis", 1), "USD": ("semis", 2), "TSXU": ("semis", 2), "SOXL": ("semis", 3),
     "DIA": ("dow", 1), "DDM": ("dow", 2), "UDOW": ("dow", 3),
     "SPY": ("sp500", 1), "VOO": ("sp500", 1), "SSO": ("sp500", 2), "UPRO": ("sp500", 3),
     "XLV": ("health", 1), "VHT": ("health", 1), "RXL": ("health", 2), "CURE": ("health", 3),

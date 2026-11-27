@@ -157,6 +157,12 @@ DEFAULTS = [
      {"trade": "UWM", "signal": "IWM", "spy": "SPY", "weight_a": 0.5, "weight_r": 0.5, "a_ema": 100, "a_vol_cap": 35.0, "a_size_pct": 99.0,
       "r_ema": 150, "r_vol_cap": 30.0, "r_size_pct": 75.0, "risk_ma": 100, "credit_ma": 100, "spy_ma": 200, "dip_ibs_max": 0.15,
       "dip_days": 5, "vol_days": 20, "calm_lookback": 252, "calm_pct": 90.0, "cash_buffer_pct": 1.0, "rebalance_band_pct": 10.0}, {}),
+    # 27 Nov 2026 TSXU research Strategy 2+ (unbeaten after four rounds): hold TSXU while SMH > EMA200 (1% band), SMH calm and
+    # LQD/IEF > SMA100; otherwise one-day buys after SMH IBS < 0.25 (75% when SMH is stormy). Added with no money.
+    ("tsxu_2plus", "trend_credit_dip", "TSXU · Trend + calm + credit + dips (2+)", "#E8590C",
+     {"trade": "TSXU", "signal": "SMH", "ema_days": 200, "band_pct": 1.0, "vol_days": 20, "vol_lookback": 252, "calm_q": 90.0,
+      "credit_ma": 100, "dip_ibs_max": 0.25, "dip_size_pct": 100.0, "storm_q": 95.0, "storm_size_pct": 75.0, "model_basket": "SMH:100",
+      "model_cost_pct": 5.0, "cash_buffer_pct": 1.0, "rebalance_band_pct": 20.0}, {}),
 ]
 # Earlier defaults: a strategy still on exactly these settings is moved to the new ones once (lower-cost versions, 26 Oct 2026:
 # IBS-dip T-bill half as cash + QLD IBS < 0.15; metals flat in cash instead of SGOV).
@@ -186,7 +192,7 @@ UPGRADE_WHY = {"cash_parking_2026_10": "Parks in cash instead of BIL (each BIL r
 # Added with LINE alerts off: they hold no money until you move some to them (turn LINE on in the strategy when you do).
 QUIET_DEFAULTS = {"usd_smh_ibs", "rom_vol_ibs", "gold_trend_calm", "silver_gold_ok", "silver_lead_1x", "ddm_calm_guard",
                   "sso_calm_guard", "rxl_calm_guard", "usd_trend_split", "qld_split_2c",
-                  "rom_split_2c", "sso_macd_calm", "rxl_ichi_calm", "cweb_trend_crash", "qpux_safe", "ram_mom_calm", "uwm_a3_r3"}
+                  "rom_split_2c", "sso_macd_calm", "rxl_ichi_calm", "cweb_trend_crash", "qpux_safe", "ram_mom_calm", "uwm_a3_r3", "tsxu_2plus"}
 PALETTE = ["#3DC9C0", "#E8875A", "#E46AA8", "#9BCB4E", "#F2C14E", "#5B8DEF", "#B084F5"]
 
 

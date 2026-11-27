@@ -63,7 +63,7 @@ def main(out: Path, days: int, now=None):
     qqq = daily(3, nd, 380, 0.0007, 0.012, now)
     smh = daily(4, nd, 180, 0.0008, 0.018, now)
     gld = daily(5, nd, 200, 0.0004, 0.009, now)
-    for name, df in {"QQQ": qqq, "SMH": smh, "GLD": gld, "QLD": lever(qqq, 2, 70), "USD": lever(smh, 2, 50),
+    for name, df in {"QQQ": qqq, "SMH": smh, "GLD": gld, "QLD": lever(qqq, 2, 70), "USD": lever(smh, 2, 50), "TSXU": lever(smh, 2, 60),
                      "UGL": lever(gld, 2, 40), "AGQ": lever(daily(6, nd, 30, 0.0004, 0.016, now), 2, 35),
                      "BIL": daily(7, nd, 91.0, 0.00015, 0.0003, now), "SGOV": daily(8, nd, 100.2, 0.00015, 0.0003, now),
                      "SPY": daily(9, nd, 500, 0.0005, 0.01, now)}.items():

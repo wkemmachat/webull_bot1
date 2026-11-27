@@ -399,6 +399,13 @@
   status calls one a second, a 3-second cooldown on 429 with the least-recently-checked order first, an alert after 2
   minutes without an answer, fresher Yahoo prices for orders (no Webull market data on this account), 0.5% price room
   for sells, no routine price refresh around the open, and the Webull library's request dumps (with the access token) off.
+- **TSXU · Trend + calm + credit + dips (2+) added** (27 Nov 2026, Strategy 2+ of the TSXU research, unbeaten after four
+  rounds; allowed on Live after a Webull test trade, against the advice that it repeats the USD strategies): new type
+  `trend_credit_dip` ([page](#/docs/strategy-tsxu-2plus)). Hold TSXU while SMH is above its EMA200 (1% band), calm and
+  LQD ÷ IEF is above its SMA100; otherwise one-day buys after SMH closes with IBS < 0.25 (75% when SMH is stormy). TSXU
+  listed on 1 Oct 2025, so the backtest models it as 2 × SMH minus 5% a year before then. The research started in 2013;
+  the bot's backtest from 2002 shows the rules lost money in 2002–2012 (−7% a year, worst fall −82%), so the expected
+  return is the since-2002 figure, not the 10-year one.
 - **UWM · Trend + credit + calm dips (A3 + R3) added** (27 Nov 2026, your request to combine rules A3 and R3 into one strategy;
   allowed on Live after a Webull test trade): new type `two_rule_mix` ([page](#/docs/strategy-uwm-a3-r3)). Each day it
   holds half of what A3 holds and half of what R3 holds, in one UWM position.
