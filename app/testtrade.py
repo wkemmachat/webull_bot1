@@ -296,7 +296,7 @@ def _begin(t, broker, now):
     except Exception as e:
         _upd(t["id"], error=f"no price yet: {e}"[:300])
         return
-    limit = _test_limit(q, "BUY", t["tries"] or 0, sym)
+    limit = _test_limit(q, "BUY", t["tries"] or 0, sym, t["mode"], now)
     value = qty * limit
     if hk.is_hk(sym):
         return _begin_hk(t, broker, now, qty, limit, value)
@@ -347,15 +347,18 @@ def _market(t) -> bool:
     return (t.get("order_type") or "LIMIT").upper() == "MARKET"
 
 
-def _test_limit(q, side, tries, sym=None):
+def _test_limit(q, side, tries, sym=None, mode=None, now=None):
     """Like a lot: through the quote, 0.5% wider when Webull shows no bid/ask (thin ETFs such as ROM), and each new try
     0.5% further (at most 2%). A limit only caps the price; a liquid ETF still fills at the market. Hong Kong prices go
     onto HKEX's tick table (HK$0.01 steps for HK$0.50–10)."""
     from . import execution
+    old = False
+    if mode and sym and not hk.is_hk(sym):
+        q, old = execution.fresh_quote(mode, sym, q, now or md.now_utc())   # the test's own buy beats an old quote
     base = execution._limit(q, side, _offset())
     sign = 1 if side == "BUY" else -1
     extra = (execution.STALE_EXTRA if not q.get("ask" if side == "BUY" else "bid") else 0.0) \
-        + min(execution.CHASE_STEP * tries, execution.CHASE_CAP)
+        + min(execution.CHASE_STEP * tries, execution.STALE_CAP if old else execution.CHASE_CAP)
     if sym is not None and hk.is_hk(sym):
         return hk.round_price(base * (1 + sign * extra), side)
     return round(base * (1 + sign * extra), 2)
@@ -509,7 +512,7 @@ def _start_sell(t, broker, now):
     except Exception as e:
         _upd(t["id"], error=f"no price yet: {e}"[:300])
         return
-    _send(t, broker, "SELL", left, _test_limit(q, "SELL", t["tries"] or 0, t["symbol"]), now)
+    _send(t, broker, "SELL", left, _test_limit(q, "SELL", t["tries"] or 0, t["symbol"], t["mode"], now), now)
 
 
 def _finish(t):

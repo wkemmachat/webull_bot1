@@ -360,24 +360,61 @@ def _limit(q, side, offset):
 STALE_EXTRA = 0.005      # no trade yet in today's session (thin ETF at the open): the last price is yesterday's close
 CHASE_STEP = 0.005       # each retry of a lot moves the limit this much further (a limit only caps the price paid)
 CHASE_CAP = 0.02         # never more than this beyond the lot's first limit
+STALE_CAP = 0.05         # … or this when the quote is old (a thin ETF: no trade for minutes, so its last price may be off)
+STALE_QUOTE_S = 300      # a quote whose last trade is older than this, during the session, is old
+OWN_FILL_S = 1800        # the bot's own fill of the symbol this recent is a price too
+
+
+def own_fill(mode, symbol, after: int):
+    """(price, time) of the bot's latest fill of `symbol` in this mode since `after`: strategy lots and Go-live test
+    trades. The fill is the market's real price at that moment."""
+    best = None
+    r = db.one("SELECT avg_price p, updated_at t FROM orders WHERE mode=? AND symbol=? AND filled_qty>0 AND avg_price>0 "
+               "AND updated_at>=? ORDER BY updated_at DESC LIMIT 1", (mode, symbol, after))
+    if r and r["p"]:
+        best = (float(r["p"]), int(r["t"]))
+    t = db.one("SELECT bought, buy_value, sold, sell_value, updated_at t FROM test_trades WHERE mode=? AND symbol=? "
+               "AND bought>0 AND updated_at>=? ORDER BY updated_at DESC LIMIT 1", (mode, symbol, after))
+    if t and (best is None or t["t"] > best[1]):
+        px = t["sell_value"] / t["sold"] if (t["sold"] or 0) > 0 else t["buy_value"] / t["bought"]
+        if px > 0:
+            best = (round(float(px), 4), int(t["t"]))
+    return best
+
+
+def fresh_quote(mode, symbol, q: dict, now) -> tuple:
+    """(quote, old): the quote, or the bot's own fill when that is newer. A thin ETF's quote (Yahoo's last 1-minute bar,
+    or Webull's last trade) can be minutes old while the bot has just traded at another price: 27 Nov, AIBU's quote said
+    $46.69 a minute after the bot bought at $45.30, so a sell limit from the quote sat above the market.
+    old: the quote's last trade is over STALE_QUOTE_S old during the session, so retries may move further (STALE_CAP)."""
+    ts = now.timestamp()
+    qt = int(q.get("time") or 0)
+    f = own_fill(mode, symbol, int(ts) - OWN_FILL_S) if mode else None
+    if f and f[1] > qt:
+        return {**q, "price": f[0], "bid": None, "ask": None, "time": f[1], "source": "own fill"}, False
+    old = bool(qt) and ts - qt > STALE_QUOTE_S and bool(mh.current_close(now, "CORE"))
+    return q, old
 
 
 def lot_limit(o, q, side, offset, now):
     """The limit for a lot: through the quote by `offset`; wider when the quote has no trade yet today; on a retry at least
     CHASE_STEP × retries beyond the lot's first limit (capped at CHASE_CAP), so a lot whose price ran away still fills.
     Webull fills a buy limit at the best ask at or below it, so a higher limit does not mean a worse price by itself."""
+    q, old = fresh_quote(o.get("mode"), o["symbol"], q, now)
+    cap = STALE_CAP if old else CHASE_CAP
     base = _limit(q, side, offset)
     sign = 1 if side == "BUY" else -1
     b = mh.session_bounds(now.astimezone(mh.NY).date(), o.get("session") or "CORE")
     t = q.get("time") or 0
-    if b and t and t < b[0].timestamp() and not q.get("ask" if side == "BUY" else "bid"):
+    fill = q.get("source") == "own fill"       # a fill was at the ask or the bid, not through the spread: room as for an old quote
+    if (fill or (b and t and t < b[0].timestamp())) and not q.get("ask" if side == "BUY" else "bid"):
         base = round(base * (1 + sign * STALE_EXTRA), 2)
     if (o.get("retry") or 0) > 0:
         first = db.one("SELECT limit_price FROM orders WHERE plan_id=? AND lot=? AND symbol=? AND side=? AND retry=0 AND limit_price>0",
                        (o["plan_id"], o["lot"], o["symbol"], side))
         if first and first["limit_price"]:
             f0 = float(first["limit_price"])
-            want = f0 * (1 + sign * min(CHASE_STEP * o["retry"], CHASE_CAP))
+            want = f0 * (1 + sign * min(CHASE_STEP * o["retry"], cap))
             base = max(base, round(want, 2)) if side == "BUY" else min(base, round(want, 2))
     return base
 

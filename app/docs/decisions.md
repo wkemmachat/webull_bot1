@@ -1,6 +1,11 @@
 <!--{"title": "Design decisions", "group": "Help"}-->
 # Design decisions (October 2026)
 
+- **Old quotes on thin ETFs** (27 Nov 2026): in the Live AIBU test trade the quote (Yahoo's last 1-minute bar, as this
+  account has no Webull market data) said $46.69 a minute after the bot bought at $45.30, so every sell limit sat above
+  the market. Now an order's limit comes from the bot's own fill of that ETF in the same mode in the last 30 minutes
+  whenever that fill is newer than the quote, and when the quote's last trade is over 5 minutes old during the session
+  a lot's retries may move up to 5% from its first limit (2% otherwise). Go-live test trades use the same rule.
 - **Strategy pool** (27 Nov 2026): with 20+ strategies, about 13 are in a trade on an average day, so fixed money per
   strategy leaves cash idle. Options studied: fixed sleeves that compound (money piles up in the winners), equal re-splits,
   volatility sizing, and a shared pool with a trade size and a cap per market group. The pool won on return for its risk;
