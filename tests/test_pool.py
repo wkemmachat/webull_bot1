@@ -214,3 +214,14 @@ def test_health_line_adds_up(clean):
     items = []
     health._pool_item(items, MODE, "Paper")
     assert items and items[0]["status"] == "ok" and "= $" in items[0]["detail"]
+
+
+def test_choose_members_groups_by_the_etf_traded():
+    assert pool.underlying(S.get("qld_split_2c"))[0] == "QLD"
+    assert pool.underlying(S.get("qld_split_2c"))[1] == "Nasdaq-100 2x"
+    assert pool.underlying(S.get("usd_trend_split"))[0] == pool.underlying(S.get("semis_regime"))[0] == "USD"
+    assert pool.underlying(S.get("silver_lead_1x"))[0] == "AGQ"                       # AGQ first, SLV as its 1x fallback
+    c1, c2 = pool.underlying(S.get("c27_mom")), pool.underlying(S.get("c27_mom2x"))
+    assert c1[0] == c2[0] and c1[1].endswith("stocks")                                 # the two baskets share one group
+    r = pool.ranks(MODE)
+    assert r["qld_split_2c"]["etf"] == "QLD" and set(r["qld_split_2c"]) >= {"r10", "dd10", "ret_dd", "cap_group"}

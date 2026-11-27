@@ -458,6 +458,11 @@ async def money_action(action: str, request: Request, u=Depends(user)):
 
 
 # ---------------------------------------------------------------- strategy pool
+@app.get("/api/pool/ranks")
+async def pool_ranks(mode: str = "paper", u=Depends(user)):
+    return await asyncio.to_thread(pool.ranks, mode_of(mode))
+
+
 @app.get("/api/pool")
 def pool_get(mode: str = "paper", u=Depends(user)):
     return pool.view(mode_of(mode))

@@ -82,6 +82,32 @@ def main_symbol(s) -> str | None:
     return None
 
 
+def underlying(s) -> tuple:
+    """(key, label) of the ETF a strategy trades, for Choose members: 'QLD' / 'Nasdaq-100 2x'. A basket of stocks
+    (C2-7) is one key per market: 'Nasdaq-100 stocks' / '7 stocks'."""
+    park = parking(s)
+    syms = [x for x in (s.trade_symbols() or []) if x and x not in park]
+    if not syms:
+        return "Other", ""
+    if len(syms) > 2:
+        return group_label(group_of(s)), f"{len(syms)} stocks"
+    g, lev = exposure.classify(syms[0])
+    return syms[0], (f"{group_label(g)} {lev:g}x" if g != "other" else "")
+
+
+def ranks(mode: str) -> dict:
+    """Choose members: each strategy's ETF and its 10-year backtest (the Backtest page's numbers; nothing is re-run)."""
+    from . import btview
+    rows = {r["id"]: r for r in btview.overview(mode).get("rows", [])}
+    out = {}
+    for s in S.all_instances():
+        key, label = underlying(s)
+        r = rows.get(s.id) or {}
+        out[s.id] = {"etf": key, "etf_label": label, "cap_group": group_label(group_of(s)), "r10": r.get("r10"),
+                     "dd10": r.get("dd10"), "ret_dd": r.get("ret_dd"), "years": r.get("years")}
+    return out
+
+
 def group_of(s) -> str:
     sym = main_symbol(s)
     if not sym:

@@ -53,10 +53,13 @@
   /* Expected return of a mix (the pool backtest): fills box, polls while the members' backtests are built. */
   V.poolExpected = async function (box, body, small) {
     let stop = false;
+    const me = (box._req = (box._req || 0) + 1);        // only the newest request may write the box
+    const gone = () => stop || !box.isConnected || box._req !== me;
     const tick = async () => {
-      if (stop || !box.isConnected) return;
+      if (gone()) return;
       let r;
-      try { r = await U.api('/api/pool/backtest', { body }); } catch (e) { box.innerHTML = `<div class="muted small">Expected return: ${U.esc(e.message)}</div>`; return; }
+      try { r = await U.api('/api/pool/backtest', { body }); } catch (e) { if (!gone()) box.innerHTML = `<div class="muted small">Expected return: ${U.esc(e.message)}</div>`; return; }
+      if (gone()) return;
       if (r.empty) { box.innerHTML = '<div class="muted small">Tick members to see the expected return of the mix.</div>'; return; }
       if (!r.ready) { box.innerHTML = `<div class="muted small"><span class="spin"></span> Expected return of this mix: running the members' backtests (${r.done} of ${r.of})…</div>`; setTimeout(tick, 2500); return; }
       if (r.error) { box.innerHTML = `<div class="muted small">Expected return: ${U.esc(r.error)}</div>`; return; }
@@ -83,34 +86,80 @@
   };
 
   V.poolMembersDialog = async function (p, mode, onDone) {
-    const all = [...p.members.map((m) => ({ ...m, on: true })), ...p.outside.map((r) => ({ ...r, on: false }))];
-    const byG = {};
-    all.forEach((r) => { (byG[r.group_label] = byG[r.group_label] || []).push(r); });
-    const list = Object.keys(byG).sort().map((g) => `<div class="eyebrow" style="padding:12px 4px 2px">${U.esc(g)}</div>` + byG[g].sort((a, b) => a.name.localeCompare(b.name)).map((r) =>
-      `<label class="row" style="gap:10px;padding:8px 4px;border-bottom:1px solid var(--line2);font-size:13.5px"><input type="checkbox" data-m="${r.id}" ${r.on ? 'checked' : ''} style="width:17px;height:17px;accent-color:var(--accent)">${U.dot(r.color, 9)}<span style="flex:1">${U.esc(r.name)}</span><span class="muted small">signal: ${U.esc(r.state || '—')}</span></label>`).join('')).join('');
+    let R = {};
+    try { R = await U.api('/api/pool/ranks?mode=' + mode); } catch (e) { U.toast('Backtest figures not available: ' + e.message); }
+    const all = [...p.members.map((m) => ({ ...m, on: true })), ...p.outside.map((r) => ({ ...r, on: false }))]
+      .map((r) => ({ ...r, ...(R[r.id] || { etf: r.group_label, etf_label: '', cap_group: r.group_label }) }));
+    let by = 'r10';
+    const score = (r) => (r[by] == null || r.r10 == null ? -1e9 : r[by]);
+    const GRID = 'display:grid;grid-template-columns:22px 30px minmax(0,1fr) 92px 78px 112px;gap:10px;align-items:center';
+    const list = (ticked) => {
+      const G = {};
+      all.forEach((r) => { (G[r.etf] = G[r.etf] || []).push(r); });
+      Object.values(G).forEach((g) => g.sort((a, b) => score(b) - score(a) || a.name.localeCompare(b.name)));
+      const keys = Object.keys(G).sort((a, b) => score(G[b][0]) - score(G[a][0]) || a.localeCompare(b));
+      const capN = {};
+      all.forEach((r) => { if (ticked.has(r.id)) capN[r.cap_group] = (capN[r.cap_group] || 0) + 1; });
+      return keys.map((k) => {
+        const g = G[k], n = g.length, t = g.filter((r) => ticked.has(r.id)).length, c = g[0].cap_group;
+        const share = capN[c] > 1 ? ` · <span style="color:var(--warn-fg)">${capN[c]} ticked share the ${U.esc(c)} cap</span>` : '';
+        const head = `<div class="row sb" style="gap:10px;flex-wrap:wrap;align-items:baseline;padding:16px 6px 6px;border-bottom:1px solid var(--line);font-size:14px">
+          <div><b>${U.esc(k)}</b>${g[0].etf_label ? ` <span class="muted">· ${U.esc(g[0].etf_label)}</span>` : ''}</div>
+          <div class="muted small">${n} strateg${n === 1 ? 'y' : 'ies'}${t ? ` · ${t} ticked` : ''} · cap group: ${U.esc(c)}${share}</div></div>`;
+        return head + g.map((r, i) => {
+          const best = i === 0 && n > 1 && r.r10 != null;
+          const r10 = r.r10 != null ? `<b class="num ${U.cls(r.r10)}">${r.r10 > 0 ? '+' : ''}${r.r10.toFixed(1)}%</b>`
+            : `<span class="muted small">${r.years ? r.years + ' years only' : 'no backtest'}</span>`;
+          return `<label style="${GRID};padding:8px 6px;border-bottom:1px solid var(--line2);font-size:13.5px;cursor:pointer">
+            <input type="checkbox" data-m="${r.id}" ${ticked.has(r.id) ? 'checked' : ''} style="width:17px;height:17px;accent-color:var(--accent)">
+            <span class="num muted small" style="text-align:center">${n > 1 ? '#' + (i + 1) : ''}</span>
+            <span class="row" style="gap:8px;flex-wrap:nowrap;min-width:0">${U.dot(r.color, 9)}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${U.esc(r.name)}">${U.esc(r.name)}</span>${best ? U.pill('ok', 'Best') : ''}</span>
+            <span style="text-align:right">${r10}</span>
+            <span class="num muted" style="text-align:right">${r.dd10 != null ? r.dd10.toFixed(1) + '%' : '—'}</span>
+            <span style="text-align:right">${U.pill('', 'signal: ' + U.esc(r.state || '—'))}</span></label>`;
+        }).join('');
+      }).join('');
+    };
     U.modal(`Choose pool members · ${U.modeLabel[mode]}`, `<div class="col" style="gap:12px">
-      <div class="muted small">Only members trade; the others show signals only. Taking one out lets its open trade finish first.${mode === 'live' ? ' <b>Live:</b> a strategy can join only after the Webull test trade of its ETF passed (Go-live → Test trade).' : ''}</div>
-      <div style="max-height:46vh;overflow:auto">${list}</div>
+      <div class="row sb" style="flex-wrap:wrap;gap:10px"><div class="muted small" style="max-width:520px">Grouped by the ETF each strategy trades; inside each group the best 10-year backtest comes first. Only members trade; the others show signals only.${mode === 'live' ? ' <b>Live:</b> a strategy can join only after the Webull test trade of its ETF passed (Go-live → Test trade).' : ''}</div>
+        <div class="row" style="gap:8px"><span class="muted small">Rank by</span><div class="seg" id="pm-by"><button type="button" class="on" data-by="r10">A year (10Y)</button><button type="button" data-by="ret_dd">Return ÷ worst fall</button></div></div></div>
+      <div style="${GRID};padding:0 6px;font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em"><span></span><span>Rank</span><span>Strategy</span><span style="text-align:right">A year 10Y</span><span style="text-align:right">Worst fall</span><span style="text-align:right">Now</span></div>
+      <div style="max-height:50vh;overflow:auto;margin-top:-8px" id="pm-list"></div>
       <div class="note" id="pm-sum"></div>
       <div class="idlebox card" style="padding:12px 14px" id="pm-exp"></div>
       <div class="row" style="justify-content:flex-end;gap:8px"><button class="btn" id="pm-c">Cancel</button><button class="btn p" id="pm-go">Save members</button></div></div>`, {
-      width: 760,
+      width: 880,
       onOpen: (box, close) => {
         let timer = null;
-        const picked = () => [...box.querySelectorAll('[data-m]')].filter((x) => x.checked).map((x) => x.dataset.m);
+        const ticked = new Set(p.members.map((m) => m.id));
+        const draw = () => {
+          const el = box.querySelector('#pm-list'), top = el.scrollTop;
+          el.innerHTML = list(ticked);
+          el.scrollTop = top;
+        };
         const upd = () => {
-          const ids = picked(), n = ids.length;
+          const ids = [...ticked], n = ids.length;
           const sug = n ? Math.round(Math.min(25, Math.max(10, 150 / n)) * 2) / 2 : 15;
           const slot = p.slot_auto ? sug : p.slot_pct;
           box.querySelector('#pm-sum').innerHTML = `<b>${n} member${n === 1 ? '' : 's'} selected.</b> Suggested trade size: <b>${sug}%</b> (150% ÷ ${n || 1}, kept between 10% and 25%). ${p.slot_auto ? 'The pool uses the suggestion.' : `Your setting is ${p.slot_pct}% (Pool settings).`}`;
           clearTimeout(timer);
           timer = setTimeout(() => V.poolExpected(box.querySelector('#pm-exp'), { mode, members: ids, slot_pct: slot }, true), 400);
         };
-        box.querySelectorAll('[data-m]').forEach((x) => x.addEventListener('change', upd));
-        upd();
+        box.querySelector('#pm-list').addEventListener('change', (e) => {
+          const id = e.target.dataset && e.target.dataset.m;
+          if (!id) return;
+          e.target.checked ? ticked.add(id) : ticked.delete(id);
+          draw(); upd();
+        });
+        box.querySelectorAll('#pm-by [data-by]').forEach((b) => b.addEventListener('click', () => {
+          by = b.dataset.by;
+          box.querySelectorAll('#pm-by [data-by]').forEach((x) => x.classList.toggle('on', x === b));
+          draw();
+        }));
+        draw(); upd();
         box.querySelector('#pm-c').onclick = close;
         box.querySelector('#pm-go').onclick = (ev) => U.busy(ev.target, async () => {
-          await U.api('/api/pool/members', { body: { mode, members: picked() } });
+          await U.api('/api/pool/members', { body: { mode, members: [...ticked] } });
           U.toast('Pool members saved'); close(); onDone && onDone();
         });
       },
