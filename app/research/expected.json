@@ -516,6 +516,25 @@
     "maxdd": -22.0,
     "bench": "QPUX held −67% a year, worst fall −99.8%; round-3 pick 94% / −26%; Safe a day late 59% / −28%; real QPUX only (Aug 2025 – Nov 2026) +81% against −95% held"
    }
+  },
+  "ram_mom_calm": {
+   "doc": "strategy-ram-mom-calm",
+   "reviewed": "2026-11-26",
+   "history": "short",
+   "expect": {
+    "cagr": 34.9,
+    "maxdd": -71.1,
+    "basis": "planning figure (since 2002, modelled before Jun 2026)",
+    "period": "Dec 2002 – Nov 2026",
+    "note": "Not the 10-year backtest (80% a year to Oct 2026), which the 2025–26 memory boom dominates. The bot's own backtest since Dec 2002 (RAM modelled as 2 × Micron 70% / Seagate 15% / Western Digital 15% before it listed in Jun 2026, real fee) made 34.9% a year with a −71.1% worst fall; 8 years before the boom (Nov 2016 – Nov 2024) 29.3% / −44.5%. RAM itself has 5 months of real prices."
+   },
+   "research": {
+    "source": "RAM (2x memory ETF): two best strategies, 26 Nov 2026 · rule A (kept after round 2)",
+    "period": "Nov 2016 – Nov 2026",
+    "cagr": 79.7,
+    "maxdd": -62.5,
+    "bench": "RAM held 20.0% / −90.1%; on a 2x built from US memory stocks 74.9% / −59%; before the boom (2016–24) 20.6%; every order a day late 15.6% / −86%; since RAM listed −14.9%"
+   }
   }
  },
  "log": [
@@ -570,6 +589,10 @@
   {
    "date": "2026-11-26",
    "what": "Added qpux_safe (QPUX · Dip + trend + RSI, Bitcoin check (Safe), round 3 Safe of \"QPUX: two best strategies per window\"): the bot's backtest 127.5% a year, worst fall −23.3% over Jul 2022 – Oct 2026, mostly on modelled QPUX prices; planned at 15% a year with a −40% fall because of the short real history."
+  },
+  {
+   "date": "2026-11-26",
+   "what": "Added ram_mom_calm (RAM · Momentum + calm + one-day dips, rule A of \"RAM (2x memory ETF): two best strategies\"): the bot's backtest 73.7% a year, worst fall −62.5% over 10 years and 34.9% / −71.1% since Dec 2002 (RAM modelled from US memory stocks before Jun 2026); planned at the since-2002 figure because the boom dominates the 10 years."
   }
  ]
 }

@@ -399,6 +399,14 @@
   status calls one a second, a 3-second cooldown on 429 with the least-recently-checked order first, an alert after 2
   minutes without an answer, fresher Yahoo prices for orders (no Webull market data on this account), 0.5% price room
   for sells, no routine price refresh around the open, and the Webull library's request dumps (with the access token) off.
+- **RAM · Momentum + calm + one-day dips added** (26 Nov 2026, your choice of rule A over B; allowed on Live after a
+  Webull test trade): new type `momentum_calm` ([page](#/docs/strategy-ram-mom-calm)). Holds RAM while Micron and SMH are
+  above their close of 126 days ago, Micron above its close of 20 days ago and SMH calm; otherwise one-day dips after RAM
+  closes near its low.
+  - **Backtest**: RAM before its listing (Jun 2026) is modelled from US memory stocks. The bot's backtest made 73.7% a year
+    over 10 years (−62.5% worst fall) and 34.9% / −71.1% since Dec 2002; since RAM listed −15.0% against −84.4% held.
+  - **Expected return**: the Dashboard plans with the since-2002 figure, because the 2025–26 boom dominates the 10 years.
+    Added with no money.
 - **QPUX · Dip + trend + RSI, Bitcoin check (Safe) added** (26 Nov 2026, your choice of the Safe version after comparing
   three versions' growth and falls; allowed on Live after a Webull test trade): new type `quantum_mix`
   ([page](#/docs/strategy-qpux-safe)).

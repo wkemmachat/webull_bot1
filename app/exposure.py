@@ -23,6 +23,7 @@ KNOWN = {
     "GLD": ("gold", 1), "IAU": ("gold", 1), "GLDM": ("gold", 1), "UGL": ("gold", 2),
     "SLV": ("silver", 1), "AGQ": ("silver", 2),
     "KWEB": ("china", 1), "CWEB": ("china", 2), "FXI": ("china", 1),
+    "RAM": ("memory", 2), "MU": ("memory", 1), "DRAM": ("memory", 1),
     "QPUX": ("quantum", 2), "IONQ": ("quantum", 1), "RGTI": ("quantum", 1), "QBTS": ("quantum", 1), "QUBT": ("quantum", 1),
     "BIL": ("tbills", 0), "SGOV": ("tbills", 0), "SHV": ("tbills", 0),
 }
@@ -35,6 +36,7 @@ GROUPS = {   # key: (label, what it follows, colour)
     "dow": ("Dow Jones", "DIA", "#C77DFF"),
     "health": ("Health care", "XLV", "#FF6B6B"),
     "china": ("China internet", "KWEB", "#E03131"),
+    "memory": ("Memory chips", "DRAM, MU", "#F76707"),
     "quantum": ("Quantum computing", "IONQ, RGTI, QBTS, QUBT", "#7950F2"),
     "gold": ("Gold", "GLD", "#D4A017"),
     "silver": ("Silver", "SLV", "#9AA5B1"),

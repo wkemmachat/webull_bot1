@@ -89,6 +89,10 @@ def main(out: Path, days: int, now=None):
     qb = {s: daily(18 + k, nd, 10 + 5 * k, 0.0005, 0.05, now) for k, s in enumerate(("IONQ", "RGTI", "QBTS", "QUBT"))}
     for name, df in {**qb, "QPUX": lever(qb["IONQ"], 2, 20), "BTC-USD": daily(22, nd, 60000, 0.0005, 0.03, now)}.items():
         df.to_csv(out / f"{name}_1d.csv", index=False)               # quantum stocks, QPUX (2x) and Bitcoin
+    mu = daily(23, nd, 100, 0.0006, 0.03, now)                      # memory: Micron, Seagate, Western Digital and RAM (2x)
+    for name, df in {"MU": mu, "STX": daily(24, nd, 90, 0.0005, 0.025, now), "WDC": daily(25, nd, 60, 0.0005, 0.025, now),
+                     "RAM": lever(mu, 2, 15)}.items():
+        df.to_csv(out / f"{name}_1d.csv", index=False)
     return out
 
 

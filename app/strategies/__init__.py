@@ -143,6 +143,13 @@ DEFAULTS = [
       "dip_weight": 0.4, "dip_ibs_max": 0.2, "dip_ma": 200, "trend_weight": 0.5, "trend_ma": 50, "market_ma": 200, "target_vol_pct": 60.0,
       "vol_days": 20, "size_band_pct": 5.0, "rsi_weight": 0.25, "rsi_len": 2, "rsi_buy": 10.0, "rsi_exit_ma": 5, "btc_ma": 100,
       "btc_all": True, "model_cost_pct": 21.3, "cash_buffer_pct": 1.0, "rebalance_band_pct": 5.0}, {}),
+    # 26 Nov 2026 "RAM (2x memory ETF): two best strategies", rule A (kept after round 2): hold RAM while MU and SMH are above
+    # their close of 126 days ago, MU above its close of 20 days ago and SMH calm (20-day volatility at or below its 90th
+    # percentile of 504 days); otherwise one-day buys after RAM closes near its low (IBS < 0.10). Added with no money.
+    ("ram_mom_calm", "momentum_calm", "RAM · Momentum + calm + one-day dips", "#F76707",
+     {"trade": "RAM", "mom_symbols": "MU,SMH", "mom_days": 126, "fast_symbol": "MU", "fast_days": 20, "calm_symbol": "SMH", "vol_days": 20,
+      "vol_lookback": 504, "calm_pct": 90.0, "dip_ibs_max": 0.10, "model_basket": "MU:70,STX:15,WDC:15", "model_cost_pct": 18.5,
+      "cash_buffer_pct": 1.0, "rebalance_band_pct": 20.0}, {}),
 ]
 # Earlier defaults: a strategy still on exactly these settings is moved to the new ones once (lower-cost versions, 26 Oct 2026:
 # IBS-dip T-bill half as cash + QLD IBS < 0.15; metals flat in cash instead of SGOV).
@@ -172,7 +179,7 @@ UPGRADE_WHY = {"cash_parking_2026_10": "Parks in cash instead of BIL (each BIL r
 # Added with LINE alerts off: they hold no money until you move some to them (turn LINE on in the strategy when you do).
 QUIET_DEFAULTS = {"usd_smh_ibs", "rom_vol_ibs", "gold_trend_calm", "silver_gold_ok", "silver_lead_1x", "ddm_calm_guard",
                   "sso_calm_guard", "rxl_calm_guard", "usd_trend_split", "qld_split_2c",
-                  "rom_split_2c", "sso_macd_calm", "rxl_ichi_calm", "cweb_trend_crash", "qpux_safe"}
+                  "rom_split_2c", "sso_macd_calm", "rxl_ichi_calm", "cweb_trend_crash", "qpux_safe", "ram_mom_calm"}
 PALETTE = ["#3DC9C0", "#E8875A", "#E46AA8", "#9BCB4E", "#F2C14E", "#5B8DEF", "#B084F5"]
 
 

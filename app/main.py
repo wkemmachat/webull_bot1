@@ -1139,7 +1139,7 @@ def data_refresh(u=Depends(user)):
 # ---------------------------------------------------------------- docs
 DOC_ORDER = ["overview", "quick-start-mac", "first-day", "modes", "dashboard", "strategies", "backtest", "money", "portfolio", "profit-loss", "orders", "line", "health", "golive", "hongkong",
              "strategy-compare", "strategy-timeframes", "strategy-dips", "expected-returns", "strategy-gold1", "strategy-gold2", "strategy-silver1", "strategy-silver2", "strategy-qld", "strategy-semis",
-             "strategy-qld-tbd", "strategy-qld-tbdv", "strategy-qld-ibs", "strategy-usd-ibs", "strategy-rom-tbd", "strategy-usd-smh-ibs", "strategy-usd-trend-split", "strategy-qld-split-2c", "strategy-rom-split-2c", "strategy-sso-macd-calm", "strategy-rxl-ichi-calm", "strategy-cweb-trend-crash", "strategy-qpux-safe",
+             "strategy-qld-tbd", "strategy-qld-tbdv", "strategy-qld-ibs", "strategy-usd-ibs", "strategy-rom-tbd", "strategy-usd-smh-ibs", "strategy-usd-trend-split", "strategy-qld-split-2c", "strategy-rom-split-2c", "strategy-sso-macd-calm", "strategy-rxl-ichi-calm", "strategy-cweb-trend-crash", "strategy-qpux-safe", "strategy-ram-mom-calm",
              "strategy-rom-vol-ibs", "strategy-gold-trend-calm", "strategy-silver-gold-ok", "strategy-silver-lead-1x", "strategy-ddm-calm-guard", "strategy-sso-calm-guard",
              "strategy-rxl-calm-guard", "strategy-c27",
              "deploy", "update", "backups", "plugins", "layout", "tests", "troubleshooting", "glossary", "decisions"]
