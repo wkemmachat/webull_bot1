@@ -97,7 +97,8 @@ def _split(q, n: int) -> list:
 # money does not wait as cash. Sells sell what the strategy holds, fractions included. If Webull ever refuses a fractional
 # order for an ETF, that ETF goes back to whole shares (per account) and LINE says so once.
 FRAC_DP = 2                     # buys: shares to 0.01 (Webull reports fractional fills with 2 decimals)
-SELL_DP = 6                     # sells: the exact booked quantity
+SELL_DP = 4                     # sells: 4 decimals at most. 27 Nov 2026 (Live): Webull failed sells of 1.278945 / 0.957786 /
+                                # 0.433269 GLD (6 decimals, books split by strategy); 4 decimals filled in Oct (1.6581 QLD)
 MIN_FRACTION_USD = 5.0          # smallest order that is less than one share
 EPS = 1e-6
 BP_RESUME_USD = 100.0           # buys waiting for Webull buying power resume once it is this much higher than when they stopped

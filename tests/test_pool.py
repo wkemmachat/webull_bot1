@@ -246,3 +246,26 @@ def test_member_holding_only_gold_parking_is_selling_it(clean):
     db.run("INSERT INTO holdings(mode,strategy,symbol,qty,cost) VALUES(?,?,?,?,?)", (MODE, "qld_split_2c", "GLD", 3, 1000))
     row = next(m for m in pool.view(MODE)["members"] if m["id"] == "qld_split_2c")
     assert row["status"][1].startswith("Selling its gold parking")
+
+
+def test_fractions_sell_to_two_decimals_and_crumbs_do_not_block_the_pool(clean, clock):
+    """27 Nov (Live): Webull failed sells of 1.278945 GLD; the parking was left over and the money stayed out of the pool."""
+    from app import execution
+    _reset(20_000)
+    _on(["qld_split_2c"])
+    assert execution._down(1.278945, execution.SELL_DP) == 1.2789
+    sid = "qld_split_2c"
+    ledger.credit(MODE, sid, 5000)
+    db.run("INSERT INTO holdings(mode,strategy,symbol,qty,cost) VALUES(?,?,?,?,?)", (MODE, sid, "GLD", 1.278945, 425))
+    ledger.set_applied_target(MODE, sid, {})
+    evs = {sid: (S.get(sid), _ev({}))}
+    pool.step(MODE, evs, NOW, None)
+    assert ledger.get(MODE, sid)["applied_target"] is None             # leftover parking: re-planned
+    assert _cash(sid) == 5000                                          # money waits until the gold is sold
+    pool.step(MODE, evs, NOW, None)
+    assert db.get_state(f"poolsweep:{MODE}:{sid}")                     # at most once per 10 minutes
+    db.run("UPDATE holdings SET qty=0.008945 WHERE mode=? AND strategy=? AND symbol='GLD'", (MODE, sid))   # sold: a crumb left
+    pool.step(MODE, evs, NOW, None)
+    assert _cash(sid) == 0                                             # the crumb does not keep the money out
+    pool.step(MODE, {sid: (S.get(sid), _ev({"QLD": 0.99}))}, NOW, None)
+    assert _cash(sid) > 0                                              # and it still gets money for its next trade

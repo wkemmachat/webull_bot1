@@ -142,6 +142,32 @@ def no_buys(mode: str, sid: str, c: dict | None = None) -> bool:
     return bool(c.get("on")) and sid not in c["members"]
 
 
+DUST = 0.01           # less than this of a share is a crumb (a sale to 4 decimals can leave one): not a position
+SWEEP_S = 600         # a leftover parking position is re-planned at most this often
+
+
+def held(L: dict) -> dict:
+    return {sym: q for sym, q in (L.get("holdings") or {}).items() if q >= DUST}
+
+
+def _sweep(mode, sid, s, L) -> bool:
+    """Gold / T-bill parking left over after its sale (a refused fraction, a retry that gave up): plan its sale again.
+    Members and non-members never park while the pool is on, so any parking position is left over."""
+    if s is None or (s.row or {}).get("control") == "stopped":
+        return False
+    left = [sym for sym in held(L) if sym in parking(s)]
+    if not left:
+        return False
+    k = f"poolsweep:{mode}:{sid}"
+    if time.time() - (db.get_state(k) or 0) < SWEEP_S:
+        return False
+    db.set_state(k, int(time.time()))
+    ledger.set_applied_target(mode, sid, None)          # the next check plans the sale
+    db.add_event("info", "orders", f"{s.name}: selling its leftover parking ({', '.join(left)})",
+                 "The pool keeps no gold or T-bill parking", strategy=sid, mode=mode)
+    return True
+
+
 def _busy(mode, sid) -> bool:
     if execution.active_plan(mode, sid):
         return True
@@ -197,10 +223,12 @@ def _step(mode, c, evs, now, fresh) -> dict:
     members = c["members"]
     # 1 · trades that ended: all the cash back to the pool
     for sid, r in tot["ledger"].items():
-        if r["holdings"] or r["cash"] <= 0.005 or _busy(mode, sid):
+        if _busy(mode, sid):
             continue
         s = S.get(sid)
         if s is None:
+            continue
+        if _sweep(mode, sid, s, r) or held(r) or r["cash"] <= 0.005:
             continue
         member = sid in members
         if member and (s.row or {}).get("control") == "active":
@@ -239,7 +267,7 @@ def _step(mode, c, evs, now, fresh) -> dict:
             db.set_state(f"poolwait:{mode}:{sid}", None)
             continue
         r = tot["ledger"].get(sid)
-        if r and (r["holdings"] or r["cash"] > 0.5 or _busy(mode, sid)):
+        if r and (held(r) or r["cash"] > 0.5 or _busy(mode, sid)):
             continue                                       # already in its trade
         g = group_of(s)
         room = max(0.0, cap * T - gval.get(g, 0.0))
@@ -387,8 +415,9 @@ def view(mode: str) -> dict:
         except (TypeError, ValueError):
             tgt = {}
         g = group_of(s)
-        in_trade = bool(L["holdings"]) or abs(v) > 0.5
-        park_only = bool(L["holdings"]) and all(sym in parking(s) for sym in L["holdings"])
+        H = held(L)
+        in_trade = bool(H) or abs(v) > 0.5
+        park_only = bool(H) and all(sym in parking(s) for sym in H)
         wait = db.get_state(f"poolwait:{mode}:{s.id}")
         pt = db.get_state(f"pooltrade:{mode}:{s.id}") or {}
         base = {"id": s.id, "name": s.name, "color": s.color, "group": g, "group_label": group_label(g), "value": round(v, 2),
@@ -399,7 +428,7 @@ def view(mode: str) -> dict:
             vv = ledger.value(mode, s.id)
             if park_only:
                 status = ("", "Selling its gold parking · money back after")
-            elif in_trade and not L["holdings"]:
+            elif in_trade and not H:
                 status = ("ok", "Has its money · buys at the next open") if tgt else ("", "Trade ended · money back at the next check")
             elif in_trade:
                 status = ("info", "In a trade · group cap") if pt.get("capped") else ("ok", "In a trade · partial") if pt.get("shared") else \

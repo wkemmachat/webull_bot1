@@ -1,6 +1,12 @@
 <!--{"title": "Design decisions", "group": "Help"}-->
 # Design decisions (October 2026)
 
+- **Pool go-live fixes** (27 Nov 2026, Live pool turned on): (1) Automatic LINE kept pool members off once their money went
+  back to the pool, so a buy signal at the close (before the pool funds the trade) would not have been sent; members now
+  count as holding money. (2) Webull failed the sale of 1.278945 / 0.957786 / 0.433269 GLD parking (6 decimals: the books
+  split by strategy); sells now use 4 decimals at most (1.6581 QLD filled in October). (3) The pool plans the sale of any
+  leftover gold / T-bill parking again (at most every 10 minutes), and less than 0.01 share no longer keeps a strategy's
+  money out of the pool or a member from its next trade.
 - **Old quotes on thin ETFs** (27 Nov 2026): in the Live AIBU test trade the quote (Yahoo's last 1-minute bar, as this
   account has no Webull market data) said $46.69 a minute after the bot bought at $45.30, so every sell limit sat above
   the market. Now an order's limit comes from the bot's own fill of that ETF in the same mode in the last 30 minutes
