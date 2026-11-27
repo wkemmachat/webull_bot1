@@ -18,7 +18,7 @@ from . import strategies as S
 QTY_TOL = 1e-6
 SYM_COLOR = {"GLD": "#D4A017", "UGL": "#E8B931", "IAU": "#C99A10", "SLV": "#9AA5B1", "AGQ": "#7D8A97", "USD": "#2E86DE",
              "SMH": "#5DA9F0", "ROM": "#20C997", "IYW": "#63D9B5", "QLD": "#5B8DEF", "QQQ": "#8FB0F5", "TQQQ": "#3E6FD8",
-             "SSO": "#34508A", "RXL": "#E07A9B", "DDM": "#8E6CC8", "CWEB": "#E03131", "KWEB": "#F08080", "QPUX": "#7950F2", "RAM": "#F76707", "UWM": "#1098AD", "TSXU": "#E8590C", "CHAU": "#C92A2A", "MAGX": "#0CA678", "BIB": "#AE3EC9", "ASHR": "#F59F9F", "BIL": "#8FA98F", "SGOV": "#8FA98F"}
+             "SSO": "#34508A", "RXL": "#E07A9B", "DDM": "#8E6CC8", "CWEB": "#E03131", "KWEB": "#F08080", "QPUX": "#7950F2", "RAM": "#F76707", "UWM": "#1098AD", "TSXU": "#E8590C", "CHAU": "#C92A2A", "MAGX": "#0CA678", "BIB": "#AE3EC9", "AIBU": "#1C7ED6", "ASHR": "#F59F9F", "BIL": "#8FA98F", "SGOV": "#8FA98F"}
 CASH_COLOR = "#B8C4BA"
 
 

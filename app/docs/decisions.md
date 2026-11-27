@@ -399,6 +399,14 @@
   status calls one a second, a 3-second cooldown on 429 with the least-recently-checked order first, an alert after 2
   minutes without an answer, fresher Yahoo prices for orders (no Webull market data on this account), 0.5% price room
   for sells, no routine price refresh around the open, and the Webull library's request dumps (with the access token) off.
+- **AIBU · Breakout + calm + fast stop + dips (S2++) added** (27 Nov 2026, Strategy 2++ of the AIBU research, your
+  choice over the recommended half S1++ / half S2++; allowed on Live after a Webull test trade): new type
+  `breakout_calm_dip` ([page](#/docs/strategy-aibu-s2pp)). AIBU's own 30/20-day breakout while it is calm (80th
+  percentile) and credit is healthy, sized 60% ÷ its volatility; a fast stop (AIBU −13% in 5 days → trend out 7 trading
+  days); one-day buys after QQQ's RSI2 closes under 6. AIBU listed in May 2024; before then the backtest (and its signals)
+  use a model, 2.26 × (70% IYW + 30% FDN) minus 4% a year. The research's T-bill parking is not used (it lowered every
+  window after Webull's fee). The expected return is a planning figure: the since-2002 return with the research's
+  2000–02 crash fall (−50%).
 - **BIB · Rates + trend blend with IBS dips (Blend v) added** (27 Nov 2026, the BIB research's main pick after four
   rounds; allowed on Live after a Webull test trade): new type `rates_trend_blend` ([page](#/docs/strategy-bib-blend-v)).
   Half rule S3v (credit healthy, 10-year yield under its SMA50, TLT above its SMA100), half rule S2+v (XBI up over a year,

@@ -71,7 +71,7 @@ def main(out: Path, days: int, now=None):
     slv = daily(6, nd, 30, 0.0004, 0.016, now)                       # 1x silver (the same path AGQ is built from)
     slv.to_csv(out / "SLV_1d.csv", index=False)
     iyw = daily(10, nd, 150, 0.0008, 0.014, now)                     # US technology (ROM's index) and ROM itself
-    for name, df in {"IYW": iyw, "ROM": lever(iyw, 2, 60)}.items():
+    for name, df in {"IYW": iyw, "ROM": lever(iyw, 2, 60), "AIBU": lever(iyw, 2, 30), "FDN": daily(45, nd, 200, 0.0004, 0.016, now)}.items():
         df.to_csv(out / f"{name}_1d.csv", index=False)
     dia = daily(11, nd, 420, 0.0004, 0.010, now)                     # Dow 1x and DDM
     for name, df in {"DIA": dia, "DDM": lever(dia, 2, 80)}.items():
