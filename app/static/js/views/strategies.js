@@ -99,16 +99,16 @@
           ${U.pill(c.line_on ? 'info' : '', c.line_on ? 'LINE on' : 'LINE off')}</div>
         <div class="muted small">${U.esc(d.describe.rule || '')}</div>
         ${c.notice ? `<div class="note warn small" style="margin:0;display:block">${U.esc(c.notice)} <a href="#/docs/strategy-c27">Why and what to do →</a></div>` : ''}</div>
-        <div class="row"><button class="btn" data-money="withdraw">Withdraw</button><button class="btn" data-money="add">Add money</button>
+        <div class="row">${d.pool && d.pool.on ? V.poolButtons(d.pool, c) : `<button class="btn" data-money="withdraw">Withdraw</button><button class="btn" data-money="add">Add money</button>
           <button class="btn" data-ctl="${c.control === 'paused' ? 'active' : 'paused'}">${c.control === 'paused' ? 'Resume buys' : 'Pause buys'}</button>
-          <button class="btn d" data-ctl="stopping">Stop &amp; sell</button></div></div>
+          <button class="btn d" data-ctl="stopping">Stop &amp; sell</button>`}</div></div>
       <nav class="tabs">${[['overview', 'Overview'], ['pnl', 'Daily P&L'], ['backtest', 'Backtest']].concat(c.type === 'momentum_basket' ? [['charts', 'Stock charts']] : [], [['params', 'Parameters'], ['exec', 'Execution'], ['history', 'History']]).map(([k, l]) =>
         `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</nav>`;
     }
 
     function kpis() {
       const pos = Object.entries(c.positions || {});
-      return `<div class="grid kpis" style="--min:${d.dip && d.dip.worst10 != null ? (d.dip.pct != null ? 160 : 180) : 210}px">
+      return `<div class="grid kpis" style="--min:${d.dip && d.dip.worst10 != null ? (d.dip.pct != null ? 160 : 180) : 210}px">${V.poolTile(d.pool)}
         <div class="card"><div class="eyebrow">Value · ${U.modeLabel[mode]}</div><div class="num big" style="margin-top:6px">${U.usd(c.value)}</div>
           <div class="num small ${U.cls(c.pnl)}">${U.sgnUsd(c.pnl)} · ${U.pct(c.ret)} on ${U.usd(c.net_in, 0)}</div>${U.realDiffers(c) ? `<div class="num small">${U.realBit(c)} <span class="muted">since ${U.esc(U.ymd(c.real.since))}, money moved left out</span></div>` : ''}${c.today ? '<div>' + U.todayLine(c) + '</div>' : ''}</div>
         <div class="card"><div class="eyebrow">Holding</div><div class="num big" style="margin-top:6px">${pos.length ? pos.map(([k, p]) => `${U.qty(p.qty)} ${k}`).join(' · ') : 'Cash'}</div>
@@ -361,6 +361,14 @@
       U.on(el, '[data-symc]', 'click', (e, b) => { e.preventDefault(); chartSym = b.dataset.symc; tab = 'charts'; render(); window.scrollTo(0, 0); });
       U.on(el, '[data-tab]', 'click', (e, b) => { tab = b.dataset.tab; render(); });
       U.on(el, '[data-money]', 'click', (e, b) => V.moneyDialog(b.dataset.money, sid, () => V.strategy(el, params)));
+      U.on(el, '[data-pool-me]', 'click', async (e, b) => {
+        if (b.dataset.poolMe === 'add') {
+          await U.busy(b, async () => { await U.api('/api/pool/stay', { body: { mode, strategy: sid } }); U.toast('Added to the pool'); V.strategy(el, params); });
+        } else {
+          const p = await U.api('/api/pool?mode=' + mode);
+          V.poolRemoveDialog(p.members.find((m) => m.id === sid), mode, () => V.strategy(el, params));
+        }
+      });
       U.on(el, '[data-idle]', 'click', async (e, b) => {
         const inv = b.dataset.idle === 'invest', x = d.idle;
         const amt = (x.waiting || 0) + (x.band || 0);

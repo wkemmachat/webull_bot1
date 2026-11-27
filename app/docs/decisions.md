@@ -1,6 +1,14 @@
 <!--{"title": "Design decisions", "group": "Help"}-->
 # Design decisions (October 2026)
 
+- **Strategy pool** (27 Nov 2026): with 20+ strategies, about 13 are in a trade on an average day, so fixed money per
+  strategy leaves cash idle. Options studied: fixed sleeves that compound (money piles up in the winners), equal re-splits,
+  volatility sizing, and a shared pool with a trade size and a cap per market group. The pool won on return for its risk;
+  T-bills on idle cash lost money after fees. Rules: trade size 150% ÷ members (10–25%), group cap 25% (25/30/35% tested:
+  25% best for its risk), smallest trade 2%, first come first served, open trades never cut, no gold parking for members,
+  non-members signals only, a separate pool per mode, Live members need a passed Webull test trade. The bot's own backtest
+  of the suggested 10 members: 57.3% a year / −20.0% over 10 years vs 60.1% / −29.2% with fixed money. Off by default;
+  Paper first ([the strategy pool](#/docs/pool)).
 - **DDM, SSO and RXL: Calm guard + dips** (10 Nov 2026): the screen for 2x ETFs that do not move with US tech pointed at
   the Dow (DDM), health care (RXL) and the S&P 500 (SSO). Signals are read from the 1x ETF (DIA, SPY, XLV): a 2x ETF's
   price drifts down in choppy markets, so averages and volatility on it mislead more often, and the 1x has a longer

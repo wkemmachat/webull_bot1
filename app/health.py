@@ -154,6 +154,23 @@ def _plain(x):
 
 
 # ---------------------------------------------------------------- the check
+def _pool_item(items, mode, label):
+    """Strategy pool on: it adds up (pool = free cash + money in trades), and no signal has waited for money over a day."""
+    from . import pool
+    if not pool.on(mode):
+        return
+    v = pool.view(mode)
+    gap = abs(v["total"] - v["free"] - v["in_trades"])
+    old = [m["name"] for m in v["waiting"] if (m.get("wait") or {}).get("since") and time.time() - m["wait"]["since"] > 86400]
+    bad = gap > 1 or bool(old)
+    detail = (f"{len(v['members'])} members · ${v['in_trades']:,.0f} in trades + ${v['free']:,.0f} free = ${v['total']:,.0f}"
+              + (f" · does not add up by ${gap:,.2f}" if gap > 1 else "")
+              + (f" · waiting for money over a day: {', '.join(old)}" if old else ""))
+    _item(items, f"pool_{mode}", label, f"{label}: strategy pool adds up", "warn" if bad else "ok", detail,
+          "Allocate more to the bot, or lower the trade size or the smallest trade (Money → Pool settings)." if old else
+          ("Send the Health report to the developer." if gap > 1 else ""), "#/money")
+
+
 def run(now=None, send=True):
     now = now or md.now_utc()
     items = []
@@ -237,6 +254,10 @@ def run(now=None, send=True):
         _item(items, f"books_{mode}", label, f"{label}: bot books = account positions", "error" if diffs else "ok",
               "; ".join(diffs) if diffs else f"{len(books)} symbol(s), all present in the account.",
               "Something was sold by hand or an order filled without the bot seeing it. Check Positions." if diffs else "", "#/positions")
+        try:
+            _pool_item(items, mode, label)
+        except Exception as e:
+            _item(items, f"pool_{mode}", label, f"{label}: strategy pool", "warn", str(e)[:200], "", "#/money")
         s_cash, p_cash = ledger.strategies_cash(mode), ledger.pool_cash(mode)
         cash_need = s_cash + p_cash
         cash = acct.get("cash") or 0.0

@@ -377,6 +377,14 @@ def strategies_list(mode):
             "archived": [{"id": r["id"], "name": r["name"], "color": r["color"]} for r in archived], "line_auto": notify.line_auto()}
 
 
+def _pool_info(mode, sid):
+    from . import pool
+    try:
+        return pool.strategy_info(mode, sid)
+    except Exception:
+        return {"on": False}
+
+
 def strategy_detail(mode, sid):
     s = S.get(sid)
     if not s:
@@ -398,6 +406,7 @@ def strategy_detail(mode, sid):
             "signals": sig, "holdings": hold, "exec": cfg, "exec_text": execution.describe_cfg(cfg),
             "type": next((t for t in S.types_public() if t["type"] == s.type), None),
             "idle": idle.view(mode, s, st), "dip": dip.get(sid), "add": _add_full(sid), "money_fall": _money_fall(mode, sid),
+            "pool": _pool_info(mode, sid),
             "plans": execution.plans_view(mode, sid=sid, limit=5), "money": [m for m in ledger.moves(mode, 200) if m["strategy"] == sid or m["other"] == sid][:10]}
 
 
@@ -484,8 +493,9 @@ def money(mode):
             "outside_cash": outside, "not_bot": not_bot, "own_shares": (not_bot - outside) if (not_bot is not None and outside is not None) else None,
             "buying_power": (acct or {}).get("buying_power"), "bp_wait": execution.bp_wait(mode)}
     mv = [m for m in mv if (m.get("ccy") or "USD") == "USD"]            # HKD moves are listed in the HKD block
+    from . import pool
     return {"mode": mode, "account": acct, "account_error": err, "rows": rows, "total": tot, "unassigned": un, "fund": fund, "moves": mv,
-            "new_money_start": db.get_setting("new_money_start") or "now", "hkd": moneyops.hkd_view(mode, acct)}
+            "new_money_start": db.get_setting("new_money_start") or "now", "hkd": moneyops.hkd_view(mode, acct), "pool": pool.view(mode)}
 
 
 def positions(mode):

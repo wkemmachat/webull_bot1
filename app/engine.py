@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from . import brokers, db, execution, ledger, marketdata as md, markethours as mh, metals, notify
+from . import brokers, db, execution, ledger, marketdata as md, markethours as mh, metals, notify, pool
 from . import strategies as S
 from .config import BACKUP_DIR, DB_PATH, DISPLAY_TZ
 
@@ -415,9 +415,18 @@ def tick(now=None):
             except Exception as e:
                 log.warning("broker %s: %s", mode, e)
                 continue
+            pc = pool.cfg(mode)
+            if pc.get("on"):
+                try:
+                    pool.step(mode, evs, now, fresh)      # finished trades give their money back; starting ones get theirs
+                except Exception as e:
+                    log.exception("pool %s", mode)
+                    db.add_event("error", "money", "Strategy pool step failed", str(e)[:300], mode=mode)
             for sid, (s, ev) in evs.items():
                 if not fresh(s, ev, now):
                     continue
+                if pc.get("on"):
+                    ev = {**ev, "target": pool.pool_target(mode, s, ev.get("target") or {}, pc)}
                 try:
                     execution.reconcile(mode, s, ev, now, broker, settings)
                 except Exception as e:

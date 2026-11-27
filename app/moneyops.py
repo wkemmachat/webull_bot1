@@ -494,6 +494,10 @@ def seed_paper():
     """First start: every strategy gets the paper allowance (default $10,000)."""
     if db.get_state("paper_seeded"):
         return
+    from . import pool
+    if pool.on("paper"):                       # the pool funds trades itself: no fixed money per strategy
+        db.set_state("paper_seeded", 1)
+        return
     st = db.get_settings()
     amt = float(st.get("paper_strategy_cash") or 10000)
     inv = default_invest()
@@ -507,8 +511,9 @@ def seed_paper():
 
 def seed_new_paper(sid):
     """A default strategy added by an update gets the paper allowance too, from the paper account's free cash."""
+    from . import pool
     st = db.get_settings()
-    if st.get("mode_paper") != "1":
+    if st.get("mode_paper") != "1" or pool.on("paper"):
         return
     amt = float(st.get("paper_strategy_cash") or 10000)
     try:

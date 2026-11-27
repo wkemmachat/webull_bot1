@@ -1401,7 +1401,8 @@ def reconcile(mode, strat, ev, now, broker, settings):
             if alt and alt not in blk0:
                 target[alt] = round(target.get(alt, 0) + target.pop(sym), 4)
     reason = "signal"
-    buys = control == "active"
+    from . import pool
+    buys = control == "active" and not pool.no_buys(mode, strat.id)   # strategy pool: only members buy
     if control == "stopping":
         target, reason, buys = {}, "stop", False
     if L["hold_cash"] and control == "active" and waiting_for_buy(mode, strat, L) is None:

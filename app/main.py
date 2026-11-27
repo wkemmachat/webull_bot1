@@ -18,7 +18,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import auth, backtest, btview, etf2x, perf, preview, expected, symcharts, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views, idle, portfolio, weekly, orderhist, holdings
+from . import auth, backtest, btview, etf2x, perf, preview, expected, symcharts, brokers, db, engine, execution, golive, health, ledger, marketdata as md, moneyops, notify, scheduler, testtrade, views, idle, portfolio, weekly, orderhist, holdings, pool
 from . import strategies as S
 from .config import APP_NAME, BASE_DIR, COOKIE_SECURE, DISPLAY_TZ, PUBLIC_URL, SCHEDULER_ENABLED
 
@@ -409,6 +409,10 @@ async def money_action(action: str, request: Request, u=Depends(user)):
     b = await body(request)
     mode = mode_of(b.get("mode"))
     try:
+        if pool.on(mode) and action in ("add", "move", "split", "topup", "invest-now") or (
+                pool.on(mode) and action == "withdraw" and pool.is_member(mode, b.get("strategy") or "")):
+            raise ValueError("The strategy pool is on: members get money when a trade starts and give it back when it ends. "
+                             "Use Allocate to bot / Return to account for the pool, or switch the pool off (Pool settings).")
         if action == "add":
             return moneyops.add(mode, b.get("strategy"), b.get("amount"), b.get("invest"), b.get("note", ""))
         if action == "withdraw":
@@ -448,6 +452,37 @@ async def money_action(action: str, request: Request, u=Depends(user)):
                 total = b.get("total") if b.get("total") not in (None, "") else ledger.pool_cash(mode)
                 alloc = moneyops.equal_split(total, list(b.get("strategies") or []))
             return moneyops.split(mode, alloc or {}, b.get("invest"), b.get("note", ""))
+    except (ValueError, TypeError) as e:
+        _err(e)
+    raise HTTPException(404, "Unknown action")
+
+
+# ---------------------------------------------------------------- strategy pool
+@app.get("/api/pool")
+def pool_get(mode: str = "paper", u=Depends(user)):
+    return pool.view(mode_of(mode))
+
+
+@app.post("/api/pool/{action}")
+async def pool_action(action: str, request: Request, u=Depends(user)):
+    b = await body(request)
+    mode = mode_of(b.get("mode"))
+    try:
+        if action == "settings":
+            return pool.set_settings(mode, on_=b.get("on"), slot=b.get("slot_pct"), cap=b.get("cap_pct"), minp=b.get("min_pct"),
+                                     auto_slot=b.get("auto_slot"))
+        if action == "members":
+            return pool.set_members(mode, list(b.get("members") or []))
+        if action == "remove":
+            return pool.remove(mode, str(b.get("strategy") or ""), sell=bool(b.get("sell")))
+        if action == "stay":
+            return pool.stay(mode, str(b.get("strategy") or ""))
+        if action == "backtest":
+            c = pool.cfg(mode)
+            sids = list(b.get("members") if b.get("members") is not None else c["members"])
+            slot = float(b.get("slot_pct") or (c["slot_pct"] or pool.suggested_slot(len(sids))))
+            return pool.backtest(sids, slot, float(b.get("cap_pct") or c["cap_pct"]), float(b.get("min_pct") if b.get("min_pct") is not None
+                                                                                                 else c["min_pct"]))
     except (ValueError, TypeError) as e:
         _err(e)
     raise HTTPException(404, "Unknown action")
@@ -1137,7 +1172,7 @@ def data_refresh(u=Depends(user)):
 
 
 # ---------------------------------------------------------------- docs
-DOC_ORDER = ["overview", "quick-start-mac", "first-day", "modes", "dashboard", "strategies", "backtest", "money", "portfolio", "profit-loss", "orders", "line", "health", "golive", "hongkong",
+DOC_ORDER = ["overview", "quick-start-mac", "first-day", "modes", "dashboard", "strategies", "backtest", "money", "pool", "portfolio", "profit-loss", "orders", "line", "health", "golive", "hongkong",
              "strategy-compare", "strategy-timeframes", "strategy-dips", "expected-returns", "strategy-gold1", "strategy-gold2", "strategy-silver1", "strategy-silver2", "strategy-qld", "strategy-semis",
              "strategy-qld-tbd", "strategy-qld-tbdv", "strategy-qld-ibs", "strategy-usd-ibs", "strategy-rom-tbd", "strategy-usd-smh-ibs", "strategy-usd-trend-split", "strategy-qld-split-2c", "strategy-rom-split-2c", "strategy-sso-macd-calm", "strategy-rxl-ichi-calm", "strategy-cweb-trend-crash", "strategy-qpux-safe", "strategy-ram-mom-calm", "strategy-uwm-a3-r3", "strategy-tsxu-2plus", "strategy-chau-s4", "strategy-magx-s1p-s2pp", "strategy-bib-blend-v", "strategy-aibu-s2pp", "strategy-uraa-s1pp",
              "strategy-rom-vol-ibs", "strategy-gold-trend-calm", "strategy-silver-gold-ok", "strategy-silver-lead-1x", "strategy-ddm-calm-guard", "strategy-sso-calm-guard",
