@@ -572,6 +572,24 @@
     "maxdd": -44.0,
     "bench": "Since Oct 2013 75.7% / −44.0%; Strategy 1 (no dips) 64.3% / −39.4%; fee 0.25% 89.7% / −45.3%; every order a day late 14.0% / −69.0%; on USD 111.0% / −40.1%; the research advises planning on 50–60% a year with a −47% fall"
    }
+  },
+  "chau_s4": {
+   "doc": "strategy-chau-s4",
+   "reviewed": "2026-11-27",
+   "expect": {
+    "cagr": 14.5,
+    "maxdd": -24.4,
+    "basis": "10 yr, real fee",
+    "period": "Oct 2016 – Oct 2026",
+    "note": "The bot's own backtest on Yahoo daily prices (CHAU's real prices, signals with dividends added back, USD/CNY that day's close) at Webull's real fee, Nov 2016 – Nov 2026, cash earning nothing. The rules were picked over three rounds on the same years; expect less live."
+   },
+   "research": {
+    "source": "CHAU 2x China A-shares: best buy/sell strategies, rounds 1–4, 26 Nov 2026 · S4",
+    "period": "Nov 2016 – Nov 2026",
+    "cagr": 14.6,
+    "maxdd": -23.2,
+    "bench": "Research total +291.2% (plain share-and-cash account +285.3% / −24.3%); at 0.30% a side +189.3%; every order a day late +188.2% / −18.9%; CHAU held −10.5% total / −79%"
+   }
   }
  },
  "log": [
@@ -638,6 +656,10 @@
   {
    "date": "2026-11-27",
    "what": "Added tsxu_2plus (TSXU · Trend + calm + credit + dips (2+), Strategy 2+ of \"TSXU: 2 best strategies\"): the bot's backtest 99.5% a year, worst fall −42.1% over 10 years and 32.5% / −82.2% since Dec 2002 (TSXU modelled as 2 × SMH before Oct 2025); planned at the since-2002 figure because the rules lost money in 2002–2012, before the research's window."
+  },
+  {
+   "date": "2026-11-27",
+   "what": "Added chau_s4 (CHAU · Half trend + half dip, yuan filter (S4), S4 of \"CHAU 2x China A-shares: best buy/sell strategies\"): 14.5% a year (+287.7% total), worst fall −24.4% over Nov 2016 – Nov 2026 in the bot's own backtest at the real fee (research plain account +285.3% / −24.3%)."
   }
  ]
 }

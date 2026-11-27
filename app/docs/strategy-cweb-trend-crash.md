@@ -149,7 +149,7 @@ Like every strategy, the figure is the bot's own 10-year backtest (Oct 2016 – 
 
 ## Moving money to it
 
-- It is the only strategy in **China internet** (*What your money is in* shows it as its own group), so it spreads your risk away from US tech.
+- It spreads your risk away from US tech. *What your money is in* shows it in the **China** group, together with CHAU · Half trend + half dip (S4) (China A-shares, added 27 Nov 2026).
 - It sits in cash about two thirds of the time. Money given to it waits in cash between signals.
 - **Start small.** The rules depend on prompt orders at the open, and the first Live crash buy is the real test of the fills.
 

@@ -399,6 +399,13 @@
   status calls one a second, a 3-second cooldown on 429 with the least-recently-checked order first, an alert after 2
   minutes without an answer, fresher Yahoo prices for orders (no Webull market data on this account), 0.5% price room
   for sells, no routine price refresh around the open, and the Webull library's request dumps (with the access token) off.
+- **CHAU · Half trend + half dip, yuan filter (S4) added** (27 Nov 2026, S4 of the CHAU research, kept after round 4;
+  allowed on Live after a Webull test trade): new type `half_trend_dip` ([page](#/docs/strategy-chau-s4)). Half the money
+  on ASHR's Supertrend 10/2 while FXI is above its SMA200, half on CHAU IBS < 0.2 dips (CHAU above SMA100, LQD ÷ IEF above
+  SMA100, out at IBS > 0.8 or 5 closes), both only while USD/CNY is below its SMA50. The research's numbers use that
+  day's USD/CNY close (the yuan's onshore market closes before the US one); with the previous day's close the 10-year
+  result drops from 288% to 253%, so the bot uses that day's close, read at 16:05 New York. The exposure group "China
+  internet" is now "China" (CWEB and CHAU).
 - **TSXU · Trend + calm + credit + dips (2+) added** (27 Nov 2026, Strategy 2+ of the TSXU research, unbeaten after four
   rounds; allowed on Live after a Webull test trade, against the advice that it repeats the USD strategies): new type
   `trend_credit_dip` ([page](#/docs/strategy-tsxu-2plus)). Hold TSXU while SMH is above its EMA200 (1% band), calm and

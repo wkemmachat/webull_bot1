@@ -97,6 +97,9 @@ def main(out: Path, days: int, now=None):
     for name, df in {"IWM": iwm, "UWM": lever(iwm, 2, 30), "SPY": daily(27, nd, 450, 0.0004, 0.01, now), "HYG": daily(28, nd, 80, 0.0001, 0.004, now),
                      "XLY": daily(29, nd, 180, 0.0004, 0.012, now), "XLP": daily(30, nd, 75, 0.0002, 0.008, now)}.items():
         df.to_csv(out / f"{name}_1d.csv", index=False)
+    ashr = daily(31, nd, 28, 0.0002, 0.015, now)                    # China A-shares (ASHR, CHAU 2x) and the yuan (USD/CNY)
+    for name, df in {"ASHR": ashr, "CHAU": lever(ashr, 2, 15), "CNY=X": daily(32, nd, 7.1, 0.0, 0.002, now)}.items():
+        df.to_csv(out / f"{name}_1d.csv", index=False)
     return out
 
 

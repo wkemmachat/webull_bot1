@@ -163,6 +163,12 @@ DEFAULTS = [
      {"trade": "TSXU", "signal": "SMH", "ema_days": 200, "band_pct": 1.0, "vol_days": 20, "vol_lookback": 252, "calm_q": 90.0,
       "credit_ma": 100, "dip_ibs_max": 0.25, "dip_size_pct": 100.0, "storm_q": 95.0, "storm_size_pct": 75.0, "model_basket": "SMH:100",
       "model_cost_pct": 5.0, "cash_buffer_pct": 1.0, "rebalance_band_pct": 20.0}, {}),
+    # 27 Nov 2026 CHAU research S4 (kept after round 4): half on ASHR Supertrend 10/2 + FXI > SMA200, half on CHAU IBS < 0.2 dips
+    # (CHAU > SMA100, LQD/IEF > SMA100), both only while USD/CNY is below its SMA50. Added with no money.
+    ("chau_s4", "half_trend_dip", "CHAU · Half trend + half dip, yuan filter (S4)", "#C92A2A",
+     {"trade": "CHAU", "trend_symbol": "ASHR", "gate_symbol": "FXI", "dip_symbol": "CHAU", "yuan": "CNY=X", "trend_pct": 50.0,
+      "st_atr": 10, "st_mult": 2.0, "fxi_ma": 200, "dip_pct": 50.0, "dip_ibs_max": 0.2, "dip_ma": 100, "credit_ma": 100,
+      "exit_ibs": 0.8, "dip_days": 5, "yuan_ma": 50, "yuan_lag": 0, "cash_buffer_pct": 1.0, "rebalance_band_pct": 10.0}, {}),
 ]
 # Earlier defaults: a strategy still on exactly these settings is moved to the new ones once (lower-cost versions, 26 Oct 2026:
 # IBS-dip T-bill half as cash + QLD IBS < 0.15; metals flat in cash instead of SGOV).
@@ -192,7 +198,7 @@ UPGRADE_WHY = {"cash_parking_2026_10": "Parks in cash instead of BIL (each BIL r
 # Added with LINE alerts off: they hold no money until you move some to them (turn LINE on in the strategy when you do).
 QUIET_DEFAULTS = {"usd_smh_ibs", "rom_vol_ibs", "gold_trend_calm", "silver_gold_ok", "silver_lead_1x", "ddm_calm_guard",
                   "sso_calm_guard", "rxl_calm_guard", "usd_trend_split", "qld_split_2c",
-                  "rom_split_2c", "sso_macd_calm", "rxl_ichi_calm", "cweb_trend_crash", "qpux_safe", "ram_mom_calm", "uwm_a3_r3", "tsxu_2plus"}
+                  "rom_split_2c", "sso_macd_calm", "rxl_ichi_calm", "cweb_trend_crash", "qpux_safe", "ram_mom_calm", "uwm_a3_r3", "tsxu_2plus", "chau_s4"}
 PALETTE = ["#3DC9C0", "#E8875A", "#E46AA8", "#9BCB4E", "#F2C14E", "#5B8DEF", "#B084F5"]
 
 
