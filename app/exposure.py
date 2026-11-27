@@ -6,7 +6,7 @@ ETFs (ROM, QLD and USD all rise and fall with US tech), so the Dashboard shows t
   pct        share of the money in all strategies (strategy cash included)
   acts_like  value × leverage / all the money: 2x ETFs count twice ("moves like 120% in US tech")
 
-US tech = Nasdaq-100 + US tech + semiconductors + Nasdaq-100 stocks: they fall together on a bad tech day (5 Nov 2026: IYW −6.9%,
+US tech = Nasdaq-100 + US tech + semiconductors + Nasdaq-100 stocks + Magnificent Seven: they fall together on a bad tech day (5 Nov 2026: IYW −6.9%,
 QQQ −5.8%, SMH −8.6%). The "10% fall" line multiplies acts_like by 10%: a rough guide, since semiconductors usually move more
 than the Nasdaq-100.
 """
@@ -25,6 +25,7 @@ KNOWN = {
     "KWEB": ("china", 1), "CWEB": ("china", 2), "FXI": ("china", 1), "CHAU": ("china", 2), "ASHR": ("china", 1),
     "UWM": ("smallcap", 2), "IWM": ("smallcap", 1), "TNA": ("smallcap", 3),
     "RAM": ("memory", 2), "MU": ("memory", 1), "DRAM": ("memory", 1),
+    "MAGX": ("mag7", 2), "MAGS": ("mag7", 1),
     "QPUX": ("quantum", 2), "IONQ": ("quantum", 1), "RGTI": ("quantum", 1), "QBTS": ("quantum", 1), "QUBT": ("quantum", 1),
     "BIL": ("tbills", 0), "SGOV": ("tbills", 0), "SHV": ("tbills", 0),
 }
@@ -33,6 +34,7 @@ GROUPS = {   # key: (label, what it follows, colour)
     "tech": ("US tech", "IYW", "#20C997"),
     "semis": ("Semiconductors", "SMH", "#2E86DE"),
     "stocks": ("Nasdaq-100 stocks", "C2-7 picks", "#7FDBCA"),
+    "mag7": ("Magnificent Seven", "MAGS", "#0CA678"),
     "sp500": ("S&P 500", "SPY", "#34508A"),
     "dow": ("Dow Jones", "DIA", "#C77DFF"),
     "health": ("Health care", "XLV", "#FF6B6B"),
@@ -46,7 +48,7 @@ GROUPS = {   # key: (label, what it follows, colour)
     "tbills": ("T-bills", "BIL", "#8FA98F"),
     "cash": ("Cash", "", "#C9D1C9"),
 }
-US_TECH = ("nasdaq", "tech", "semis", "stocks")
+US_TECH = ("nasdaq", "tech", "semis", "stocks", "mag7")
 ORDER = list(GROUPS)
 
 

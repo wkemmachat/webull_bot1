@@ -100,6 +100,9 @@ def main(out: Path, days: int, now=None):
     ashr = daily(31, nd, 28, 0.0002, 0.015, now)                    # China A-shares (ASHR, CHAU 2x) and the yuan (USD/CNY)
     for name, df in {"ASHR": ashr, "CHAU": lever(ashr, 2, 15), "CNY=X": daily(32, nd, 7.1, 0.0, 0.002, now)}.items():
         df.to_csv(out / f"{name}_1d.csv", index=False)
+    mag = {s: daily(33 + k, nd, 100 + 40 * k, 0.0008, 0.02, now) for k, s in enumerate(("AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"))}
+    for name, df in {**mag, "MAGX": lever(mag["NVDA"], 2, 40)}.items():   # the Magnificent Seven and MAGX (2x)
+        df.to_csv(out / f"{name}_1d.csv", index=False)
     return out
 
 

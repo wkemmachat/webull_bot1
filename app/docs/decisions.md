@@ -399,6 +399,14 @@
   status calls one a second, a 3-second cooldown on 429 with the least-recently-checked order first, an alert after 2
   minutes without an answer, fresher Yahoo prices for orders (no Webull market data on this account), 0.5% price room
   for sells, no routine price refresh around the open, and the Webull library's request dumps (with the access token) off.
+- **MAGX · Mag 7 trend + RSI2 dips (half S1+, half S2++) added** (27 Nov 2026, your choice of half Strategy 1+ and half
+  Strategy 2++ of the MAGX research in one position; allowed on Live after a Webull test trade): new type `mag7_mix`
+  ([page](#/docs/strategy-magx-s1p-s2pp)). Signals come from an equal-weight basket of the seven stocks that the bot builds
+  (re-weighted each quarter): a 55/20-day breakout held while calm, credit healthy and SPY above SMA200, sized by MAGX's
+  volatility (60% and 80% targets for the two halves, resized on 20-point moves); RSI2 dips out of the trend. MAGX listed in
+  Feb 2024, so the backtest models it as 2 × the basket minus 8% a year before then. The expected return is the since-2004
+  figure (45.3% / −39.1%), not the 10-year one, because the seven stocks are hindsight winners. New exposure group
+  "Magnificent Seven" (counted in US tech).
 - **CHAU · Half trend + half dip, yuan filter (S4) added** (27 Nov 2026, S4 of the CHAU research, kept after round 4;
   allowed on Live after a Webull test trade): new type `half_trend_dip` ([page](#/docs/strategy-chau-s4)). Half the money
   on ASHR's Supertrend 10/2 while FXI is above its SMA200, half on CHAU IBS < 0.2 dips (CHAU above SMA100, LQD ÷ IEF above

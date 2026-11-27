@@ -169,6 +169,13 @@ DEFAULTS = [
      {"trade": "CHAU", "trend_symbol": "ASHR", "gate_symbol": "FXI", "dip_symbol": "CHAU", "yuan": "CNY=X", "trend_pct": 50.0,
       "st_atr": 10, "st_mult": 2.0, "fxi_ma": 200, "dip_pct": 50.0, "dip_ibs_max": 0.2, "dip_ma": 100, "credit_ma": 100,
       "exit_ibs": 0.8, "dip_days": 5, "yuan_ma": 50, "yuan_lag": 0, "cash_buffer_pct": 1.0, "rebalance_band_pct": 10.0}, {}),
+    # 27 Nov 2026 MAGX research (rounds 1–3): half Strategy 1+, half Strategy 2++ in one position, signals from an equal-weight
+    # Mag 7 basket. Added with no money.
+    ("magx_s1p_s2pp", "mag7_mix", "MAGX · Mag 7 trend + RSI2 dips (half S1+, half S2++)", "#0CA678",
+     {"trade": "MAGX", "basket": "AAPL,MSFT,GOOGL,AMZN,NVDA,META,TSLA", "min_members": 5, "dc_entry": 55, "dc_exit": 20, "calm_q": 90.0,
+      "credit_ma": 100, "spy_ma": 200, "vt1_pct": 60.0, "vt2_pct": 80.0, "resize_band_pct": 20.0, "deep_rsi": 5.0, "deep_pct": 75.0,
+      "deep_exit_rsi": 50.0, "deep_days": 5, "day_rsi": 10.0, "day_pct": 100.0, "share1_pct": 50.0, "share2_pct": 50.0,
+      "model_cost_pct": 8.0, "cash_buffer_pct": 1.0, "rebalance_band_pct": 10.0}, {}),
 ]
 # Earlier defaults: a strategy still on exactly these settings is moved to the new ones once (lower-cost versions, 26 Oct 2026:
 # IBS-dip T-bill half as cash + QLD IBS < 0.15; metals flat in cash instead of SGOV).
@@ -198,7 +205,7 @@ UPGRADE_WHY = {"cash_parking_2026_10": "Parks in cash instead of BIL (each BIL r
 # Added with LINE alerts off: they hold no money until you move some to them (turn LINE on in the strategy when you do).
 QUIET_DEFAULTS = {"usd_smh_ibs", "rom_vol_ibs", "gold_trend_calm", "silver_gold_ok", "silver_lead_1x", "ddm_calm_guard",
                   "sso_calm_guard", "rxl_calm_guard", "usd_trend_split", "qld_split_2c",
-                  "rom_split_2c", "sso_macd_calm", "rxl_ichi_calm", "cweb_trend_crash", "qpux_safe", "ram_mom_calm", "uwm_a3_r3", "tsxu_2plus", "chau_s4"}
+                  "rom_split_2c", "sso_macd_calm", "rxl_ichi_calm", "cweb_trend_crash", "qpux_safe", "ram_mom_calm", "uwm_a3_r3", "tsxu_2plus", "chau_s4", "magx_s1p_s2pp"}
 PALETTE = ["#3DC9C0", "#E8875A", "#E46AA8", "#9BCB4E", "#F2C14E", "#5B8DEF", "#B084F5"]
 
 

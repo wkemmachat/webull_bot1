@@ -590,6 +590,25 @@
     "maxdd": -23.2,
     "bench": "Research total +291.2% (plain share-and-cash account +285.3% / −24.3%); at 0.30% a side +189.3%; every order a day late +188.2% / −18.9%; CHAU held −10.5% total / −79%"
    }
+  },
+  "magx_s1p_s2pp": {
+   "doc": "strategy-magx-s1p-s2pp",
+   "reviewed": "2026-11-27",
+   "history": "short",
+   "expect": {
+    "cagr": 45.3,
+    "maxdd": -39.1,
+    "basis": "planning figure (since 2004, modelled before Feb 2024)",
+    "period": "Oct 2004 – Nov 2026",
+    "note": "Not the 10-year backtest (57.9% a year, worst fall −29.8%, to Nov 2026). The bot's own backtest since Oct 2004 (MAGX modelled as 2 × an equal-weight Mag 7 basket minus 8% a year before it listed in Feb 2024, real fee) made 45.3% a year with a −39.1% worst fall, inside the research's 30–45% / −40 to −50% planning range from its walk-forward test. The seven stocks are hindsight winners."
+   },
+   "research": {
+    "source": "MAGX (2x Magnificent Seven): 2 best strategies, rounds 1–3, 26 Nov 2026 · half Strategy 1+ / half Strategy 2++",
+    "period": "Nov 2016 – Nov 2026 (modelled before Feb 2024)",
+    "cagr": 59.6,
+    "maxdd": -28.1,
+    "bench": "Holdout Oct 2007 – Sep 2013 38.6% / −39.3%; every order a day late 34.6% / −36.3%; S1+ 54.5% / −27.5%; S2++ 63.8% / −29.8%; MAGX held 51.9% / −80.1%; walk-forward 30–45% a year with 40–50% falls"
+   }
   }
  },
  "log": [
@@ -660,6 +679,10 @@
   {
    "date": "2026-11-27",
    "what": "Added chau_s4 (CHAU · Half trend + half dip, yuan filter (S4), S4 of \"CHAU 2x China A-shares: best buy/sell strategies\"): 14.5% a year (+287.7% total), worst fall −24.4% over Nov 2016 – Nov 2026 in the bot's own backtest at the real fee (research plain account +285.3% / −24.3%)."
+  },
+  {
+   "date": "2026-11-27",
+   "what": "Added magx_s1p_s2pp (MAGX · Mag 7 trend + RSI2 dips (half S1+, half S2++) of \"MAGX (2x Magnificent Seven): 2 best strategies\"): the bot's backtest 57.9% a year, worst fall −29.8% over 10 years (research 59.6% / −28.1%) and 45.3% / −39.1% since Oct 2004 (MAGX modelled before Feb 2024); planned at the since-2004 figure because the seven stocks are hindsight winners."
   }
  ]
 }
