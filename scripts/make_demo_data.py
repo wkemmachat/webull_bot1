@@ -93,6 +93,10 @@ def main(out: Path, days: int, now=None):
     for name, df in {"MU": mu, "STX": daily(24, nd, 90, 0.0005, 0.025, now), "WDC": daily(25, nd, 60, 0.0005, 0.025, now),
                      "RAM": lever(mu, 2, 15)}.items():
         df.to_csv(out / f"{name}_1d.csv", index=False)
+    iwm = daily(26, nd, 200, 0.0003, 0.014, now)                    # small caps (IWM, UWM 2x) and the UWM checks
+    for name, df in {"IWM": iwm, "UWM": lever(iwm, 2, 30), "SPY": daily(27, nd, 450, 0.0004, 0.01, now), "HYG": daily(28, nd, 80, 0.0001, 0.004, now),
+                     "XLY": daily(29, nd, 180, 0.0004, 0.012, now), "XLP": daily(30, nd, 75, 0.0002, 0.008, now)}.items():
+        df.to_csv(out / f"{name}_1d.csv", index=False)
     return out
 
 

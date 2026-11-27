@@ -535,6 +535,24 @@
     "maxdd": -62.5,
     "bench": "RAM held 20.0% / −90.1%; on a 2x built from US memory stocks 74.9% / −59%; before the boom (2016–24) 20.6%; every order a day late 15.6% / −86%; since RAM listed −14.9%"
    }
+  },
+  "uwm_a3_r3": {
+   "doc": "strategy-uwm-a3-r3",
+   "reviewed": "2026-11-27",
+   "expect": {
+    "cagr": 26.0,
+    "maxdd": -33.3,
+    "basis": "10 yr, real fee",
+    "period": "Oct 2016 – Oct 2026",
+    "note": "The bot's own backtest on Yahoo daily prices (UWM's real prices, signals with dividends added back) at Webull's real fee, Oct 2016 – Oct 2026, cash earning nothing. The research warns that rules picked on the past only did no better than holding UWM; plan lower."
+   },
+   "research": {
+    "source": "UWM (2x Russell 2000) rounds 2–3, 26 Nov 2026 · rules A3 and R3, half each (combined 27 Nov 2026)",
+    "period": "Nov 2016 – Nov 2026",
+    "cagr": 26.9,
+    "maxdd": -33.2,
+    "bench": "Research half A3 / half R3 (two books, yearly rebalance); A3 23.7% / −37.4%, R3 29.5% / −34.1%; UWM held 7.2% / −71.5%"
+   }
   }
  },
  "log": [
@@ -593,6 +611,10 @@
   {
    "date": "2026-11-26",
    "what": "Added ram_mom_calm (RAM · Momentum + calm + one-day dips, rule A of \"RAM (2x memory ETF): two best strategies\"): the bot's backtest 73.7% a year, worst fall −62.5% over 10 years and 34.9% / −71.1% since Dec 2002 (RAM modelled from US memory stocks before Jun 2026); planned at the since-2002 figure because the boom dominates the 10 years."
+  },
+  {
+   "date": "2026-11-27",
+   "what": "Added uwm_a3_r3 (UWM · Trend + credit + calm dips (A3 + R3)): rules A3 and R3 of the UWM research held half each in one position; 26.0% a year, worst fall −33.3% over Oct 2016 – Oct 2026 in the bot's own backtest at the real fee (research half-and-half 26.9% / −33.2%)."
   }
  ]
 }

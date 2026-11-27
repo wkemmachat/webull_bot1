@@ -150,6 +150,13 @@ DEFAULTS = [
      {"trade": "RAM", "mom_symbols": "MU,SMH", "mom_days": 126, "fast_symbol": "MU", "fast_days": 20, "calm_symbol": "SMH", "vol_days": 20,
       "vol_lookback": 504, "calm_pct": 90.0, "dip_ibs_max": 0.10, "model_basket": "MU:70,STX:15,WDC:15", "model_cost_pct": 18.5,
       "cash_buffer_pct": 1.0, "rebalance_band_pct": 20.0}, {}),
+    # 27 Nov 2026 UWM research rounds 2–3: rule A3 (IWM > EMA100, LQD credit, SPY > SMA200, vol < 35%, 99%) and rule R3
+    # (IWM > EMA150, HYG credit, SPY, vol < 30%, XLY/XLP risk-on, 75%), each with calm IBS dips, half each in one position.
+    # Added with no money.
+    ("uwm_a3_r3", "two_rule_mix", "UWM · Trend + credit + calm dips (A3 + R3)", "#1098AD",
+     {"trade": "UWM", "signal": "IWM", "spy": "SPY", "weight_a": 0.5, "weight_r": 0.5, "a_ema": 100, "a_vol_cap": 35.0, "a_size_pct": 99.0,
+      "r_ema": 150, "r_vol_cap": 30.0, "r_size_pct": 75.0, "risk_ma": 100, "credit_ma": 100, "spy_ma": 200, "dip_ibs_max": 0.15,
+      "dip_days": 5, "vol_days": 20, "calm_lookback": 252, "calm_pct": 90.0, "cash_buffer_pct": 1.0, "rebalance_band_pct": 10.0}, {}),
 ]
 # Earlier defaults: a strategy still on exactly these settings is moved to the new ones once (lower-cost versions, 26 Oct 2026:
 # IBS-dip T-bill half as cash + QLD IBS < 0.15; metals flat in cash instead of SGOV).
@@ -179,7 +186,7 @@ UPGRADE_WHY = {"cash_parking_2026_10": "Parks in cash instead of BIL (each BIL r
 # Added with LINE alerts off: they hold no money until you move some to them (turn LINE on in the strategy when you do).
 QUIET_DEFAULTS = {"usd_smh_ibs", "rom_vol_ibs", "gold_trend_calm", "silver_gold_ok", "silver_lead_1x", "ddm_calm_guard",
                   "sso_calm_guard", "rxl_calm_guard", "usd_trend_split", "qld_split_2c",
-                  "rom_split_2c", "sso_macd_calm", "rxl_ichi_calm", "cweb_trend_crash", "qpux_safe", "ram_mom_calm"}
+                  "rom_split_2c", "sso_macd_calm", "rxl_ichi_calm", "cweb_trend_crash", "qpux_safe", "ram_mom_calm", "uwm_a3_r3"}
 PALETTE = ["#3DC9C0", "#E8875A", "#E46AA8", "#9BCB4E", "#F2C14E", "#5B8DEF", "#B084F5"]
 
 

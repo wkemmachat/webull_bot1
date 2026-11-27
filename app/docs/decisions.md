@@ -399,6 +399,13 @@
   status calls one a second, a 3-second cooldown on 429 with the least-recently-checked order first, an alert after 2
   minutes without an answer, fresher Yahoo prices for orders (no Webull market data on this account), 0.5% price room
   for sells, no routine price refresh around the open, and the Webull library's request dumps (with the access token) off.
+- **UWM · Trend + credit + calm dips (A3 + R3) added** (27 Nov 2026, your request to combine rules A3 and R3 into one strategy;
+  allowed on Live after a Webull test trade): new type `two_rule_mix` ([page](#/docs/strategy-uwm-a3-r3)). Each day it
+  holds half of what A3 holds and half of what R3 holds, in one UWM position.
+  - **Backtest**: on UWM's real prices since 2007, with dividends added back to the signal prices as in the research (the
+    bond ETFs in the credit checks pay monthly). 24.7% a year with a −33.3% worst fall over 10 years, 23.5% / −38.1% since
+    2007; the research's half-and-half figure was 26.9% / −33.2%.
+  - Added with no money.
 - **RAM · Momentum + calm + one-day dips added** (26 Nov 2026, your choice of rule A over B; allowed on Live after a
   Webull test trade): new type `momentum_calm` ([page](#/docs/strategy-ram-mom-calm)). Holds RAM while Micron and SMH are
   above their close of 126 days ago, Micron above its close of 20 days ago and SMH calm; otherwise one-day dips after RAM
