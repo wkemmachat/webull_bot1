@@ -110,7 +110,10 @@ def auto_on(sid: str, control: str | None = None, modes: list | None = None) -> 
         control = r["control"] if r else None
     if not control or control == "stopped":
         return False
+    from . import pool
     for m in (money_modes() if modes is None else modes):
+        if pool.is_member(m, sid):                 # a pool member's money is the pool: it gets money when its signal comes
+            return True
         L = db.one("SELECT cash FROM ledger WHERE mode=? AND strategy=?", (m, sid))
         if L and (L["cash"] or 0) >= AUTO_MIN_CASH:
             return True
@@ -121,6 +124,7 @@ def auto_on(sid: str, control: str | None = None, modes: list | None = None) -> 
 
 def sync_auto() -> list:
     """Write every strategy's automatic LINE switch. Returns [(id, on)] for the ones that changed (each one logged)."""
+    from . import pool
     if not line_auto():
         return []
     modes = money_modes()
@@ -130,7 +134,8 @@ def sync_auto() -> list:
         if bool(r["line_on"]) != on:
             db.run("UPDATE strategies SET line_on=? WHERE id=?", (1 if on else 0, r["id"]))
             changed.append((r["id"], on))
-            why = "not Stopped and holds money" if on else ("Stopped" if r["control"] == "stopped" else "no money left")
+            why = ("a strategy pool member" if on and any(pool.is_member(m, r["id"]) for m in modes) else
+                   "not Stopped and holds money") if on else ("Stopped" if r["control"] == "stopped" else "no money left")
             db.add_event("info", "line", f"{r['name']}: LINE alerts turned {'on' if on else 'off'} automatically", why,
                          strategy=r["id"])
     return changed

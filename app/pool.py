@@ -388,6 +388,7 @@ def view(mode: str) -> dict:
             tgt = {}
         g = group_of(s)
         in_trade = bool(L["holdings"]) or abs(v) > 0.5
+        park_only = bool(L["holdings"]) and all(sym in parking(s) for sym in L["holdings"])
         wait = db.get_state(f"poolwait:{mode}:{s.id}")
         pt = db.get_state(f"pooltrade:{mode}:{s.id}") or {}
         base = {"id": s.id, "name": s.name, "color": s.color, "group": g, "group_label": group_label(g), "value": round(v, 2),
@@ -396,7 +397,9 @@ def view(mode: str) -> dict:
         if s.id in c["members"]:
             m = c["members"][s.id]
             vv = ledger.value(mode, s.id)
-            if in_trade and not L["holdings"]:
+            if park_only:
+                status = ("", "Selling its gold parking · money back after")
+            elif in_trade and not L["holdings"]:
                 status = ("ok", "Has its money · buys at the next open") if tgt else ("", "Trade ended · money back at the next check")
             elif in_trade:
                 status = ("info", "In a trade · group cap") if pt.get("capped") else ("ok", "In a trade · partial") if pt.get("shared") else \

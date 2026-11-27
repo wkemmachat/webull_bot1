@@ -225,3 +225,24 @@ def test_choose_members_groups_by_the_etf_traded():
     assert c1[0] == c2[0] and c1[1].endswith("stocks")                                 # the two baskets share one group
     r = pool.ranks(MODE)
     assert r["qld_split_2c"]["etf"] == "QLD" and set(r["qld_split_2c"]) >= {"r10", "dd10", "ret_dd", "cap_group"}
+
+
+def test_line_stays_on_for_members_without_money(clean):
+    """27 Nov (Live): turning the pool on took the members' money back and Automatic LINE switched them off, so the
+    buy signal at the close (before the pool funds the trade) would not have been sent."""
+    from app import notify
+    _reset(50_000)
+    _on(["usd_trend_split"])
+    assert _cash("usd_trend_split") == 0
+    assert notify.auto_on("usd_trend_split", "active", ["paper"])
+    assert not notify.auto_on("rom_vol_ibs", "active", ["paper"])            # not a member, no money: off as before
+    assert not notify.auto_on("usd_trend_split", "stopped", ["paper"])       # Stopped: off
+    pool.set_settings(MODE, on_=False)
+    assert not notify.auto_on("usd_trend_split", "active", ["paper"])        # pool off: follows the money again
+
+
+def test_member_holding_only_gold_parking_is_selling_it(clean):
+    _on(["qld_split_2c"])
+    db.run("INSERT INTO holdings(mode,strategy,symbol,qty,cost) VALUES(?,?,?,?,?)", (MODE, "qld_split_2c", "GLD", 3, 1000))
+    row = next(m for m in pool.view(MODE)["members"] if m["id"] == "qld_split_2c")
+    assert row["status"][1].startswith("Selling its gold parking")
