@@ -103,6 +103,10 @@ def main(out: Path, days: int, now=None):
     mag = {s: daily(33 + k, nd, 100 + 40 * k, 0.0008, 0.02, now) for k, s in enumerate(("AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"))}
     for name, df in {**mag, "MAGX": lever(mag["NVDA"], 2, 40)}.items():   # the Magnificent Seven and MAGX (2x)
         df.to_csv(out / f"{name}_1d.csv", index=False)
+    ibb = daily(40, nd, 140, 0.0003, 0.015, now)                    # biotech (IBB, XBI, BIB 2x), rates (TLT, ^TNX) and VIX
+    for name, df in {"IBB": ibb, "BIB": lever(ibb, 2, 50), "XBI": daily(41, nd, 90, 0.0003, 0.02, now), "TLT": daily(42, nd, 90, 0.0001, 0.009, now),
+                     "^TNX": daily(43, nd, 4.2, 0.0, 0.015, now), "^VIX": daily(44, nd, 20, 0.0, 0.06, now)}.items():
+        df.to_csv(out / f"{name}_1d.csv", index=False)
     return out
 
 

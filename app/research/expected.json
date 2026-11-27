@@ -609,6 +609,24 @@
     "maxdd": -28.1,
     "bench": "Holdout Oct 2007 – Sep 2013 38.6% / −39.3%; every order a day late 34.6% / −36.3%; S1+ 54.5% / −27.5%; S2++ 63.8% / −29.8%; MAGX held 51.9% / −80.1%; walk-forward 30–45% a year with 40–50% falls"
    }
+  },
+  "bib_blend_v": {
+   "doc": "strategy-bib-blend-v",
+   "reviewed": "2026-11-27",
+   "expect": {
+    "cagr": 29.2,
+    "maxdd": -26.3,
+    "basis": "10 yr, real fee",
+    "period": "Oct 2016 – Oct 2026",
+    "note": "The bot's own backtest on Yahoo daily prices (BIB's real prices, signals with dividends added back) at Webull's real fee, Nov 2016 – Nov 2026, cash earning nothing. BIB trades only about $1M a day: at 0.25% a side the same 10 years give 22.7% / −27.6%, and the research advises sizing for a −40% to −50% fall."
+   },
+   "research": {
+    "source": "BIB (2x Nasdaq Biotech): 2 best strategies, rounds 1–4, 26 Nov 2026 · Blend v (½ S3v + ½ S2+v)",
+    "period": "Nov 2016 – Nov 2026",
+    "cagr": 28.7,
+    "maxdd": -26.3,
+    "bench": "At 0.25% a side 22.2% / −28%; 2003–26 (BIB modelled before 2010) 30.0% / −36%; every order a day late 12.2% / −45%; walk-forward 15.5% a year at 0.25%; BIB held 10.6% / −67.7%"
+   }
   }
  },
  "log": [
@@ -683,6 +701,10 @@
   {
    "date": "2026-11-27",
    "what": "Added magx_s1p_s2pp (MAGX · Mag 7 trend + RSI2 dips (half S1+, half S2++) of \"MAGX (2x Magnificent Seven): 2 best strategies\"): the bot's backtest 57.9% a year, worst fall −29.8% over 10 years (research 59.6% / −28.1%) and 45.3% / −39.1% since Oct 2004 (MAGX modelled before Feb 2024); planned at the since-2004 figure because the seven stocks are hindsight winners."
+  },
+  {
+   "date": "2026-11-27",
+   "what": "Added bib_blend_v (BIB · Rates + trend blend with IBS dips (Blend v) of \"BIB (2x Nasdaq Biotech): 2 best strategies\"): 29.2% a year, worst fall −26.3% over Nov 2016 – Nov 2026 in the bot's own backtest at the real fee (research 28.7% / −26.3%); 22.7% / −27.6% at 0.25% a side."
   }
  ]
 }

@@ -399,6 +399,14 @@
   status calls one a second, a 3-second cooldown on 429 with the least-recently-checked order first, an alert after 2
   minutes without an answer, fresher Yahoo prices for orders (no Webull market data on this account), 0.5% price room
   for sells, no routine price refresh around the open, and the Webull library's request dumps (with the access token) off.
+- **BIB · Rates + trend blend with IBS dips (Blend v) added** (27 Nov 2026, the BIB research's main pick after four
+  rounds; allowed on Live after a Webull test trade): new type `rates_trend_blend` ([page](#/docs/strategy-bib-blend-v)).
+  Half rule S3v (credit healthy, 10-year yield under its SMA50, TLT above its SMA100), half rule S2+v (XBI up over a year,
+  credit, SPY and IWM above SMA200); a leg not holding buys a deep dip (BIB IBS < 0.05 while XBI is above SMA200) and
+  one-day dips only while VIX is above 20. The research's T-bill interest on idle cash is not used: in the bot it means
+  trading a T-bill ETF around about 56 trades a year, and the fees cost more than the interest. VIX settles at 16:15
+  New York, so the engine fetches it again at 16:20 (LATE_FINAL) and the signal is decided again before the next open.
+  New exposure group "Biotech" (IBB, XBI, BIB).
 - **MAGX · Mag 7 trend + RSI2 dips (half S1+, half S2++) added** (27 Nov 2026, your choice of half Strategy 1+ and half
   Strategy 2++ of the MAGX research in one position; allowed on Live after a Webull test trade): new type `mag7_mix`
   ([page](#/docs/strategy-magx-s1p-s2pp)). Signals come from an equal-weight basket of the seven stocks that the bot builds

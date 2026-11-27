@@ -89,6 +89,7 @@ def refresh_data(now, force=False):
 
 
 HK_INDEXES = {"^HSI": ("Asia/Hong_Kong", "16:15")}   # index → (time zone, when its daily close is final)
+LATE_FINAL = {"^VIX": "16:20"}   # US indexes that settle after 16:00 New York (VIX at 16:15): fetched again once settled
 
 
 def _daily_due(sym, now, last):
@@ -105,6 +106,10 @@ def _daily_due(sym, now, last):
     after_close = datetime.combine(ny.date(), datetime.strptime("16:07", "%H:%M").time(), NY)
     if ny >= after_close and last < after_close.timestamp() and mh.is_trading_day(ny.date()):
         return True                                   # the closing bar
+    if sym in LATE_FINAL:
+        fin = datetime.combine(ny.date(), datetime.strptime(LATE_FINAL[sym], "%H:%M").time(), NY)
+        if ny >= fin and last < fin.timestamp() and mh.is_trading_day(ny.date()):
+            return True                               # its settled close (the signal is decided again before the next open)
     b = mh.session_bounds(ny.date())
     if b and b[0] - timedelta(minutes=5) <= now <= b[0] + timedelta(minutes=20) and last:
         return False                                  # the open: orders first (signals are decided at the close anyway)
