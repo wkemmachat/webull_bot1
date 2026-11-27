@@ -27,6 +27,7 @@ KNOWN = {
     "UWM": ("smallcap", 2), "IWM": ("smallcap", 1), "TNA": ("smallcap", 3),
     "RAM": ("memory", 2), "MU": ("memory", 1), "DRAM": ("memory", 1),
     "MAGX": ("mag7", 2), "MAGS": ("mag7", 1),
+    "URA": ("uranium", 1), "URNM": ("uranium", 1), "CCJ": ("uranium", 1), "URAA": ("uranium", 2),
     "QPUX": ("quantum", 2), "IONQ": ("quantum", 1), "RGTI": ("quantum", 1), "QBTS": ("quantum", 1), "QUBT": ("quantum", 1),
     "BIL": ("tbills", 0), "SGOV": ("tbills", 0), "SHV": ("tbills", 0),
 }
@@ -44,6 +45,7 @@ GROUPS = {   # key: (label, what it follows, colour)
     "smallcap": ("US small companies", "IWM", "#1098AD"),
     "memory": ("Memory chips", "DRAM, MU", "#F76707"),
     "quantum": ("Quantum computing", "IONQ, RGTI, QBTS, QUBT", "#7950F2"),
+    "uranium": ("Uranium", "URA", "#82C91E"),
     "gold": ("Gold", "GLD", "#D4A017"),
     "silver": ("Silver", "SLV", "#9AA5B1"),
     "other": ("Other", "", "#B9852C"),

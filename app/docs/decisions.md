@@ -399,6 +399,13 @@
   status calls one a second, a 3-second cooldown on 429 with the least-recently-checked order first, an alert after 2
   minutes without an answer, fresher Yahoo prices for orders (no Webull market data on this account), 0.5% price room
   for sells, no routine price refresh around the open, and the Webull library's request dumps (with the access token) off.
+- **URAA · Uranium dip legs with a Cameco check (S1++) added** (27 Nov 2026, Strategy 1++ of the URAA research after four
+  rounds; allowed on Live after a Webull test trade): new type `three_leg_dips` ([page](#/docs/strategy-uraa-s1pp)). Holds
+  URAA only after sharp URA dips (about 6% of days): A a dip in a strong uptrend, B a 4% three-day drop in an uptrend (both
+  confirmed by Cameco's RSI2 < 30), C an 8% crash at half size; each sold at the open after URA's first up close. URAA listed
+  in Jun 2024, so the backtest models it as 2 × URA minus 14% a year before then. Without the research's T-bill parking
+  (worse at 0.25% a side in the research itself). Expected return: the since-2011 figure with the research's Fukushima-weekend
+  fall (−42.5%). New exposure group "Uranium".
 - **AIBU · Breakout + calm + fast stop + dips (S2++) added** (27 Nov 2026, Strategy 2++ of the AIBU research, your
   choice over the recommended half S1++ / half S2++; allowed on Live after a Webull test trade): new type
   `breakout_calm_dip` ([page](#/docs/strategy-aibu-s2pp)). AIBU's own 30/20-day breakout while it is calm (80th

@@ -107,6 +107,9 @@ def main(out: Path, days: int, now=None):
     for name, df in {"IBB": ibb, "BIB": lever(ibb, 2, 50), "XBI": daily(41, nd, 90, 0.0003, 0.02, now), "TLT": daily(42, nd, 90, 0.0001, 0.009, now),
                      "^TNX": daily(43, nd, 4.2, 0.0, 0.015, now), "^VIX": daily(44, nd, 20, 0.0, 0.06, now)}.items():
         df.to_csv(out / f"{name}_1d.csv", index=False)
+    ura = daily(46, nd, 30, 0.0002, 0.022, now)                     # uranium (URA, URAA 2x) and Cameco
+    for name, df in {"URA": ura, "URAA": lever(ura, 2, 20), "CCJ": daily(47, nd, 50, 0.0003, 0.028, now)}.items():
+        df.to_csv(out / f"{name}_1d.csv", index=False)
     return out
 
 

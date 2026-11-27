@@ -646,6 +646,25 @@
     "maxdd": -25.4,
     "bench": "Without T-bills 52.6% / −25%; 2007–16 23.6% / −34.1%; 2003–07 13.7% / −22.1%; 2000–02 43.3% / −50.4%; 2000–26 34.3% / −50.4%; at 0.25% a side 49.7% / −26%; AIBU held 32.0% / −77.0%"
    }
+  },
+  "uraa_s1pp": {
+   "doc": "strategy-uraa-s1pp",
+   "reviewed": "2026-11-27",
+   "history": "short",
+   "expect": {
+    "cagr": 18.9,
+    "maxdd": -42.5,
+    "basis": "planning figure (since 2011, modelled before Jun 2024)",
+    "period": "Nov 2011 – Nov 2026",
+    "note": "Not the 10-year backtest (30.0% a year, worst fall −11.0%, to Nov 2026). The bot's own backtest since Nov 2011 (URAA modelled as 2 × URA minus 14% a year before it listed in Jun 2024, real fee) made 18.9% a year with a −21.9% worst fall; the fall used here is the research's −42.5% from the Fukushima weekend (Mar 2011), when URAA would have opened about −35% while the rules held. URAA itself has 17 months of real prices."
+   },
+   "research": {
+    "source": "URAA (2x uranium): 2 best strategies, rounds 1–4, 27 Nov 2026 · Strategy 1++",
+    "period": "Nov 2016 – Nov 2026 (modelled before Jun 2024)",
+    "cagr": 30.6,
+    "maxdd": -11.1,
+    "bench": "2011–16 holdout −0.3% / −12.9%; 1999–2026 (proxy before 2010) 12.8% / −42.5%; every order a day late 7.1% / −40.5%; bootstrap 10-year median 19.8%, 1 in 10 below 13%; URAA held −6.0% / −92.3%"
+   }
   }
  },
  "log": [
@@ -728,6 +747,10 @@
   {
    "date": "2026-11-27",
    "what": "Added aibu_s2pp (AIBU · Breakout + calm + fast stop + dips (S2++) of \"AIBU (2x AI & Big Data): 2 best strategies\"): the bot's backtest 51.1% a year, worst fall −25.3% over 10 years (research without T-bills 52.6% / −25%) and 31.0% / −34.1% since Dec 2002 (AIBU modelled before May 2024); planned at 31.0% with the research's 2000–02 fall of −50.4%."
+  },
+  {
+   "date": "2026-11-27",
+   "what": "Added uraa_s1pp (URAA · Uranium dip legs with a Cameco check (S1++) of \"URAA (2x uranium): 2 best strategies\"): the bot's backtest 30.0% a year, worst fall −11.0% over 10 years (research 30.6% / −11.1%) and 18.9% / −21.9% since Nov 2011 (URAA modelled before Jun 2024); planned at 18.9% with the research's Fukushima fall of −42.5%."
   }
  ]
 }

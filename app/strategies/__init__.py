@@ -188,6 +188,12 @@ DEFAULTS = [
      {"trade": "AIBU", "dip_symbol": "QQQ", "dc_entry": 30, "dc_exit": 20, "calm_q": 80.0, "credit_ma": 100, "vt_pct": 60.0,
       "stop_pct": 13.0, "stop_days": 5, "stop_out": 7, "dip_rsi": 6.0, "dip_pct": 100.0, "model_basket": "IYW:70,FDN:30",
       "model_beta": 2.26, "model_cost_pct": 4.0, "cash_buffer_pct": 1.0, "rebalance_band_pct": 20.0}, {}),
+    # 27 Nov 2026 URAA research Strategy 1++ (rounds 1–4): three URA dip legs (trend dip, 4% 3-day drop, 8% crash at half size),
+    # A and B confirmed by CCJ RSI2 < 30, each sold after URA's first up close. Added with no money.
+    ("uraa_s1pp", "three_leg_dips", "URAA · Uranium dip legs with a Cameco check (S1++)", "#82C91E",
+     {"trade": "URAA", "signal": "URA", "confirm": "CCJ", "fast": 50, "slow": 200, "mom_days": 252, "a_spread_pct": 3.0, "a_rsi": 8.0,
+      "drop_days": 3, "b_drop_pct": 4.0, "b_rsi": 10.0, "c_rsi": 30.0, "c_drop_pct": 8.0, "crash_rsi": 5.0, "c_pct": 50.0, "max_days": 5,
+      "model_cost_pct": 14.0, "cash_buffer_pct": 1.0, "rebalance_band_pct": 20.0}, {}),
 ]
 # Earlier defaults: a strategy still on exactly these settings is moved to the new ones once (lower-cost versions, 26 Oct 2026:
 # IBS-dip T-bill half as cash + QLD IBS < 0.15; metals flat in cash instead of SGOV).
@@ -217,7 +223,7 @@ UPGRADE_WHY = {"cash_parking_2026_10": "Parks in cash instead of BIL (each BIL r
 # Added with LINE alerts off: they hold no money until you move some to them (turn LINE on in the strategy when you do).
 QUIET_DEFAULTS = {"usd_smh_ibs", "rom_vol_ibs", "gold_trend_calm", "silver_gold_ok", "silver_lead_1x", "ddm_calm_guard",
                   "sso_calm_guard", "rxl_calm_guard", "usd_trend_split", "qld_split_2c",
-                  "rom_split_2c", "sso_macd_calm", "rxl_ichi_calm", "cweb_trend_crash", "qpux_safe", "ram_mom_calm", "uwm_a3_r3", "tsxu_2plus", "chau_s4", "magx_s1p_s2pp", "bib_blend_v", "aibu_s2pp"}
+                  "rom_split_2c", "sso_macd_calm", "rxl_ichi_calm", "cweb_trend_crash", "qpux_safe", "ram_mom_calm", "uwm_a3_r3", "tsxu_2plus", "chau_s4", "magx_s1p_s2pp", "bib_blend_v", "aibu_s2pp", "uraa_s1pp"}
 PALETTE = ["#3DC9C0", "#E8875A", "#E46AA8", "#9BCB4E", "#F2C14E", "#5B8DEF", "#B084F5"]
 
 
