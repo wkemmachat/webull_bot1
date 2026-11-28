@@ -238,11 +238,11 @@
   function btTicks(a, b) {                                   // x-axis labels for the span shown
     const span = (b - a) / 86400, out = [];
     const da = new Date(a * 1000), db = new Date(b * 1000);
-    if (span > 540) {
+    if (span > 1100) {
       const y0 = da.getUTCFullYear() + 1, y1 = db.getUTCFullYear(), st = Math.max(1, Math.ceil((y1 - y0 + 1) / 8));
       for (let y = y0; y <= y1; y += st) out.push([Date.UTC(y, 0, 1) / 1000, String(y)]);
     } else if (span > 75) {
-      const st = span > 300 ? 3 : span > 150 ? 2 : 1;
+      const st = span > 730 ? 6 : span > 300 ? 3 : span > 150 ? 2 : 1;
       let y = da.getUTCFullYear(), m = da.getUTCMonth() + 1;
       for (; Date.UTC(y, m, 1) / 1000 <= b; m += st) { const t = Date.UTC(y, m, 1) / 1000; const dd = new Date(t * 1000); out.push([t, MONS[dd.getUTCMonth()] + (dd.getUTCMonth() === 0 || out.length === 0 ? ' ' + dd.getUTCFullYear() : '')]); }
     } else {
@@ -417,7 +417,13 @@
         const t2 = tOf(box, e.clientX), moved = Math.abs(e.clientX - drag.x);
         if (sel) sel.remove();
         const t1 = drag.t; drag = null; sel = null;
-        if (moved > 8 && Math.abs(t2 - t1) > 10 * 86400) setWin([Math.min(t1, t2), Math.max(t1, t2)]);
+        if (moved > 8 && Math.abs(t2 - t1) > 10 * 86400) {
+          const span = C.t1 - C.t0, snap = 0.02 * span;     // a drag that ends near an edge keeps that edge (today stays in)
+          let a = Math.min(t1, t2), b = Math.max(t1, t2);
+          if (C.t1 - b < snap) b = C.t1 === C.last ? C.last + 86400 : C.t1;
+          if (a - C.t0 < snap) a = C.t0;
+          setWin([a, b]);
+        }
       };
       box.addEventListener('pointerup', end);
       box.addEventListener('pointercancel', () => { if (sel) sel.remove(); drag = null; sel = null; });
