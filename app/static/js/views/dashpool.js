@@ -31,7 +31,7 @@
       ${mid != null ? `<span style="position:absolute;top:-3px;bottom:-3px;width:2px;left:${X(mid)}%;background:var(--text)"></span>` : ''}</div>`;
   }
 
-  function checkCard(c, pv) {
+  function checkCard(c, pv, since) {
     const bt = c.bt || {}, rg = bt.ranges || {}, b1 = (rg.bands || [])[0];
     const wait = !bt.ready ? `<div class="muted small"><span class="spin"></span> The backtest of today's members is running (${bt.done || 0} of ${bt.of || '…'})…</div>` : '';
     const month = c.month, fall = c.fall, work = c.work, avg = bt.idle != null ? 1 - bt.idle / 100 : null, worst = (bt.all || {}).maxdd;
@@ -47,7 +47,7 @@
       <div class="small" style="margin-top:6px"><b>Money at work</b> <span class="num">${work == null ? '—' : Math.round(work * 100) + '%'}</span></div>
       ${bullet(work == null ? null : work * 100, null, null, avg == null ? null : avg * 100, 0, 100)}
       <div class="row sb tiny muted"><span>${avg != null ? `backtest average ${Math.round(avg * 100)}% in trades (black mark)` : ''}</span><span>${pv.waiting.length ? pv.waiting.length + ' waiting for money' : ''}</span></div>
-      <div class="muted tiny" style="margin-top:4px">Green band = where the pool's backtest of today's ${pv.members.length} members usually is · black mark = its middle.${c.too_early ? ` The pool started ${U.day(c.since || 0)}; it is compared with its backtest after ${20} trading days.` : ''}</div></section>`;
+      <div class="muted tiny" style="margin-top:4px">Green band = where the pool's backtest of today's ${pv.members.length} members usually is · black mark = its middle.${c.too_early ? ` The pool started ${since ? U.day(since) : 'recently'}; it is judged against its backtest after 20 trading days.` : ''}</div></section>`;
   }
 
   function nextCard(d) {
@@ -238,7 +238,7 @@
             <div class="kv"><span>Profit since start</span><b class="num ${U.cls(b.pnl)}">${U.sgnUsd(b.pnl, 0)}</b></div>
             <div class="kv"><span>Money put in</span><span class="num">${U.usd(b.net_in, 0)}</span></div>
             <div class="kv"><span>Since the pool started${ds.since ? ' · ' + U.day(ds.since) : ''}</span><b class="num ${U.cls(c.since_ret)}">${pc(c.since_ret, 2)}</b></div></div></section>
-        ${checkCard(c, pv)}
+        ${checkCard(c, pv, ds.since)}
         ${nextCard(d)}
       </div>
       <section class="card col" style="gap:10px"><div><h2 class="h2">Real vs backtest</h2><div class="muted small">The real return (time-weighted, so adding money does not move it) against where today's mix usually was in its backtest, counted from the day the pool started</div></div>

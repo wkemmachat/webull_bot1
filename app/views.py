@@ -197,6 +197,15 @@ def pnl_breakdown(mode, period="all", points=160):
                      "cap_in": v["cap_in"] or 0.0, "pnl": round(pnl, 2) if pnl is not None else None,
                      "pct": (pnl / base) if pnl is not None and base > 0.5 else None,
                      "open": round(open_, 2) if held else 0.0, "no_money": no_money, "empty": False})
+    from . import pool
+    pool_cash = None
+    if pool.on(mode):                      # the pool's free cash is the bot's money too: part of the base of the %, no P&L of its own
+        pool_cash = ledger.pool_cash(mode)
+        if not days:
+            base_tot += pool_cash
+        elif t0 is not None:
+            star = db.one("SELECT value FROM equity WHERE mode=? AND strategy='*' AND t=?", (mode, t0))
+            base_tot += max(0.0, (star["value"] if star else 0.0) - sum((x["value"] or 0.0) for k, x in start.items() if k != "*"))
     live = [r for r in rows if not r["empty"]]
     total = sum(r.pop("_pnl") or 0.0 for r in live) if (days is None or t0 is not None) else None    # unrounded, = the Dashboard
     for r in live:
@@ -234,7 +243,7 @@ def pnl_breakdown(mode, period="all", points=160):
         line.append(next(r["pnl"] for r in live if r["id"] == sid) or 0.0)          # now, from live prices
         series["lines"][sid] = line
     return {"mode": mode, "period": period, "since": t0 if days else None, "total": round(total, 2) if total is not None else None,
-            "pct": (total / base_tot) if total is not None and base_tot > 0.5 else None, "rows": live,
+            "pct": (total / base_tot) if total is not None and base_tot > 0.5 else None, "rows": live, "pool_cash": pool_cash,
             "empty": [r["name"] for r in rows if r["empty"]], "series": series}
 
 

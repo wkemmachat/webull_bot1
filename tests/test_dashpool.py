@@ -158,3 +158,19 @@ def test_dashboard_on_a_saturday_with_the_weekend_pause(clean, monkeypatch):
 def test_non_finite_numbers_never_reach_the_response():
     from app import views
     assert views._finite({"a": float("nan"), "b": [1.0, float("inf")], "c": "x"}) == {"a": None, "b": [1.0, None], "c": "x"}
+
+
+def test_pnl_card_percent_counts_the_pool_cash(clean, clock):
+    """28 Nov (Live): the Profit & loss card still said −100% with all the money in the pool."""
+    from app import views
+    with db.tx() as c:
+        c.execute("DELETE FROM ledger WHERE mode=?", (MODE,))
+        c.execute("DELETE FROM holdings WHERE mode=?", (MODE,))
+    ledger.pool(MODE)
+    db.run("UPDATE pool SET cash=? WHERE mode=?", (39_000.0, MODE))
+    ledger.credit(MODE, "qld_split_2c", 0)
+    db.run("UPDATE ledger SET cap_in=1000, cap_out=0, cash=900 WHERE mode=? AND strategy='qld_split_2c'", (MODE,))
+    _on(["qld_split_2c"])
+    d = views.pnl_breakdown(MODE, "all")
+    assert d["pool_cash"] == 39_000.0 and abs(d["total"] - -100) < 0.01
+    assert abs(d["pct"] - (-100 / 40_000)) < 1e-9                        # not −100 / 1,000

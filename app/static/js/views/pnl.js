@@ -141,7 +141,8 @@
     const sumBy = (c) => d.rows.reduce((a, r) => a + (r[c] || 0), 0);
     box.innerHTML = `<div class="tw"><table class="t"><thead><tr>${cols.map(([c, l, right]) => `<th class="${right ? 'r' : ''}"><button type="button" class="th-sort${c === k ? ' on' : ''}" data-c="${c}">${l}<span class="arr">${c === k ? (dir > 0 ? '▲' : '▼') : ''}</span></button></th>`).join('')}</tr></thead>
       <tbody>${rows.map((r) => `<tr>${cols.map(([c]) => cell(r, c)).join('')}</tr>`).join('')}</tbody>
-      <tfoot><tr><td>All strategies = Bot equity</td><td class="r num">${U.usd(sumBy('net_in'))}</td><td class="r num">${U.usd(sumBy('value'))}</td>
+      <tfoot>${d.pool_cash != null ? `<tr><td class="muted">Pool free cash <span class="tiny">(no profit or loss of its own)</span></td><td class="r num muted">${U.usd(d.pool_cash)}</td><td class="r num muted">${U.usd(d.pool_cash)}</td><td class="r num muted">$0.00</td><td colspan="${cols.length - 4}"></td></tr>` : ''}
+        <tr><td>${d.pool_cash != null ? 'Strategies + pool = Bot equity' : 'All strategies = Bot equity'}</td><td class="r num">${U.usd(sumBy('net_in') + (d.pool_cash || 0))}</td><td class="r num">${U.usd(sumBy('value') + (d.pool_cash || 0))}</td>
         <td class="r num ${U.cls(d.total)}">${U.sgnUsd(d.total)}</td><td class="r num ${U.cls(d.pct)}">${U.pct(d.pct, 2)}</td><td class="r num ${U.cls(d.pct)}">${pts(d.pct)}</td>
         ${st.period === 'all' ? `<td class="r num ${U.cls(sumBy('realised'))}">${U.sgnUsd(sumBy('realised'))}</td><td class="r num ${U.cls(sumBy('open'))}">${U.sgnUsd(sumBy('open'))}</td>` : ''}</tr></tfoot></table></div>
       ${d.empty.length ? `<div class="muted small" style="padding:10px 14px">No money and no profit or loss ${st.period === 'all' ? 'yet' : 'in this period'}: ${d.empty.map(U.esc).join(', ')}</div>` : ''}`;
