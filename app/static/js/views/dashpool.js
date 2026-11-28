@@ -269,8 +269,7 @@
     const last = B.weekly[B.weekly.length - 1][0];
     const yrs = { '5Y': 5, '10Y': 10 }[st.per];
     const p0 = yrs ? last - yrs * 365.25 * 86400 : B.weekly[0][0];
-    const startIdx = Math.max(0, W.findIndex((p) => p[0] >= p0));
-    const base = W[startIdx][1];
+    const base = (B.weekly.find((p) => p[0] >= p0) || B.weekly[0])[1];     // the header's base, so daily and weekly agree
     const a = st.win ? Math.max(st.win[0], p0) : p0, b = st.win ? Math.min(st.win[1], last) : last;
     let pts = W.filter((p) => p[0] >= a && p[0] <= b);
     if (pts.length < 2) pts = W.filter((p) => p[0] >= p0);
@@ -370,7 +369,7 @@
     };
     const needDaily = () => st.win && (st.win[1] - st.win[0]) < 3 * 365.25 * 86400 && !st.daily && !st.loading;
     const setWin = async (w) => {
-      st.win = w; draw();
+      st.win = w; draw(); clearHover();
       if (needDaily()) {
         st.loading = true;
         try {
