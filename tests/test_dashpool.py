@@ -174,3 +174,15 @@ def test_pnl_card_percent_counts_the_pool_cash(clean, clock):
     d = views.pnl_breakdown(MODE, "all")
     assert d["pool_cash"] == 39_000.0 and abs(d["total"] - -100) < 0.01
     assert abs(d["pct"] - (-100 / 40_000)) < 1e-9                        # not −100 / 1,000
+
+
+def test_etf_watch_leaves_out_single_stocks_with_mixed_case_names():
+    """28 Nov: Yahoo writes single-stock 2x funds in mixed case; they got into the first list."""
+    for t, n in (("SNXX", "Tradr 2X Long Sndk Daily ETF"), ("LITX", "Tradr 2X Long Lite Daily ETF"),
+                 ("SKHX", "Leverage Shares 2X Long SK Hynix Daily ETF"), ("ANUU", "Leverage Shares 2X Long Anthropic Daily ETF"),
+                 ("NVDZ", "Tradr 2X Long NVDA Daily ETF"), ("AAPZ", "Direxion Daily AAPL Bull 2X Shares")):
+        assert etfwatch.single_stock(n, t), n
+    for t, n in (("QLD", "ProShares Ultra QQQ"), ("USD", "ProShares Ultra Semiconductors"), ("UCO", "ProShares Ultra Bloomberg Crude Oil"),
+                 ("UBT", "ProShares Ultra 20+ Year Treasury"), ("MAGX", "Roundhill Daily 2X Long Magnificent Seven ETF"),
+                 ("EZJ", "ProShares Ultra MSCI Japan"), ("UWM", "ProShares Ultra Russell2000"), ("TSXU", "Tradr 2X Long Top 5 Semis")):
+        assert not etfwatch.single_stock(n, t), n

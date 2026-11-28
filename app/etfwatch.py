@@ -67,6 +67,21 @@ QUERIES = ["2X Long ETF", "Daily 2X ETF", "Ultra ProShares", "ProShares Ultra", 
 KEEP = re.compile(r"2X|ULTRA|DOUBLE LONG|200%", re.I)
 DROP = re.compile(r"SHORT|INVERSE|BEAR|ULTRAPRO|ULTRASHORT|3X|BUFFER|YIELDMAX|DIVIDEND|VIX|INCOME|OPTION", re.I)
 CRYPTO = re.compile(r"BITCOIN|ETHER|SOLANA|XRP|DOGE|SUI\b|CRYPTO|LITECOIN|CARDANO|AVALANCHE|CHAINLINK|POLKADOT|COIN\b", re.I)
+# A fund found by Yahoo's search counts only when its name names an index, sector, theme, commodity, bond, currency or
+# country. Anything else is taken as a single company: Yahoo writes their names in mixed case ("Tradr 2X Long Sndk Daily",
+# "Leverage Shares 2X Long SK Hynix Daily", "… Anthropic Daily"), so looking for a ticker in capitals let them through (28 Nov).
+THEME = re.compile(r"index|sector|s&p|\bsp ?500|nasdaq|qqq|dow|russell|mid ?cap|small ?cap|large ?cap|semi|technolog|\btech\b|gold|silver|"
+                   r"\boil\b|crude|natural gas|\bgas\b|energy|treasur|bond|high yield|\byen\b|\beuro\b|china|chinese|brazil|india|japan|"
+                   r"europe|emerging|developed|eafe|msci|biotech|health|financial|banks?\b|real estate|utilit|materials|industrial|"
+                   r"consumer|communication|uranium|quantum|\bai\b|artificial intelligence|robotic|cloud|memory|magnificent|\bmag ?7|"
+                   r"fang|innovation|arkk|basket|equal weight|copper|wheat|miners|homebuild|aerospace|defen[cs]e|cyber|internet|"
+                   r"software|retail|transport|clean energy|solar|nuclear|lithium|battery|photonic|lithograph|commodit|currenc|"
+                   r"\btop ?\d|blue chip|\bdram\b|\b(?:spy|dia|iwm|smh|soxx|xlk|gld|slv|tlt|gdx|kweb|fxi|eem)\b", re.I)
+# single-stock 2x funds of the 26 Nov research (never ranked, whatever their names say)
+SINGLE = {"SNXX", "MUU", "TSLL", "NVDL", "SPCH", "TSLG", "MSTU", "AMDL", "GGLL", "SNDU", "MSFU", "METU", "MULL", "AAOX", "INTW", "NBIL",
+          "NVDX", "MSTX", "CONL", "AXTX", "SKUU", "LITX", "MVLL", "AMZU", "BEX", "BMNU", "IRE", "SMCX", "NEBX", "PTIR", "CRWG",
+          "NVDU", "PLTU", "AAPU", "NOWL", "SNDG", "NBIG", "DLLL"}
+VERSION = 2                    # bumped when the rules change: the next check starts the list again
 NOT_STOCKS = {"ETF", "ETN", "USD", "NYSE", "FANG", "S&P", "MSCI", "AI", "US", "DAILY", "LONG", "BULL", "TARGET", "ULTRA", "MAX", "PLUS",
               "QQQ", "SPY", "DIA", "IWM", "SMH", "SOXX", "XLK", "GLD", "SLV", "ARKK", "DRAM", "KWEB", "FXI", "EEM", "TLT", "GDX"}
 _running = {"on": False}
@@ -131,14 +146,8 @@ def is_crypto(name: str) -> bool:
 
 
 def single_stock(name: str, own: str) -> bool:
-    """A fund named after one company's ticker ("Tradr 2X Long NVDA Daily ETF", "Direxion Daily TSLA Bull 2X") is a
-    single-stock fund. Upper-case words that Yahoo calls an EQUITY are taken as that company; ETFs (QQQ, DRAM) are not."""
-    for tok in re.findall(r"\b[A-Z]{1,5}\b", name or ""):
-        if tok == own or tok in NOT_STOCKS:
-            continue
-        if _quote_type(tok) == "EQUITY":
-            return True
-    return False
+    """True unless the name names an index, sector, theme, commodity, bond, currency or country (see THEME)."""
+    return own in SINGLE or not THEME.search(name or "")
 
 
 # ---------------------------------------------------------------- state
@@ -187,6 +196,19 @@ def _status(t: str, k: dict, mk: dict) -> str:
 def check(send_line: bool = True) -> dict:
     """Rank this week's top 50, compare with last week, find new 2x funds. Returns the stored result."""
     k = known()
+    if db.get_state("etfwatch:ver") != VERSION:               # new rules: start the list again (nothing reported as new)
+        for key in ("etfwatch:last", "etfwatch:log"):
+            db.set_state(key, None)
+        db.set_state("etfwatch:ver", VERSION)
+    for t, v in k.items():                                     # funds found by earlier searches: classify again with today's rules
+        if v.get("source") == "search":
+            nm = v.get("name") or v.get("tracks") or ""
+            if is_crypto(nm):
+                v.update(group="Crypto", skip=True)
+            elif single_stock(nm, t):
+                v.update(group="Single stock", skip=True)
+            else:
+                v.update(group="New · check", skip=False)
     found_new = []
     for q in QUERIES:                                       # 1 · new 2x funds Yahoo knows about
         try:
@@ -236,6 +258,8 @@ def check(send_line: bool = True) -> dict:
         r["was"] = prev.get(r["t"])
     now = int(time.time())
     first_run = not prev
+    if first_run:
+        found_new = []                                         # the first check only builds the list
     entered = [] if first_run else [r["t"] for r in top if r["t"] not in prev]
     left = [] if first_run else [t for t in prev if t not in {r["t"] for r in top}]
     by_t = {r["t"]: r for r in rows}
@@ -307,9 +331,10 @@ def next_run(now=None) -> int:
 def view() -> dict:
     last = db.get_state("etfwatch:last") or {}
     k, mk = known(), marks()
-    top = [{**r, "status": _status(r["t"], k, mk), "years": _years(r.get("first"))} for r in last.get("top", [])]
+    ok = lambda t: not (k.get(t) or {}).get("skip") and t not in SINGLE
+    top = [{**r, "status": _status(r["t"], k, mk), "years": _years(r.get("first"))} for r in last.get("top", []) if ok(r["t"])]
     new = [{**n, "status": _status(n["t"], k, mk), "years": _years(n.get("first")), "mark": (mk.get(n["t"]) or {}).get("mark")}
-           for n in last.get("new", [])]
+           for n in last.get("new", []) if ok(n["t"])]
     return {"t": last.get("t"), "top": top, "new": new, "left": last.get("left", []), "cutoff": last.get("cutoff"),
             "first_run": last.get("first_run"), "log": db.get_state("etfwatch:log") or [], "next": next_run(), "running": _running["on"],
             "counts": {s: sum(1 for r in top if r["status"] == s) for s in ("pool", "bot", "researched", "to_research", "not_researched")}}
