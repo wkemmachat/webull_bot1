@@ -356,6 +356,7 @@ def set_settings(mode: str, on_=None, slot=None, cap=None, minp=None, auto_slot=
         was = bool(c.get("on"))
         c["on"] = bool(on_)
         if c["on"] and not was:
+            c["since"] = int(time.time())
             for sid in c["members"]:
                 c["members"][sid] = {"joined": int(time.time()), "pnl0": _pnl(mode, sid)}
         db.add_event("info", "money", f"Strategy pool {'on' if c['on'] else 'off'}",
@@ -420,7 +421,7 @@ def view(mode: str) -> dict:
         park_only = bool(H) and all(sym in parking(s) for sym in H)
         wait = db.get_state(f"poolwait:{mode}:{s.id}")
         pt = db.get_state(f"pooltrade:{mode}:{s.id}") or {}
-        base = {"id": s.id, "name": s.name, "color": s.color, "group": g, "group_label": group_label(g), "value": round(v, 2),
+        base = {"id": s.id, "name": s.name, "color": s.color, "etf": main_symbol(s), "group": g, "group_label": group_label(g), "value": round(v, 2),
                 "pct": (v / T) if T > 0 else None, "state": st.get("state"), "label": st.get("label"), "wants": bool(tgt),
                 "control": (s.row or {}).get("control")}
         if s.id in c["members"]:
@@ -470,6 +471,46 @@ def view(mode: str) -> dict:
             "members": members, "outside": sorted(outside, key=lambda r: (not r["leaving"], r["name"])),
             "groups": sorted(groups.values(), key=lambda g: -g["value"]), "waiting": [m for m in members if m["status"][1].startswith("Signal · waits")],
             "needs_test": mode == "live"}
+
+
+def since(mode: str, c: dict | None = None) -> int | None:
+    """When the pool was turned on (this time): the start of the pool's own record."""
+    c = c or cfg(mode)
+    if not c.get("on"):
+        return None
+    if c.get("since"):
+        return int(c["since"])
+    r = db.one("SELECT MAX(t) t FROM events WHERE mode=? AND title='Strategy pool on'", (mode,))   # turned on before 'since' was kept
+    return int(r["t"]) if r and r["t"] else None
+
+
+def repair_equity(mode: str) -> int:
+    """Once per pool start: the bot's '*' equity records written since then left out the pool's free cash (the Dashboard
+    showed $0 and −100%). Pool cash + the strategies' net money in is the money allocated to the bot, which only changes
+    when money moves between Webull and the bot, so each record gets value += K(t) − capital, capital = K(t)."""
+    t0 = since(mode)
+    if not t0:
+        return 0
+    key = f"pool_eq_fix:{mode}:{t0}"
+    if db.get_state(key):
+        return 0
+    L = ledger.all_for(mode)
+    K = ledger.pool_cash(mode) + sum((r["cap_in"] or 0) - (r["cap_out"] or 0) for r in L.values())
+    flows = db.rows("SELECT t, kind, amount FROM money WHERE mode=? AND kind IN ('to_bot','to_webull') AND t>=? "
+                    "AND (ccy IS NULL OR ccy='USD')", (mode, t0))
+    n = 0
+    with db.tx() as c:
+        for r in c.execute("SELECT t, value, capital, bench FROM equity WHERE mode=? AND strategy='*' AND t>=?", (mode, t0)).fetchall():
+            k = K - sum((f["amount"] if f["kind"] == "to_bot" else -f["amount"]) for f in flows if f["t"] > r["t"])
+            add = k - (r["capital"] or 0)
+            if add > 0.5:
+                c.execute("UPDATE equity SET value=?, capital=?, bench=? WHERE mode=? AND strategy='*' AND t=?",
+                          ((r["value"] or 0) + add, k, (r["bench"] or 0) + add, mode, r["t"]))
+                n += 1
+    db.set_state(key, int(time.time()))
+    if n:
+        db.add_event("info", "money", f"Bot value records repaired ({n})", "The pool's free cash is now part of the bot's value", mode=mode)
+    return n
 
 
 def strategy_info(mode: str, sid: str) -> dict:
@@ -560,6 +601,27 @@ def _stats(v: pd.Series, years=None) -> dict:
     return {"cagr": round(cagr * 100, 1), "maxdd": round(dd * 100, 1), "from": str(v.index[0].date())}
 
 
+def ranges(v: pd.Series) -> dict:
+    """What a normal stretch of this mix looks like in its backtest (month ends): for 1–12 months, the 10th / 50th / 90th
+    percentile of the return over that many months, plus the share of months up, the worst month and 12-month figures.
+    The Dashboard compares the real pool with these."""
+    m = v.resample("ME").last().dropna()
+    out = {"bands": [], "months": int(len(m) - 1)}
+    for k in range(1, 13):
+        r = (m / m.shift(k) - 1).dropna()
+        if len(r) >= 12:
+            q = np.percentile(r, [10, 50, 90])
+            out["bands"].append([k, round(float(q[0]) * 100, 1), round(float(q[1]) * 100, 1), round(float(q[2]) * 100, 1)])
+    r1 = (m / m.shift(1) - 1).dropna()
+    r12 = (m / m.shift(12) - 1).dropna()
+    if len(r1):
+        out.update(m_up=round(float((r1 > 0).mean()) * 100), m_worst=round(float(r1.min()) * 100, 1), m_best=round(float(r1.max()) * 100, 1))
+    if len(r12):
+        out.update(y_p10=round(float(np.percentile(r12, 10)) * 100, 1), y_p50=round(float(np.percentile(r12, 50)) * 100, 1),
+                   y_worst=round(float(r12.min()) * 100, 1), y_down=round(float((r12 < 0).mean()) * 100))
+    return out
+
+
 def backtest(sids: list, slot_pct_: float, cap_pct: float, min_pct: float) -> dict:
     """The expected return of this mix: {"ready": True, ...} or {"ready": False, "done": k, "of": n} while the members'
     backtests are still being built (in the background, once per data day)."""
@@ -599,6 +661,7 @@ def _bt_work(key, sids, slot_pct_, cap_pct, min_pct, job):
                "periods": {k: _stats(v, y) for k, y in (("1Y", 1), ("3Y", 3), ("5Y", 5), ("10Y", 10))},
                "all": _stats(v), "fixed": {k: _stats(each, y) for k, y in (("10Y", 10),)} | {"all": _stats(each)},
                "curve": [[int(t.timestamp()), round(float(x), 2)] for t, x in v.resample("ME").last().items()],
+               "ranges": ranges(v),
                "note": "Each member's own backtest (Webull's fee, cash 0%), run through the pool's rules from $100,000. Members join "
                        "when their history starts; several use modelled ETF history before listing. Plan lower: the strategies were "
                        "picked on the same years."}

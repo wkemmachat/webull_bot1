@@ -51,6 +51,8 @@ EVENTS = {
                 "(sells exact, buys estimated). Arrives after quiet hours.", "instant", False),
     "etf2x": ("New 2x ETF found", "Weekly search after the Nasdaq-100 ranking: a 2x ETF that passed the checks for a stock in the "
               "C2-7 2x list. Nothing changes until you add it on the strategy page.", "instant", False),
+    "etfwatch": ("New 2x ETFs this week", "Saturday morning: an index, sector or commodity 2x ETF entered the top 50 by money traded a "
+                 "day, or a new one was listed. It only reports; you decide what to research.", "instant", False),
     "dip": ("Good time to add money: a strategy reached its 85th percentile", "Once a day after the US close: a strategy fell "
             "deeper below its backtest high than on 85% of its past days, and in its backtest such falls were followed by gains "
             "(the times it got there and how many were up a year later, $1,000 typically became …). Only strategies where this "

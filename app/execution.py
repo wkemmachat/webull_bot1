@@ -1540,6 +1540,10 @@ def record_equity(mode, now=None, force=False):
             bv = net
         rows.append((mode, t, sid, v, net, bv))
         tot_v, tot_c, tot_b = tot_v + v, tot_c + net, tot_b + bv
+    from . import pool
+    if pool.on(mode):                                     # the pool's free cash is the bot's money too (no gain or loss)
+        pc = ledger.pool_cash(mode)
+        tot_v, tot_c, tot_b = tot_v + pc, tot_c + pc, tot_b + pc
     rows.append((mode, t, "*", tot_v, tot_c, tot_b))
     with db.tx() as c:
         c.executemany("INSERT OR REPLACE INTO equity(mode,t,strategy,value,capital,bench) VALUES(?,?,?,?,?,?)", rows)

@@ -1,6 +1,36 @@
 <!--{"title": "Dashboard", "group": "Using the app"}-->
 # Dashboard
 
+## With the strategy pool on
+
+When the [strategy pool](#/docs/pool) is on for the mode you are looking at, the Dashboard is built around four questions,
+top to bottom:
+
+1. **Does anything need me?** Problems only, each with what to do: a Webull login ending, the account not readable, buys
+   waiting for buying power, a cross-check problem, a member waiting over a day for money, LINE failures, no recent backup, or
+   the fall from the top past the worst fall in the pool's backtest. When there is none, one green line lists the routine
+   checks that are fine.
+2. **How much, and how is it doing?** The pool's value (strategies + free cash), today, this month, the **real return**
+   (time-weighted: adding or taking out money does not move it), profit since start, money put in, and the result **since the
+   pool started**.
+3. **Is it working as expected?** This month, the fall from the top and money at work, each against the normal range of the
+   pool's own backtest of today's members (green band = 8 of 10 backtest months; black mark = its middle). For the first 20
+   trading days of the pool it says *too early*.
+4. **What happens next?** Tonight's decision time, the orders planned for the next open (with the pool money each buy gets), and
+   the free cash after.
+
+Below: **Real vs backtest** (the real return since the start against the backtest's usual range, drawn from the day the pool
+started), **Members now** (in a trade · buys at the next open · waiting for money · money coming back; members with no signal
+as chips), **Where the money is** (by market, with the group cap), **New 2x ETFs** ([2x ETF watch](#/docs/etf-watch)), the
+**Profit & loss by strategy** card described below, **Month by month** (real, time-weighted; darker cells are outside the
+usual month), **What to expect from this mix** (the pool backtest: plan a year after a haircut, worst fall, a bad year,
+1/3/5/10 years and the whole history), **Traded** and **Recent activity**.
+
+The bot's value includes the pool's free cash while the pool is on (that cash makes no profit or loss of its own, so profit is
+the strategies' profit). Records written before 27 Nov 22:31's fix were repaired once.
+
+## Without the pool
+
 - **Next US open** (top of the page): the orders each strategy will send at the next US open, decided after the close.
   - Each row: the strategy, buy or sell, symbol, shares, last price and ≈ value, why (the signal) and what it will hold after.
   - When the plan starts (Bangkok time, with a countdown) and how many lots.

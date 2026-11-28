@@ -1,6 +1,15 @@
 <!--{"title": "Design decisions", "group": "Help"}-->
 # Design decisions (October 2026)
 
+- **Dashboard v2 and the 2x ETF watch** (28 Nov 2026, your request after the Live pool went on): the Dashboard counted only
+  the money inside strategies, so with the pool holding the cash it showed $0.05 and −100%. Now the bot's value includes the
+  pool's free cash while the pool is on (records since the pool started were repaired once). With the pool on, the Dashboard
+  answers four questions at the top (does anything need me · how much and how is it doing · is it working as expected · what
+  happens next), following dashboard research: problems shown by exception, the time-weighted return first (as Wealthfront and
+  Betterment do), and real results compared with the backtest's normal range (as QuantConnect's live vs out-of-sample curve).
+  "Is it working" waits 20 trading days of the pool's own record before judging. The weekly 2x ETF top 50 moved from a
+  Claude scheduled task (stopped) into the bot: Saturday 09:40 Bangkok, Yahoo data, reports only
+  ([2x ETF watch](#/docs/etf-watch)).
 - **Pool go-live fixes** (27 Nov 2026, Live pool turned on): (1) Automatic LINE kept pool members off once their money went
   back to the pool, so a buy signal at the close (before the pool funds the trade) would not have been sent; members now
   count as holding money. (2) Webull failed the sale of 1.278945 / 0.957786 / 0.433269 GLD parking (6 decimals: the books

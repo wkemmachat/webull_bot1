@@ -256,6 +256,12 @@ def daily_jobs(now):
             expected.recheck_if_stale()
         except Exception as e:
             log.warning("expected returns re-check: %s", e)
+    from . import etfwatch                                   # 2x ETF watch: Saturday 09:40 Bangkok, reports only
+    try:
+        if md.source() != "csv" and etfwatch.due(now):
+            etfwatch.start()
+    except Exception as e:
+        log.warning("etf watch: %s", e)
     # weekly Nasdaq-100 ranking for the momentum baskets, after the Friday close
     if (ny.weekday() == 5 or (ny.weekday() == 4 and hh >= "17:30") or ny.weekday() == 6) and \
             any(s.type == "momentum_basket" for s in S.all_instances()):
@@ -418,6 +424,7 @@ def tick(now=None):
             pc = pool.cfg(mode)
             if pc.get("on"):
                 try:
+                    pool.repair_equity(mode)               # once per pool start: '*' records written without the pool's cash
                     pool.step(mode, evs, now, fresh)      # finished trades give their money back; starting ones get theirs
                 except Exception as e:
                     log.exception("pool %s", mode)

@@ -265,6 +265,11 @@ def dashboard(mode):
     cards = [strategy_card(mode, s, prices) for s in strats]
     bot_v = sum(c["value"] for c in cards)
     bot_in = sum(c["net_in"] for c in cards)
+    from . import pool
+    pool_on = pool.on(mode)
+    un = ledger.pool_cash(mode)
+    if pool_on:                                            # the pool's free cash is the bot's money (no gain or loss of its own)
+        bot_v, bot_in = bot_v + un, bot_in + un
     series = execution.equity_series(mode, "*", 90)
     # today's gain leaves out money added or withdrawn today; it counts from the previous session's last record, like the
     # strategy cards, so the cards' Today add up to it (a rolling 1.2 days only when that record is missing)
@@ -275,8 +280,7 @@ def dashboard(mode):
         r0 = {"value": day_ago[0]["value"], "capital": day_ago[0]["capital"]} if day_ago else None
     today = ((bot_v - r0["value"]) - (bot_in - (r0["capital"] or 0))) if r0 else None
     base_today = (r0["value"] + (bot_in - (r0["capital"] or 0))) if r0 else None
-    un = ledger.pool_cash(mode)
-    not_bot = (acct["total"] - bot_v - un) if acct and acct.get("total") is not None else None
+    not_bot = (acct["total"] - bot_v - (0 if pool_on else un)) if acct and acct.get("total") is not None else None
     plans = execution.plans_view(mode, status=None, limit=50)
     active = [p for p in plans if p["status"] == "active"]
     rep = health.latest()
@@ -294,7 +298,7 @@ def dashboard(mode):
     except Exception as e:                                 # never breaks the Dashboard
         log.warning("holdings: %s", e)
         hold = None
-    return {"mode": mode, "account": acct, "account_error": err, "strategies": cards, "exposure": expo, "holdings": hold,
+    out = {"mode": mode, "account": acct, "account_error": err, "strategies": cards, "exposure": expo, "holdings": hold,
             "bp_wait": _bp_wait_view(mode, acct),
             "backup": _backup_reminder(),
             "traded": _traded(mode),
@@ -305,6 +309,19 @@ def dashboard(mode):
             "unassigned": un, "not_bot": not_bot, "series": series, "plans": active[:4], "health": rep and {"t": rep["t"], "counts": rep["counts"],
                                                                                        "first": next((i for i in rep["items"] if i["status"] != "ok"), None)},
             "line": notify.summary(), "next": next_up(mode, strats, active), "events": events, "logins": _logins()}
+    if pool_on:                                            # Dashboard v2 (pool): see dashpool.py
+        from . import dashpool
+        try:
+            out["dash"] = dashpool.build(mode, out)
+        except Exception as e:                             # never breaks the Dashboard: it falls back to the old layout
+            log.exception("dashboard (pool)")
+            out["dash_error"] = str(e)[:200]
+    try:
+        from . import etfwatch
+        out["etfwatch"] = etfwatch.brief()
+    except Exception as e:
+        log.warning("etf watch: %s", e)
+    return out
 
 
 def _logins():

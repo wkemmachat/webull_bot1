@@ -458,6 +458,26 @@ async def money_action(action: str, request: Request, u=Depends(user)):
 
 
 # ---------------------------------------------------------------- strategy pool
+@app.get("/api/etfwatch")
+def etfwatch_get(u=Depends(user)):
+    from . import etfwatch
+    return etfwatch.view()
+
+
+@app.post("/api/etfwatch/{action}")
+async def etfwatch_action(action: str, request: Request, u=Depends(user)):
+    from . import etfwatch
+    b = await body(request)
+    try:
+        if action == "check":
+            return etfwatch.start()
+        if action == "mark":
+            return etfwatch.mark(b.get("ticker"), b.get("mark"))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    raise HTTPException(404, "Unknown action")
+
+
 @app.get("/api/pool/ranks")
 async def pool_ranks(mode: str = "paper", u=Depends(user)):
     return await asyncio.to_thread(pool.ranks, mode_of(mode))
@@ -1177,7 +1197,7 @@ def data_refresh(u=Depends(user)):
 
 
 # ---------------------------------------------------------------- docs
-DOC_ORDER = ["overview", "quick-start-mac", "first-day", "modes", "dashboard", "strategies", "backtest", "money", "pool", "portfolio", "profit-loss", "orders", "line", "health", "golive", "hongkong",
+DOC_ORDER = ["overview", "quick-start-mac", "first-day", "modes", "dashboard", "strategies", "backtest", "money", "pool", "etf-watch", "portfolio", "profit-loss", "orders", "line", "health", "golive", "hongkong",
              "strategy-compare", "strategy-timeframes", "strategy-dips", "expected-returns", "strategy-gold1", "strategy-gold2", "strategy-silver1", "strategy-silver2", "strategy-qld", "strategy-semis",
              "strategy-qld-tbd", "strategy-qld-tbdv", "strategy-qld-ibs", "strategy-usd-ibs", "strategy-rom-tbd", "strategy-usd-smh-ibs", "strategy-usd-trend-split", "strategy-qld-split-2c", "strategy-rom-split-2c", "strategy-sso-macd-calm", "strategy-rxl-ichi-calm", "strategy-cweb-trend-crash", "strategy-qpux-safe", "strategy-ram-mom-calm", "strategy-uwm-a3-r3", "strategy-tsxu-2plus", "strategy-chau-s4", "strategy-magx-s1p-s2pp", "strategy-bib-blend-v", "strategy-aibu-s2pp", "strategy-uraa-s1pp",
              "strategy-rom-vol-ibs", "strategy-gold-trend-calm", "strategy-silver-gold-ok", "strategy-silver-lead-1x", "strategy-ddm-calm-guard", "strategy-sso-calm-guard",
