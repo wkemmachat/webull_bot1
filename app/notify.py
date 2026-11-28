@@ -360,6 +360,16 @@ def preview() -> list:
 
 
 def next_digest(now: datetime | None = None):
+    """The next digest as text: "08:00" today or tomorrow, "Mon 08:00" further out (the weekend pause)."""
+    t = next_digest_at(now)
+    if t is None:
+        return None
+    now = (now or datetime.now(TZ)).astimezone(TZ)
+    return t.strftime("%H:%M") if (t.date() - now.date()).days <= 1 else t.strftime("%a %H:%M")
+
+
+def next_digest_at(now: datetime | None = None):
+    """The next digest time (Bangkok), or None."""
     now = (now or datetime.now(TZ)).astimezone(TZ)
     times = sorted(db.get_json_setting("line_digest_times", ["08:00", "21:00"]))
     pause = weekend_pause_on()
@@ -371,7 +381,7 @@ def next_digest(now: datetime | None = None):
                 continue
             t = (now + timedelta(days=d)).replace(hour=h, minute=m, second=0, microsecond=0)
             if t > now and not (pause and weekend_paused(t, hhmm)):
-                return t.strftime("%H:%M") if d <= 1 else t.strftime("%a %H:%M")
+                return t
     return None
 
 

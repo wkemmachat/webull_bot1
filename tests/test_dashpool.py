@@ -139,3 +139,22 @@ def test_etf_watch_runs_on_saturday_morning_bangkok(clean):
     sat_early = datetime(2026, 11, 28, 2, 0, tzinfo=timezone.utc)          # 09:00 Bangkok
     sat = datetime(2026, 11, 28, 2, 45, tzinfo=timezone.utc)               # 09:45 Bangkok
     assert not etfwatch.due(sat_early) and etfwatch.due(sat) and not etfwatch.due(sat)
+
+
+def test_dashboard_on_a_saturday_with_the_weekend_pause(clean, monkeypatch):
+    """28 Nov (Saturday 08:00+): the next LINE digest was "Mon 08:00" and parsing it as "HH:MM" failed the whole Dashboard."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from app import notify, views
+    sat = datetime(2026, 11, 28, 8, 37, tzinfo=ZoneInfo("Asia/Bangkok"))
+    t = notify.next_digest_at(sat)
+    assert t is not None and t.weekday() == 0                       # Monday
+    assert notify.next_digest(sat).startswith("Mon ")
+    monkeypatch.setattr(notify, "next_digest_at", lambda now=None: t)
+    items = views.next_up("paper", [], [])
+    assert any(i["title"] == "LINE digest" and i["t"] == int(t.timestamp()) for i in items)
+
+
+def test_non_finite_numbers_never_reach_the_response():
+    from app import views
+    assert views._finite({"a": float("nan"), "b": [1.0, float("inf")], "c": "x"}) == {"a": None, "b": [1.0, None], "c": "x"}

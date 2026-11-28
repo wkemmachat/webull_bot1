@@ -308,11 +308,11 @@ def dashboard(mode):
                     "bench_ret": (bench / series[-1]["capital"] - 1) if bench and series and series[-1]["capital"] else None},
             "unassigned": un, "not_bot": not_bot, "series": series, "plans": active[:4], "health": rep and {"t": rep["t"], "counts": rep["counts"],
                                                                                        "first": next((i for i in rep["items"] if i["status"] != "ok"), None)},
-            "line": notify.summary(), "next": next_up(mode, strats, active), "events": events, "logins": _logins()}
+            "line": notify.summary(), "next": _safe(lambda: next_up(mode, strats, active), []), "events": events, "logins": _logins()}
     if pool_on:                                            # Dashboard v2 (pool): see dashpool.py
         from . import dashpool
         try:
-            out["dash"] = dashpool.build(mode, out)
+            out["dash"] = _finite(dashpool.build(mode, out))
         except Exception as e:                             # never breaks the Dashboard: it falls back to the old layout
             log.exception("dashboard (pool)")
             out["dash_error"] = str(e)[:200]
@@ -322,6 +322,26 @@ def dashboard(mode):
     except Exception as e:
         log.warning("etf watch: %s", e)
     return out
+
+
+def _safe(fn, default):
+    """A side panel that fails must not take the whole Dashboard down."""
+    try:
+        return fn()
+    except Exception:
+        log.exception("dashboard part")
+        return default
+
+
+def _finite(o):
+    """NaN / infinity → None: JSON cannot carry them, and one would fail the whole response."""
+    if isinstance(o, float):
+        return o if o == o and o not in (float("inf"), float("-inf")) else None
+    if isinstance(o, dict):
+        return {k: _finite(v) for k, v in o.items()}
+    if isinstance(o, (list, tuple)):
+        return [_finite(v) for v in o]
+    return o
 
 
 def _logins():
@@ -357,14 +377,9 @@ def next_up(mode, strats, active):
         if cand > now:
             items.append({"t": int(cand.timestamp()), "title": "Daily cross-check", "sub": "Books vs Webull, orders, data, LINE, backup"})
             break
-    nd = notify.next_digest()
+    nd = notify.next_digest_at(now)        # 28 Nov: parsing its text ("Mon 08:00" over the weekend pause) broke the Dashboard
     if nd:
-        local = now.astimezone(TZ)
-        hh, mm = (int(x) for x in nd.split(":"))
-        t = local.replace(hour=hh, minute=mm, second=0, microsecond=0)
-        if t <= local:
-            t += timedelta(days=1)
-        items.append({"t": int(t.timestamp()), "title": "LINE digest", "sub": "Everything set to 'Digest' since the last one"})
+        items.append({"t": int(nd.timestamp()), "title": "LINE digest", "sub": "Everything set to 'Digest' since the last one"})
     items.sort(key=lambda x: x["t"])
     return items[:6]
 
