@@ -74,6 +74,13 @@
     ch.textContent = top.issues.health; ch.classList.toggle('hidden', !top.issues.health);
     const ca = document.getElementById('cnt-add');
     if (ca) { ca.textContent = top.issues.add || 0; ca.classList.toggle('hidden', !top.issues.add); }
+    const ce = document.getElementById('cnt-etfwatch');                // 2x ETF watch: "N new" / "checked" until the page is opened
+    if (ce) {
+      const e = top.issues.etfwatch || {};
+      ce.textContent = e.t ? (e.new ? `${e.new} new` : 'checked') : '';
+      ce.style.cssText = e.new ? 'background:var(--accent);color:#fff' : 'background:var(--line2);color:var(--muted)';
+      ce.classList.toggle('hidden', !e.t);
+    }
   }
 
   async function setPaused(on) {

@@ -186,3 +186,20 @@ def test_etf_watch_leaves_out_single_stocks_with_mixed_case_names():
                  ("UBT", "ProShares Ultra 20+ Year Treasury"), ("MAGX", "Roundhill Daily 2X Long Magnificent Seven ETF"),
                  ("EZJ", "ProShares Ultra MSCI Japan"), ("UWM", "ProShares Ultra Russell2000"), ("TSXU", "Tradr 2X Long Top 5 Semis")):
         assert not etfwatch.single_stock(n, t), n
+
+
+def test_weekly_notice_and_menu_mark_until_the_page_is_opened(clean):
+    now = int(time.time())
+    for k in ("etfwatch:seen", "etfwatch:hidden", "etfwatch:marks"):
+        db.set_state(k, None)
+    db.set_state("etfwatch:last", {"t": now, "top": [], "left": [], "first_run": False, "cutoff": 0.4,
+                                   "new": [{"t": "ABCX", "tracks": "Global semis", "kind": "listing", "adv90": 1.9}]})
+    assert etfwatch.badge() == {"new": 1, "t": now} and etfwatch.brief()["notice"]
+    etfwatch.hide()                                                         # Hide: the notice goes, the menu mark stays
+    assert not etfwatch.brief()["notice"] and etfwatch.badge()["new"] == 1
+    etfwatch.seen()                                                         # the page was opened: both go
+    assert etfwatch.badge() == {} and not etfwatch.brief()["notice"]
+    db.set_state("etfwatch:last", {"t": now + 7 * 86400, "top": [], "left": [], "new": [], "first_run": False, "cutoff": 0.4})
+    assert etfwatch.badge() == {"new": 0, "t": now + 7 * 86400} and etfwatch.brief()["notice"]   # a quiet week: "checked"
+    from app import views
+    assert views._issue_counts()["etfwatch"]["t"] == now + 7 * 86400

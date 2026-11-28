@@ -473,6 +473,10 @@ async def etfwatch_action(action: str, request: Request, u=Depends(user)):
             return etfwatch.start()
         if action == "mark":
             return etfwatch.mark(b.get("ticker"), b.get("mark"))
+        if action == "seen":
+            return etfwatch.seen()
+        if action == "hide":
+            return etfwatch.hide()
     except ValueError as e:
         raise HTTPException(400, str(e))
     raise HTTPException(404, "Unknown action")

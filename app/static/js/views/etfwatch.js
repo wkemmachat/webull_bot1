@@ -37,6 +37,7 @@
       return w;
     }
     await load();
+    U.api('/api/etfwatch/seen', { body: {} }).then(() => { const ce = document.getElementById('cnt-etfwatch'); if (ce) ce.classList.add('hidden'); }).catch(() => {});
     return { refresh: () => load().catch(() => {}), every: 60000 };
   };
 })();

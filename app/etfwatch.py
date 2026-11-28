@@ -347,7 +347,36 @@ def _years(first):
 
 
 def brief() -> dict:
-    """Dashboard card: this week's new names (not dismissed) and the ones that left."""
+    """Dashboard: this week's new names (not dismissed), the ones that left, and whether the weekly notice shows at the top
+    (from the Saturday check until you open the 2x ETF watch page or press Hide)."""
     v = view()
+    t = v["t"] or 0
+    seen, hidden = db.get_state("etfwatch:seen") or 0, db.get_state("etfwatch:hidden") or 0
     return {"t": v["t"], "new": [n for n in v["new"] if n.get("mark") != "dismissed"], "left": v["left"], "next": v["next"],
-            "first_run": v["first_run"], "running": v["running"]}
+            "first_run": v["first_run"], "running": v["running"], "cutoff": v["cutoff"], "count": len(v["top"]),
+            "notice": bool(t) and t > max(seen, hidden)}
+
+
+def badge() -> dict:
+    """The mark next to "2x ETF watch" in the menu: "N new" or "checked" from the Saturday check until you open the page."""
+    last = db.get_state("etfwatch:last") or {}
+    t = last.get("t") or 0
+    if not t or t <= (db.get_state("etfwatch:seen") or 0):
+        return {}
+    mk = marks()
+    n = sum(1 for x in last.get("new", []) if (mk.get(x["t"]) or {}).get("mark") != "dismissed" and x["t"] not in SINGLE)
+    return {"new": n, "t": t}
+
+
+def seen() -> dict:
+    last = db.get_state("etfwatch:last") or {}
+    if last.get("t"):
+        db.set_state("etfwatch:seen", int(last["t"]))
+    return {"ok": True}
+
+
+def hide() -> dict:
+    last = db.get_state("etfwatch:last") or {}
+    if last.get("t"):
+        db.set_state("etfwatch:hidden", int(last["t"]))
+    return {"ok": True}

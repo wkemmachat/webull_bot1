@@ -68,6 +68,7 @@ V.dashboard = async function (el) {
       ${tokenBanner(d.logins)}
       ${d.bp_wait ? `<div class="note warn" role="status"><b>Buys are waiting for Webull's buying power.</b> Webull lets the bot use only ${U.usd(d.bp_wait.bp || 0)} of the account's ${U.usd(d.bp_wait.cash || 0, 0)} cash right now${d.bp_wait.names.length ? ` (waiting: ${d.bp_wait.names.map(U.esc).join(', ')})` : ''}. The bot checks every few minutes and buys as soon as Webull frees the money — most often cash from a sale that has not settled yet. Nothing is sold or lost. <a href="#/money">Money</a></div>` : ''}
       ${backupNote(d.backup)}
+      ${V.etfNotice ? V.etfNotice(d.etfwatch) : ''}
       ${V.etfWatchCard ? V.etfWatchCard(d.etfwatch) : ''}
       ${V.addMoneyList ? V.addMoneyList(d.strategies) : ''}
       <div id="nextorders"></div>

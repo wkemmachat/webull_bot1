@@ -203,6 +203,21 @@
       ${w.new.map(V.etfNewRow).join('')}
       <div class="row small" style="gap:8px;flex-wrap:wrap">${w.left.length ? `<span class="muted">Left the top 50:</span>${w.left.map((x) => `<span class="pill">${U.esc(x.t)} · ${U.esc(x.tracks)}</span>`).join('')}` : ''}<span class="muted" style="margin-left:auto">${nx} · LINE tells you when something is new</span></div></section>`;
   };
+  /* the weekly notice at the top of the Dashboard: from the Saturday check until the watch page is opened or Hide */
+  V.etfNotice = function (w) {
+    if (!w || !w.notice) return '';
+    const hideBtn = (cls) => `<button type="button" class="${cls}" data-etfhide="1" style="white-space:nowrap">Hide</button>`;
+    if (!w.new.length) {
+      const what = w.first_run ? `starting list built (${w.count} funds)` : 'nothing new in the top 50' + (w.left.length ? ' · ' + w.left.map((x) => x.t).join(', ') + ' left' : '');
+      return `<div class="row" style="gap:12px;flex-wrap:nowrap;align-items:center;padding:10px 16px;border-radius:12px;background:var(--panel2);border:1px solid var(--line)">
+        <span aria-hidden="true">🔎</span><div style="flex:1;min-width:0"><b style="font-weight:600">2x ETF watch:</b> <span class="muted">Saturday's check (${U.day(w.t)}) — ${U.esc(what)}</span></div>
+        <a class="small" href="#/etfwatch" style="white-space:nowrap">Open 2x ETF watch →</a>${hideBtn('btn s')}</div>`;
+    }
+    return `<div class="row" style="gap:14px;flex-wrap:nowrap;align-items:center;padding:12px 16px;border-radius:12px;background:color-mix(in srgb,var(--accent) 9%,var(--panel));border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line))" role="status">
+      <span aria-hidden="true" style="font-size:20px">🔎</span><div style="flex:1;min-width:0"><b>${w.new.length} new 2x ETF${w.new.length > 1 ? 's' : ''} this week</b> <span class="muted small">· Saturday's check, ${U.day(w.t)}</span>
+        <div class="small" style="margin-top:2px">${w.new.map((n) => `<b>${U.esc(n.t)}</b> ${U.esc(n.tracks)} · ${n.kind === 'listing' ? 'new listing' : 'entered the top 50'}${n.adv90 != null ? ' · $' + (n.adv90 < 10 ? n.adv90.toFixed(2) : n.adv90.toFixed(1)) + 'M a day' : ''}`).join(' &nbsp;·&nbsp; ')}</div></div>
+      <a class="btn s p" href="#/etfwatch" style="white-space:nowrap">Open 2x ETF watch →</a>${hideBtn('btn s')}</div>`;
+  };
   V.etfNewRow = function (n) {
     const facts = [n.adv90 != null ? `$${n.adv90 < 10 ? n.adv90.toFixed(2) : n.adv90.toFixed(1)}M a day (90-day)` : '', n.first ? 'listed ' + U.day(n.first) : '',
       n.years != null ? (n.years < 1 ? 'under 1 year of history' : n.years.toFixed(1) + ' years of history') : ''].filter(Boolean).join(' · ');
@@ -213,6 +228,7 @@
       <div class="row" style="gap:6px">${n.mark === 'research' ? '' : `<button class="btn s p" data-etfm="research" data-t="${U.esc(n.t)}">Research it</button>`}<button class="btn s" data-etfm="dismissed" data-t="${U.esc(n.t)}">Dismiss</button></div></div>`;
   };
   V.etfBind = function (el, reload) {
+    U.on(el, '[data-etfhide]', 'click', (e, b) => U.busy(b, async () => { await U.api('/api/etfwatch/hide', { body: {} }); reload(); }));
     U.on(el, '[data-etfm]', 'click', (e, b) => U.busy(b, async () => {
       await U.api('/api/etfwatch/mark', { body: { ticker: b.dataset.t, mark: b.dataset.etfm } });
       U.toast(b.dataset.etfm === 'research' ? `${b.dataset.t}: marked to research — ask Claude when you are ready` : b.dataset.etfm === 'clear' ? `${b.dataset.t} unmarked` : `${b.dataset.t} hidden`);
@@ -229,6 +245,7 @@
       <div class="page-head"><div><div class="eyebrow">${U.esc(today)} · ${U.modeLabel[mode]} · strategy pool on</div><h1 class="h1">Dashboard</h1></div>
         <div class="row"><button class="btn p" type="button" id="add">Add money to the pool</button></div></div>
       ${attention(ds.attention)}
+      ${V.etfNotice(d.etfwatch)}
       <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
         <section class="card col" style="gap:10px"><div class="eyebrow">Strategy pool · ${U.modeLabel[mode]} · ${pv.members.length} members</div>
           <div class="num huge">${U.usd(b.value)}</div>

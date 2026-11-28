@@ -65,7 +65,12 @@ def _issue_counts():
     plans = db.one("SELECT COUNT(*) n FROM plans WHERE status='active'")["n"]
     by_mode = {r["mode"]: r["n"] for r in db.rows("SELECT mode, COUNT(*) n FROM plans WHERE status='active' GROUP BY mode")}
     return {"health": (rep["counts"]["warn"] + rep["counts"]["error"]) if rep else 0, "plans": plans, "plans_by_mode": by_mode,
-            "add": _add_count()}
+            "add": _add_count(), "etfwatch": _safe(_etf_badge, {})}
+
+
+def _etf_badge():
+    from . import etfwatch
+    return etfwatch.badge()
 
 
 def _add_count():
