@@ -516,8 +516,11 @@ async def pool_action(action: str, request: Request, u=Depends(user)):
             c = pool.cfg(mode)
             sids = list(b.get("members") if b.get("members") is not None else c["members"])
             slot = float(b.get("slot_pct") or (c["slot_pct"] or pool.suggested_slot(len(sids))))
-            return pool.backtest(sids, slot, float(b.get("cap_pct") or c["cap_pct"]), float(b.get("min_pct") if b.get("min_pct") is not None
-                                                                                                 else c["min_pct"]))
+            r = pool.backtest(sids, slot, float(b.get("cap_pct") or c["cap_pct"]), float(b.get("min_pct") if b.get("min_pct") is not None
+                                                                                              else c["min_pct"]))
+            if not b.get("daily"):                      # every day only when asked (the Dashboard's zoom): ~250 KB
+                r = {k: v for k, v in r.items() if k != "daily"}
+            return r
     except (ValueError, TypeError) as e:
         _err(e)
     raise HTTPException(404, "Unknown action")

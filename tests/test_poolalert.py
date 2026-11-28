@@ -156,6 +156,19 @@ def test_zone_alert_once_per_fall_and_rearm(line):
     assert len(q()) == 2
 
 
+def test_zone_alert_dropped_by_a_full_month_comes_in_the_next(line, monkeypatch):
+    _on(["qld_split_2c"])
+    db.set_state("line_count", {"month": "2026-11", "n": 300, "days": {}})
+    poolalert.zone_check(MODE, _bt(86, -10.5, "2026-11-27"))
+    notify.dispatch(at(28, 12))
+    assert not line and db.one("SELECT status FROM line_queue WHERE event='pool_add'")["status"] == "skipped"
+    monkeypatch.setattr(notify, "budget", lambda now=None: {"state": "ok"})        # 1 December: a new month
+    poolalert.zone_check(MODE, _bt(87, -10.8, "2026-11-30"))
+    assert len(db.rows("SELECT * FROM line_queue WHERE event='pool_add'")) == 2
+    poolalert.zone_check(MODE, _bt(87, -10.8, "2026-12-01"))
+    assert len(db.rows("SELECT * FROM line_queue WHERE event='pool_add'")) == 2     # once
+
+
 def test_zone_first_look_counts_the_fall_from_its_first_day(line):
     _on(["qld_split_2c"])
     st = poolalert.zone_check(MODE, _bt(89.6, last={"80": {"day": "2026-11-05", "open": True}}))
@@ -256,3 +269,11 @@ def test_api_alerts_and_month_done(clean, clock):
         assert r.status_code == 200 and r.json()["zone_pct"] == 90 and r.json()["line"]["gap"] is False
         assert c.post("/api/pool/alerts", json={"mode": MODE, "zone_pct": 3}).status_code == 400
         assert c.post("/api/pool/month_done", json={"mode": MODE}).json()["done"] is True
+
+
+def test_daily_points_carry_the_percentile_for_the_zoomed_chart():
+    v = _falls()
+    pct = pool.daily_pct(v)
+    d, w, z = pool.daily(v, pct), pool.weekly(v, pct), pool.zones(v, pct)
+    assert len(d) == len(v) and d[0][3] is None and d[-1][3] == round(z["pct"], 1) and d[-1][2] == z["depth"]
+    assert all(len(p) == 4 for p in w) and w[-1][3] == d[-1][3]

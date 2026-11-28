@@ -69,7 +69,10 @@ years, so plan for lower.
 
 The Dashboard card **Pool backtest · today's members** runs the pool rules on today's members' backtests and shows:
 
+- **Percentile now**: today's fall against all past days (green when it is in your add-money zone).
 - **Value from 100** on a log scale (each step ×10 when the range is wide), over 5 years, 10 years or since the start.
+- **Zoom**: drag across either chart to zoom both to those dates (below 3 years every day is loaded, otherwise a point a
+  week); *Reset zoom* or a double-click goes back. Hover (or touch) for the day's value, fall below the high and percentile.
 - **Under water**: how far below its last high, with dashed lines at the depth reached on 80%, 85% and 90% of days, the
   add-money zone shaded and today's point.
 - **After a fall this deep**: from the first day of each fall past the 80th / 85th / 90th percentile (and your alert's

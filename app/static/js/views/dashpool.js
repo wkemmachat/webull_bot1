@@ -228,68 +228,98 @@
   }
 
   /* ------------------------------------------------ the pool backtest of today's members: value from 100 (log scale), how
-     far below its high (with the 80/85/90th percentile depths), and what followed falls this deep */
-  function btCard(ds, pv) {
+     far below its high (with the 80/85/90th percentile depths) and the percentile now; drag across either chart to zoom
+     (double-click or Reset to go back), hover for the day's figures. Weekly points come with the Dashboard; every day is
+     loaded the first time you zoom in under 3 years. */
+  const MONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const fmtV = (v) => (v >= 1000 ? Math.round(v).toLocaleString('en-US') : v >= 10 ? v.toFixed(0) : v.toFixed(1));
+  const dstr = (t) => { const d = new Date(t * 1000); return `${d.getUTCDate()} ${MONS[d.getUTCMonth()]} ${d.getUTCFullYear()}`; };
+  const BW = 1100, BL = 48, BR = 72;
+  function btTicks(a, b) {                                   // x-axis labels for the span shown
+    const span = (b - a) / 86400, out = [];
+    const da = new Date(a * 1000), db = new Date(b * 1000);
+    if (span > 540) {
+      const y0 = da.getUTCFullYear() + 1, y1 = db.getUTCFullYear(), st = Math.max(1, Math.ceil((y1 - y0 + 1) / 8));
+      for (let y = y0; y <= y1; y += st) out.push([Date.UTC(y, 0, 1) / 1000, String(y)]);
+    } else if (span > 75) {
+      const st = span > 300 ? 3 : span > 150 ? 2 : 1;
+      let y = da.getUTCFullYear(), m = da.getUTCMonth() + 1;
+      for (; Date.UTC(y, m, 1) / 1000 <= b; m += st) { const t = Date.UTC(y, m, 1) / 1000; const dd = new Date(t * 1000); out.push([t, MONS[dd.getUTCMonth()] + (dd.getUTCMonth() === 0 || out.length === 0 ? ' ' + dd.getUTCFullYear() : '')]); }
+    } else {
+      const st = span > 30 ? 7 : span > 12 ? 3 : 1;
+      for (let t = Math.ceil(a / 86400) * 86400; t <= b; t += st * 86400) { const d = new Date(t * 1000); out.push([t, d.getUTCDate() + ' ' + MONS[d.getUTCMonth()]]); }
+    }
+    return out.filter((x) => x[0] >= a && x[0] <= b);
+  }
+  function logTicks(lo, hi) {
+    const L0 = Math.log10(lo), L1 = Math.log10(hi);
+    for (const ks of [[1], [1, 2, 5]]) {
+      const t = [];
+      for (let e = Math.floor(L0) - 1; e <= Math.ceil(L1); e++) ks.forEach((k) => { const v = k * 10 ** e; if (v >= lo && v <= hi) t.push(v); });
+      if (t.length >= 3) return t;
+    }
+    // a narrow range (zoomed in): round steps, about 4 of them
+    const raw = (hi - lo) / 4, mag = 10 ** Math.floor(Math.log10(raw)), f = raw / mag;
+    const step = (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * mag, t = [];
+    for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) t.push(v);
+    return t;
+  }
+  function btCharts(B, st, th) {
+    const W = st.daily && st.win && (st.win[1] - st.win[0]) < 3 * 365.25 * 86400 ? st.daily : B.weekly;
+    const last = B.weekly[B.weekly.length - 1][0];
+    const yrs = { '5Y': 5, '10Y': 10 }[st.per];
+    const p0 = yrs ? last - yrs * 365.25 * 86400 : B.weekly[0][0];
+    const startIdx = Math.max(0, W.findIndex((p) => p[0] >= p0));
+    const base = W[startIdx][1];
+    const a = st.win ? Math.max(st.win[0], p0) : p0, b = st.win ? Math.min(st.win[1], last) : last;
+    let pts = W.filter((p) => p[0] >= a && p[0] <= b);
+    if (pts.length < 2) pts = W.filter((p) => p[0] >= p0);
+    const t0 = pts[0][0], t1 = pts[pts.length - 1][0];
+    const X = (t) => BL + (t - t0) / Math.max(1, t1 - t0) * (BW - BL - BR);
+    const val = pts.map((p) => p[1] / base * 100);
+    const vmin = Math.min(...val), vmax = Math.max(...val);
+    const lo = vmin / (vmax / vmin > 1.5 ? 1.05 : 1.01), hi = vmax * (vmax / vmin > 1.5 ? 1.08 : 1.015);
+    const h1 = 230, L0 = Math.log10(lo), L1 = Math.log10(hi);
+    const Y1 = (v) => 10 + (h1 - 36) * (1 - (Math.log10(v) - L0) / (L1 - L0));
+    const xl = (h) => btTicks(t0, t1).map(([t, l]) => `<text x="${X(t)}" y="${h}" font-size="10.5" fill="var(--muted)" text-anchor="middle">${l}</text>`).join('');
+    const vline = pts.map((p, i) => `${X(p[0]).toFixed(1)},${Y1(val[i]).toFixed(1)}`).join(' ');
+    const lastV = val[val.length - 1];
+    const svg1 = `<svg viewBox="0 0 ${BW} ${h1}" style="width:100%;height:auto;display:block" role="img" aria-label="Pool backtest value from 100, log scale">
+      ${logTicks(lo, hi).map((v) => `<line x1="${BL}" x2="${BW - BR}" y1="${Y1(v)}" y2="${Y1(v)}" stroke="var(--line2)"/><text x="${BW - BR + 6}" y="${Y1(v) + 4}" font-size="10.5" fill="var(--muted)">${fmtV(v)}</text>`).join('')}
+      <polygon points="${X(t0)},${h1 - 26} ${vline} ${X(t1)},${h1 - 26}" fill="var(--ok-fg)" opacity=".08"/>
+      <polyline points="${vline}" fill="none" stroke="var(--ok-fg)" stroke-width="2"/>
+      <circle cx="${X(t1)}" cy="${Y1(lastV)}" r="4" fill="var(--ok-fg)"/><text x="${X(t1) - 4}" y="${Math.max(12, Math.min(Y1(lastV), Y1(vmax)) - 8)}" font-size="11" font-weight="600" fill="var(--text)" text-anchor="end">${fmtV(lastV)}</text>
+      ${xl(h1 - 8)}<g class="hv"></g></svg>`;
+    const deep = B.zone.deep, dmin = Math.min(...pts.map((p) => p[2]));
+    const lo2 = Math.min(-15, Math.floor((Math.min(dmin, deep['90']) - 2) / 5) * 5);
+    const h2 = 200, Y2 = (v) => 10 + (h2 - 36) * (v / lo2);
+    const lines = [[80, 'var(--ok-fg)'], [85, '#e8590c'], [90, 'var(--err-fg)']];
+    if (![80, 85, 90].includes(th) && deep[String(th)] != null) lines.push([th, 'var(--accent)']);
+    const uw = pts.map((p) => `${X(p[0]).toFixed(1)},${Y2(p[2]).toFixed(1)}`).join(' ');
+    const zY = Y2(deep[String(th)]);
+    let grid2 = '';
+    const gs = lo2 <= -40 ? 10 : 5;
+    for (let v = 0; v >= lo2; v -= gs) grid2 += `<line x1="${BL}" x2="${BW - BR}" y1="${Y2(v)}" y2="${Y2(v)}" stroke="var(--line2)"/><text x="${BW - BR + 6}" y="${Y2(v) + 4}" font-size="10.5" fill="var(--muted)">${v}%</text>`;
+    const atEnd = t1 === last, Z = B.zone;
+    const nowLbl = atEnd && Z.pct != null ? `<text x="${X(t1) - 8}" y="${Y2(Z.depth) + 18}" font-size="11.5" font-weight="600" fill="var(--err-fg)" text-anchor="end">today ${Z.depth}% · ${ord(Z.pct)} percentile</text>` : '';
+    const svg2 = `<svg viewBox="0 0 ${BW} ${h2}" style="width:100%;height:auto;display:block" role="img" aria-label="How far the pool backtest was below its high, with the percentile depths">
+      ${grid2}<rect x="${BL}" y="${zY}" width="${BW - BL - BR}" height="${Math.max(0, Y2(lo2) - zY)}" fill="var(--ok-fg)" opacity=".07"/>
+      <polygon points="${X(t0)},${Y2(0)} ${uw} ${X(t1)},${Y2(0)}" fill="var(--err-fg)" opacity=".18"/><polyline points="${uw}" fill="none" stroke="var(--err-fg)" stroke-width="1.2"/>
+      ${lines.map(([k, c]) => `<line x1="${BL}" x2="${BW - BR}" y1="${Y2(deep[String(k)])}" y2="${Y2(deep[String(k)])}" stroke="${c}" stroke-width="1.4" stroke-dasharray="6 4"/>`).join('')}
+      ${atEnd ? `<circle cx="${X(t1)}" cy="${Y2(Z.depth)}" r="4.5" fill="var(--err-fg)"/>` : ''}${nowLbl}${xl(h2 - 8)}<g class="hv"></g></svg>`;
+    const vs = val[0], ve = lastV;
+    return { svg1, svg2, lines, pts, val, X, Y1, Y2, t0, t1, p0, last, h1, h2, daily: W !== B.weekly,
+      view: { from: t0, to: t1, ret: ve / vs - 1, deepest: dmin } };
+  }
+  function btCard(ds, pv, st) {
     const B = ds.btchart, a = (ds.alerts || {}).settings || {};
     if (!B || !B.weekly || !B.zone || !B.zone.deep) return '';
-    let per = '10Y';
-    try { per = localStorage.getItem('dash_btp') || '10Y'; } catch (e) { /* default */ }
-    const W = B.weekly, last = W[W.length - 1][0];
-    const yrs = { '5Y': 5, '10Y': 10 }[per];
-    const t0 = yrs ? last - yrs * 365.25 * 86400 : W[0][0];
-    let pts = W.filter((p) => p[0] >= t0);
-    if (pts.length < 10) pts = W;
-    const base = pts[0][1];
-    const val = pts.map((p) => [p[0], p[1] / base * 100]);
-    // under water inside the period: deepest weekly fall from the series' own high (the whole history's high, so a fall
-    // that began before the period still shows)
-    const under = pts.map((p) => [p[0], p[2]]);
     const Z = B.zone, deep = Z.deep, th = a.zone_pct || 80;
-    const P = yrs ? (B.periods || {})[per] : B.all;
+    const P = { '5Y': 5, '10Y': 10 }[st.per] ? (B.periods || {})[st.per] : B.all;
     const sinceLbl = 'Since ' + String((B.all || {}).from || '').slice(0, 4);
-    const w = 1100, X = (t) => 48 + (t - pts[0][0]) / (last - pts[0][0]) * (w - 120);
-    // value chart, log scale
-    const vmax = Math.max(...val.map((p) => p[1])), vmin = Math.min(100, ...val.map((p) => p[1]));
-    const h1 = 230, L0 = Math.log10(vmin * 0.95), L1 = Math.log10(vmax * 1.08);
-    const Y1 = (v) => 10 + (h1 - 36) * (1 - (Math.log10(v) - L0) / (L1 - L0));
-    const ticks = [];
-    for (let e = Math.floor(L0); e <= Math.ceil(L1); e++) [1, 2, 5].forEach((k) => { const v = k * 10 ** e; if (v >= vmin * 0.95 && v <= vmax * 1.08) ticks.push(v); });
-    const big = ticks.filter((v) => String(v)[0] === '1');
-    const show = (L1 - L0 > 1.6 ? big : ticks);
-    const fmt = (v) => v >= 1000 ? Math.round(v).toLocaleString('en-US') : String(Math.round(v));
-    let years = '';
-    const y0 = new Date(pts[0][0] * 1000).getUTCFullYear() + 1, y1 = new Date(last * 1000).getUTCFullYear();
-    const stepY = Math.max(1, Math.ceil((y1 - y0 + 1) / 8));
-    const yx = [];
-    for (let y = y0; y <= y1; y += stepY) yx.push([Date.UTC(y, 0, 1) / 1000, y]);
-    const xl = (h) => yx.map(([t, y]) => `<text x="${X(t)}" y="${h}" font-size="10.5" fill="var(--muted)" text-anchor="middle">${y}</text>`).join('');
-    const vline = val.map((p) => `${X(p[0]).toFixed(1)},${Y1(p[1]).toFixed(1)}`).join(' ');
-    const lastV = val[val.length - 1][1];
-    const svg1 = `<svg viewBox="0 0 ${w} ${h1}" style="width:100%;height:auto" role="img" aria-label="Pool backtest value from 100, log scale">
-      ${show.map((v) => `<line x1="48" x2="${w - 72}" y1="${Y1(v)}" y2="${Y1(v)}" stroke="var(--line2)"/><text x="${w - 66}" y="${Y1(v) + 4}" font-size="10.5" fill="var(--muted)">${fmt(v)}</text>`).join('')}
-      <polygon points="${X(val[0][0])},${h1 - 26} ${vline} ${X(last)},${h1 - 26}" fill="var(--ok-fg)" opacity=".08"/>
-      <polyline points="${vline}" fill="none" stroke="var(--ok-fg)" stroke-width="2"/>
-      <circle cx="${X(last)}" cy="${Y1(lastV)}" r="4" fill="var(--ok-fg)"/><text x="${X(last) - 4}" y="${Math.max(12, Math.min(Y1(lastV), Y1(vmax)) - 8)}" font-size="11" font-weight="600" fill="var(--text)" text-anchor="end">${fmt(lastV)}</text>
-      ${xl(h1 - 8)}</svg>`;
-    // under-water chart
-    const lo = Math.min(-30, Math.floor(Math.min(...under.map((p) => p[1])) / 10) * 10);
-    const h2 = 200, Y2 = (v) => 10 + (h2 - 36) * (v / lo);
-    const lines = [[80, 'var(--ok-fg)'], [85, '#e8590c'], [90, 'var(--err-fg)']];
-    if (![80, 85, 90].includes(th)) lines.push([th, 'var(--accent)']);
-    const area = `${X(under[0][0])},${Y2(0)} ` + under.map((p) => `${X(p[0]).toFixed(1)},${Y2(p[1]).toFixed(1)}`).join(' ') + ` ${X(last)},${Y2(0)}`;
-    const zY = Y2(deep[String(th)]);
-    const nowD = Z.depth;
-    let grid2 = '';
-    for (let v = 0; v >= lo; v -= 10) grid2 += `<line x1="48" x2="${w - 72}" y1="${Y2(v)}" y2="${Y2(v)}" stroke="var(--line2)"/><text x="${w - 66}" y="${Y2(v) + 4}" font-size="10.5" fill="var(--muted)">${v}%</text>`;
-    const svg2 = `<svg viewBox="0 0 ${w} ${h2}" style="width:100%;height:auto" role="img" aria-label="How far the pool backtest was below its high, with the percentile depths">
-      ${grid2}<rect x="48" y="${zY}" width="${w - 120}" height="${Y2(lo) - zY}" fill="var(--ok-fg)" opacity=".07"/>
-      <polygon points="${area}" fill="var(--err-fg)" opacity=".18"/><polyline points="${under.map((p) => `${X(p[0]).toFixed(1)},${Y2(p[1]).toFixed(1)}`).join(' ')}" fill="none" stroke="var(--err-fg)" stroke-width="1.2"/>
-      ${lines.map(([k, c]) => deep[String(k)] != null ? `<line x1="48" x2="${w - 72}" y1="${Y2(deep[String(k)])}" y2="${Y2(deep[String(k)])}" stroke="${c}" stroke-width="1.4" stroke-dasharray="6 4"/>` : '').join('')}
-      <circle cx="${X(last)}" cy="${Y2(nowD)}" r="4.5" fill="var(--err-fg)"/>${xl(h2 - 8)}</svg>`;
-    const leg = lines.map(([k, c]) => `<span class="row" style="gap:6px"><i style="width:18px;border-top:2px dashed ${c};display:inline-block"></i>${k}th${k === 80 ? ' percentile' : ''} · ${deep[String(k)].toFixed(1)}%</span>`).join('')
-      + `<span class="row" style="gap:6px"><i style="width:14px;height:10px;background:color-mix(in srgb,var(--ok-fg) 14%,transparent);display:inline-block"></i>add-money zone (${th}th)</span>`
-      + `<span class="row" style="gap:6px">${U.dot('var(--err-fg)', 8)}today ${nowD}%</span>`;
-    // the table
+    const W = B.weekly, last = W[W.length - 1][0], yrs = { '5Y': 5, '10Y': 10 }[st.per];
+    const p0 = yrs ? last - yrs * 365.25 * 86400 : W[0][0];
+    const pbase = (W.find((p) => p[0] >= p0) || W[0])[1], lastV = W[W.length - 1][1] / pbase * 100;
     const R = Z.rows || {}, ths = [...new Set([80, 85, 90, th])].sort((x, y) => x - y);
     const y0s = String(Z.from || '').slice(0, 4), y1s = String(Z.to || '').slice(0, 4);
     const cell = (x, sgn = true, cls = '') => (x == null ? '<td class="r muted">—</td>' : `<td class="r num ${cls || U.cls(x)}">${sgn && x > 0 ? '+' : ''}${x}%</td>`);
@@ -299,18 +329,109 @@
     const col = { 80: 'var(--ok-fg)', 85: '#e8590c', 90: 'var(--err-fg)' };
     const tbl = `<div class="tw"><table class="t" style="font-size:13px;width:100%"><thead><tr><th>When the pool is…</th><th class="r">Depth</th><th class="r">Times since ${y0s}</th><th class="r">Higher a year later</th><th class="r">Typical a year later</th><th class="r">Worst 1 in 10</th><th class="r">Fell further first</th></tr></thead><tbody>
       ${row('any day', R.any || {}, null, false)}${ths.map((k) => row(`${k}th percentile+${k === th ? ' · your alert' : ''}`, R[String(k)] || {}, deep[String(k)], k === th, col[k] || 'var(--accent)')).join('')}</tbody></table></div>`;
-    const tabs = ['5Y', '10Y', 'all'].map((k) => `<button type="button" data-btp="${k}" class="${per === k ? 'on' : ''}">${k === 'all' ? sinceLbl : k}</button>`).join('');
+    const tabs = ['5Y', '10Y', 'all'].map((k) => `<button type="button" data-btp="${k}" class="${st.per === k ? 'on' : ''}">${k === 'all' ? sinceLbl : k}</button>`).join('');
+    const inZone = Z.pct != null && Z.pct >= th;
+    const leg = [[80, 'var(--ok-fg)'], [85, '#e8590c'], [90, 'var(--err-fg)']].concat([80, 85, 90].includes(th) ? [] : [[th, 'var(--accent)']])
+      .map(([k, c]) => `<span class="row" style="gap:6px"><i style="width:18px;border-top:2px dashed ${c};display:inline-block"></i>${k}th${k === 80 ? ' percentile' : ''} · ${deep[String(k)].toFixed(1)}%</span>`).join('')
+      + `<span class="row" style="gap:6px"><i style="width:14px;height:10px;background:color-mix(in srgb,var(--ok-fg) 14%,transparent);display:inline-block"></i>add-money zone (${th}th)</span>`;
+    const stat = (label, v, cls = '') => `<span class="muted small">${label} <b class="num ${cls}" style="font-size:20px">${v}</b></span>`;
     return `<section class="card col" style="gap:12px" id="pool-bt"><div class="row sb" style="flex-wrap:wrap;gap:10px;align-items:flex-start"><div><h2 class="h2">Pool backtest · today's ${pv.members.length} members</h2>
       <div class="muted small">The pool's rules on each member's backtest (Webull's fee) · starts at 100 · changes when you add or remove a member</div></div><div class="seg">${tabs}</div></div>
-      <div class="row" style="gap:22px;flex-wrap:wrap;align-items:baseline"><span class="muted small">100 became <b class="num" style="font-size:22px;color:var(--text)">${fmt(lastV)}</b></span>
-        ${P ? `<span class="muted small">a year <b class="num ${U.cls(P.cagr)}" style="font-size:20px">${P.cagr > 0 ? '+' : ''}${P.cagr}%</b></span><span class="muted small">worst fall <b class="num dn" style="font-size:20px">${P.maxdd}%</b></span>` : ''}
-        <span class="muted small">now <b class="num dn" style="font-size:20px">${nowD}%</b></span>${Z.pct != null ? U.pill(Z.pct >= th ? 'ok' : '', `deeper than ${Math.floor(Z.pct)}% of past days`) : ''}</div>
-      <div class="eyebrow">Value (log scale${L1 - L0 > 1.6 ? ', so each step up is ×10' : ''})</div>${svg1}
-      <div class="row sb" style="flex-wrap:wrap;gap:8px"><div class="eyebrow">Under water · how far below its last high</div><div class="row small muted" style="gap:14px;flex-wrap:wrap">${leg}</div></div>${svg2}
-      <div class="muted tiny">Dashed lines = the depth reached on 80% / 85% / 90% of days since ${String((B.all || {}).from || '').slice(0, 4)}. A backtest of strategies chosen on these same years: real results are usually lower.</div>
+      <div class="row" style="gap:22px;flex-wrap:wrap;align-items:baseline"><span class="muted small">100 became <b class="num" style="font-size:22px;color:var(--text)">${fmtV(lastV)}</b></span>
+        ${P ? stat('a year', `${P.cagr > 0 ? '+' : ''}${P.cagr}%`, U.cls(P.cagr)) + stat('worst fall', `${P.maxdd}%`, 'dn') : ''}
+        ${stat('now', `${Z.depth}%`, 'dn')}
+        ${Z.pct != null ? `<span class="row" style="gap:8px;align-items:baseline;padding:4px 12px;border-radius:10px;background:${inZone ? 'var(--ok-bg)' : 'var(--panel2)'};border:1px solid ${inZone ? 'color-mix(in srgb,var(--ok-fg) 40%,var(--line))' : 'var(--line)'}">
+          <span class="muted small">percentile now</span><b class="num" style="font-size:22px;color:${inZone ? 'var(--ok-fg)' : 'var(--text)'}">${ord(Z.pct)}</b>
+          <span class="small" style="color:${inZone ? 'var(--ok-fg)' : 'var(--muted)'}">deeper than ${Math.floor(Z.pct)}% of past days · ${inZone ? 'in your add-money zone (' + th + 'th+)' : 'zone starts at the ' + th + 'th (' + deep[String(th)] + '%)'}</span></span>` : ''}</div>
+      <div class="row sb" style="flex-wrap:wrap;gap:8px"><div class="eyebrow" id="bt-v-lbl">Value (log scale)</div><div class="row small" style="gap:10px"><span class="muted" id="bt-zoom-t">Drag across a chart to zoom</span><button type="button" class="btn s" id="bt-reset" style="display:none">Reset zoom</button></div></div>
+      <div id="bt-c1" style="position:relative;touch-action:pan-y;cursor:crosshair;user-select:none"></div>
+      <div class="row sb" style="flex-wrap:wrap;gap:8px"><div class="eyebrow">Under water · how far below its last high</div><div class="row small muted" style="gap:14px;flex-wrap:wrap">${leg}</div></div>
+      <div id="bt-c2" style="position:relative;touch-action:pan-y;cursor:crosshair;user-select:none"></div>
+      <div id="bt-tip" class="small" style="position:fixed;pointer-events:none;display:none;z-index:50;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;box-shadow:0 6px 18px rgba(0,0,0,.12);min-width:180px"></div>
+      <div class="muted tiny">Dashed lines = the depth reached on 80% / 85% / 90% of days since ${String((B.all || {}).from || '').slice(0, 4)}. Percentile = the share of past days that were less deep (each day against the days before it only). A backtest of strategies chosen on these same years: real results are usually lower.</div>
       <h3 class="h2" style="font-size:16px;margin-top:6px">After a fall this deep <span class="muted small" style="font-weight:400">(first day of each fall, ${y0s}–${y1s})</span></h3>${tbl}
       <div class="small" style="padding:4px 6px">Waiting for the zone with your regular money was worse than adding it every month in 84% of 5-year periods (median −4%): the pool rises most of the time. The zone is for <b>extra money you keep aside</b>.</div>
       <div class="muted tiny">A fall counts again only after the pool climbs back above the ${(a.rearm || 70)}th percentile (the alert's own rule). Each day is ranked against the days before it only, after a 3-year start.</div></section>`;
+  }
+  /* draw the two charts into the card and wire zoom + hover */
+  function btBind(el, ds, pv, mode, st) {
+    const card = el.querySelector('#pool-bt');
+    if (!card) return;
+    const B = ds.btchart, th = ((ds.alerts || {}).settings || {}).zone_pct || 80;
+    const c1 = card.querySelector('#bt-c1'), c2 = card.querySelector('#bt-c2'), tip = card.querySelector('#bt-tip');
+    let C = null;
+    const draw = () => {
+      C = btCharts(B, st, th);
+      c1.innerHTML = C.svg1; c2.innerHTML = C.svg2;
+      const z = card.querySelector('#bt-zoom-t'), rb = card.querySelector('#bt-reset');
+      rb.style.display = st.win ? '' : 'none';
+      z.textContent = st.win ? `${dstr(C.view.from)} – ${dstr(C.view.to)} · ${C.view.ret >= 0 ? '+' : '−'}${Math.abs(C.view.ret * 100).toFixed(1)}% · deepest ${C.view.deepest.toFixed(1)}%${C.daily ? ' · daily' : ' · weekly points'}` : 'Drag across a chart to zoom · hover for a day';
+      card.querySelector('#bt-v-lbl').textContent = 'Value (log scale' + (Math.log10(Math.max(...C.val) / Math.min(...C.val)) > 1.6 ? ', so each step up is ×10)' : ')');
+    };
+    const needDaily = () => st.win && (st.win[1] - st.win[0]) < 3 * 365.25 * 86400 && !st.daily && !st.loading;
+    const setWin = async (w) => {
+      st.win = w; draw();
+      if (needDaily()) {
+        st.loading = true;
+        try {
+          const r = await U.api('/api/pool/backtest', { body: { mode, daily: true } });
+          if (r && r.daily) { st.daily = r.daily; if (card.isConnected) draw(); }
+        } catch (e) { /* weekly points stay */ } finally { st.loading = false; }
+      }
+    };
+    const tOf = (box, cx) => { const r = box.getBoundingClientRect(); const x = (cx - r.left) / r.width * BW; return C.t0 + (Math.max(BL, Math.min(BW - BR, x)) - BL) / (BW - BL - BR) * (C.t1 - C.t0); };
+    const near = (t) => { let lo = 0, hi = C.pts.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (C.pts[m][0] < t) lo = m; else hi = m; } return Math.abs(C.pts[lo][0] - t) < Math.abs(C.pts[hi][0] - t) ? lo : hi; };
+    const hover = (t, cx, cy) => {
+      const i = near(t), p = C.pts[i], x = C.X(p[0]);
+      [[c1, C.h1], [c2, C.h2]].forEach(([box, h]) => { const g = box.querySelector('.hv'); if (g) g.innerHTML = `<line x1="${x}" x2="${x}" y1="6" y2="${h - 26}" stroke="var(--text)" stroke-width="1" opacity=".45"/>`; });
+      card.querySelectorAll('.hv')[0].innerHTML += `<circle cx="${x}" cy="${C.Y1(C.val[i])}" r="3.5" fill="var(--ok-fg)"/>`;
+      card.querySelectorAll('.hv')[1].innerHTML += `<circle cx="${x}" cy="${C.Y2(p[2])}" r="3.5" fill="var(--err-fg)"/>`;
+      tip.innerHTML = `<b>${C.daily ? '' : 'week to '}${dstr(p[0])}</b><div class="row sb" style="gap:12px"><span class="muted">value</span><b class="num">${fmtV(C.val[i])}</b></div>
+        <div class="row sb" style="gap:12px"><span class="muted">below its high</span><b class="num dn">${p[2].toFixed(1)}%</b></div>
+        <div class="row sb" style="gap:12px"><span class="muted">percentile</span><b class="num">${p[3] == null ? '— (first 3 years)' : ord(p[3]) + (p[3] >= th ? ' · zone' : '')}</b></div>`;
+      tip.style.display = 'block';
+      const tw = tip.offsetWidth;
+      tip.style.left = (cx + 16 + tw > window.innerWidth ? cx - tw - 16 : cx + 16) + 'px';
+      tip.style.top = (cy + 12) + 'px';
+    };
+    const clearHover = () => { card.querySelectorAll('.hv').forEach((g) => { g.innerHTML = ''; }); tip.style.display = 'none'; };
+    [c1, c2].forEach((box) => {
+      let drag = null, sel = null;
+      box.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        drag = { x: e.clientX, t: tOf(box, e.clientX) };
+        sel = document.createElement('div');
+        sel.style.cssText = 'position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--accent) 16%,transparent);border-left:1px solid var(--accent);border-right:1px solid var(--accent);pointer-events:none;width:0';
+        box.appendChild(sel);
+        box.setPointerCapture(e.pointerId);
+      });
+      box.addEventListener('pointermove', (e) => {
+        if (drag) {
+          const r = box.getBoundingClientRect(), x0 = Math.min(drag.x, e.clientX) - r.left, x1 = Math.max(drag.x, e.clientX) - r.left;
+          sel.style.left = Math.max(0, x0) + 'px'; sel.style.width = Math.max(0, x1 - x0) + 'px';
+        }
+        hover(tOf(box, e.clientX), e.clientX, e.clientY);
+      });
+      const end = (e) => {
+        if (!drag) return;
+        const t2 = tOf(box, e.clientX), moved = Math.abs(e.clientX - drag.x);
+        if (sel) sel.remove();
+        const t1 = drag.t; drag = null; sel = null;
+        if (moved > 8 && Math.abs(t2 - t1) > 10 * 86400) setWin([Math.min(t1, t2), Math.max(t1, t2)]);
+      };
+      box.addEventListener('pointerup', end);
+      box.addEventListener('pointercancel', () => { if (sel) sel.remove(); drag = null; sel = null; });
+      box.addEventListener('pointerleave', () => { if (!drag) clearHover(); });
+      box.addEventListener('dblclick', () => setWin(null));
+    });
+    card.querySelector('#bt-reset').onclick = () => setWin(null);
+    U.on(card, '[data-btp]', 'click', (e, x) => {
+      try { localStorage.setItem('dash_btp', x.dataset.btp); } catch (err) { /* not kept */ }
+      st.per = x.dataset.btp; st.win = null;
+      card.outerHTML = btCard(ds, pv, st);
+      btBind(el, ds, pv, mode, st);
+    });
+    draw();
   }
 
   V.etfWatchCard = function (w) {
@@ -363,6 +484,9 @@
     const today = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' }).format(new Date());
     const oldPnl = el.querySelector('#pnlx');
     const real = b.real && b.real.ret;
+    const btKey = mode + ':' + pv.members.map((m) => m.id).sort().join(',');
+    if (el._bt && el._bt.key !== btKey) el._bt = null;                      // other members or mode: a new backtest
+    const btState = el._bt || (el._bt = { key: btKey, per: (() => { try { return localStorage.getItem('dash_btp') || '10Y'; } catch (e) { return '10Y'; } })(), win: null, daily: null });
     el.innerHTML = `
       <div class="page-head"><div><div class="eyebrow">${U.esc(today)} · ${U.modeLabel[mode]} · strategy pool on</div><h1 class="h1">Dashboard</h1></div>
         <div class="row"><button class="btn p" type="button" id="add">Add money to the pool</button></div></div>
@@ -387,7 +511,7 @@
           <span class="row" style="gap:6px"><i style="width:16px;height:10px;background:color-mix(in srgb,var(--ok-fg) 22%,transparent);display:inline-block"></i>Usual range (8 of 10 backtest stretches)</span>
           <span class="row" style="gap:6px"><i style="width:16px;border-top:2px dashed var(--ok-fg);display:inline-block"></i>Backtest middle</span></div></section>
       ${board(pv)}
-      ${btCard(ds, pv)}
+      ${btCard(ds, pv, btState)}
       <div class="grid" style="--min:min(440px,100%)">${moneyCard(pv)}<div id="etfw">${V.etfWatchCard(d.etfwatch)}</div></div>
       <div id="pnlx"></div>
       <div class="grid" style="--min:min(440px,100%)">${monthsCard(ds)}${expectCard(ds)}</div>
@@ -398,12 +522,7 @@
           <div class="num muted small nowrap">${U.dt(e.t)}</div></div>`).join('') || '<div class="empty">No activity yet</div>'}</section>`;
     if (oldPnl && oldPnl.firstChild) { el.querySelector('#pnlx').replaceWith(oldPnl); V.renderPnl(oldPnl); } else V.renderPnl(el.querySelector('#pnlx'));
     el.querySelector('#add').onclick = () => V.fundDialog('in', load);
-    const bindBt = () => U.on(el, '[data-btp]', 'click', (e, x) => {
-      try { localStorage.setItem('dash_btp', x.dataset.btp); } catch (err) { /* not kept */ }
-      const card = el.querySelector('#pool-bt');
-      if (card) { card.outerHTML = btCard(ds, pv); bindBt(); }
-    });
-    bindBt();
+    btBind(el, ds, pv, mode, btState);
     U.on(el, '[data-pa]', 'click', (e, x) => {
       const k = x.dataset.pa;
       if (k === 'add') V.fundDialog('in', load);

@@ -667,14 +667,19 @@ def first_days(pct: np.ndarray, th: float, rearm: float = ZONE_REARM) -> list:
     return out
 
 
-def zones(v: pd.Series) -> dict:
+def daily_pct(v: pd.Series) -> np.ndarray:
+    vv = v.values.astype(float)
+    return past_pct(vv / np.maximum.accumulate(vv) - 1)
+
+
+def zones(v: pd.Series, pct: np.ndarray | None = None) -> dict:
     """How deep the pool backtest of today's members is below its high, what share of past days were less deep, and what
     followed the first day of each fall past 70…95th percentile (a year later; the further fall first)."""
     if len(v) < ZONE_WARM + FWD:
         return {}
     vv = v.values.astype(float)
     dd = vv / np.maximum.accumulate(vv) - 1
-    pct = past_pct(dd)
+    pct = past_pct(dd) if pct is None else pct
     fwd = np.full(len(vv), np.nan)
     low = np.full(len(vv), np.nan)
     for i in range(len(vv) - FWD):
@@ -710,19 +715,33 @@ def zones(v: pd.Series) -> dict:
             "to": str(last_fwd.date()) if last_fwd is not None else None, "rearm": ZONE_REARM}
 
 
-def weekly(v: pd.Series) -> list:
-    """The value (100 at the start) and the deepest fall below the high, a point a week (the last point is the last day)."""
+def _p(x):
+    return None if x is None or not np.isfinite(x) else round(float(x), 1)
+
+
+def weekly(v: pd.Series, pct: np.ndarray | None = None) -> list:
+    """A point a week: [time, value (100 at the start), deepest fall below the high (%), highest percentile of the fall that
+    week (past days only; None in the first 3 years)]. The last point is the last day."""
     v = v / v.iloc[0] * 100
     dd = v / v.cummax() - 1
-    w = pd.DataFrame({"v": v.resample("W-FRI").last(), "dd": dd.resample("W-FRI").min()}).dropna()
-    out = [[int(v.index[0].timestamp()), 100.0, 0.0]] + [[int(t.timestamp()), round(float(r.v), 3), round(float(r.dd) * 100, 2)]
-                                                         for t, r in w.iterrows() if t > v.index[0]]
-    last = [int(v.index[-1].timestamp()), round(float(v.iloc[-1]), 3), round(float(dd.iloc[-1]) * 100, 2)]
+    p = pd.Series(pct if pct is not None else np.full(len(v), np.nan), index=v.index)
+    w = pd.DataFrame({"v": v.resample("W-FRI").last(), "dd": dd.resample("W-FRI").min(), "p": p.resample("W-FRI").max()}).dropna(subset=["v"])
+    out = [[int(v.index[0].timestamp()), 100.0, 0.0, None]] + [[int(t.timestamp()), round(float(r.v), 3), round(float(r.dd) * 100, 2), _p(r.p)]
+                                                               for t, r in w.iterrows() if t > v.index[0]]
+    last = [int(v.index[-1].timestamp()), round(float(v.iloc[-1]), 3), round(float(dd.iloc[-1]) * 100, 2), _p(p.iloc[-1])]
     if out and out[-1][0] >= last[0]:
         out[-1] = last
     else:
         out.append(last)
     return out
+
+
+def daily(v: pd.Series, pct: np.ndarray | None = None) -> list:
+    """Every day, same fields as weekly(): the Dashboard loads it when you zoom in."""
+    v = v / v.iloc[0] * 100
+    dd = (v / v.cummax() - 1).values
+    p = pct if pct is not None else np.full(len(v), np.nan)
+    return [[int(t.timestamp()), round(float(x), 3), round(float(d) * 100, 2), _p(q)] for t, x, d, q in zip(v.index, v.values, dd, p)]
 
 
 def backtest(sids: list, slot_pct_: float, cap_pct: float, min_pct: float) -> dict:
@@ -756,6 +775,7 @@ def _bt_work(key, sids, slot_pct_, cap_pct, min_pct, job):
         avail = X.notna()
         R, X = R.fillna(0.0), X.fillna(0.0)
         v, idle_avg = simulate(R, X, avail, groups, slot_pct_ / 100, cap_pct / 100, min_pct / 100)
+        pct = daily_pct(v)
         # the same members with fixed money each (today's way), for comparison
         each = (1 + R.where(avail, 0.0)).cumprod().sum(axis=1)
         out = {"ready": True, "members": [{"id": s, "name": names[s], "group": group_label(groups[s]),
@@ -764,7 +784,7 @@ def _bt_work(key, sids, slot_pct_, cap_pct, min_pct, job):
                "periods": {k: _stats(v, y) for k, y in (("1Y", 1), ("3Y", 3), ("5Y", 5), ("10Y", 10))},
                "all": _stats(v), "fixed": {k: _stats(each, y) for k, y in (("10Y", 10),)} | {"all": _stats(each)},
                "curve": [[int(t.timestamp()), round(float(x), 2)] for t, x in v.resample("ME").last().items()],
-               "ranges": ranges(v), "weekly": weekly(v), "zone": zones(v),
+               "ranges": ranges(v), "weekly": weekly(v, pct), "zone": zones(v, pct), "daily": daily(v, pct),
                "daily_tail": [[str(t.date()), round(float(x), 4)] for t, x in v.iloc[-400:].items()],
                "note": "Each member's own backtest (Webull's fee, cash 0%), run through the pool's rules from $100,000. Members join "
                        "when their history starts; several use modelled ETF history before listing. Plan lower: the strategies were "

@@ -93,6 +93,16 @@ def ordinal(n) -> str:
     return f"{n}{'th' if 10 <= n % 100 <= 20 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')}"
 
 
+def _budget_dropped(qid) -> bool:
+    """The LINE message was not sent because the month's LINE budget was used up, and there is room again (a new month)."""
+    if not qid:
+        return False
+    r = db.one("SELECT status, error FROM line_queue WHERE id=?", (qid,))
+    if not r or r["status"] != "skipped" or not (r["error"] or "").startswith("Monthly LINE budget"):
+        return False
+    return notify.budget()["state"] in ("ok", "tight", "low")
+
+
 # ---------------------------------------------------------------- 1. good time to add extra money
 def zone_text(mode, z, th, n_members) -> str:
     r = (z.get("rows") or {}).get(str(th)) or {}
@@ -119,13 +129,15 @@ def zone_check(mode, bt, send=True) -> dict | None:
         st.update(armed=False, since=z["day"], sent=False)
     elif z["pct"] < pool.ZONE_REARM:
         st.update(armed=True, since=None, sent=False)
+    n = len(pool.cfg(mode)["members"])
     if not st.get("armed") and z["pct"] >= th and not st.get("sent"):
-        n = len(pool.cfg(mode)["members"])
         db.add_event("info", "pool", f"Good time to add extra money to the pool ({ordinal(z['pct'])} percentile, {z['depth']:.1f}%)",
                      zone_text(mode, z, th, n))
         if send and line_mode() == mode:
-            notify.send("pool_add", zone_text(mode, z, th, n))
+            st["qid"] = notify.send("pool_add", zone_text(mode, z, th, n))
         st["sent"] = True                               # once per fall, whatever the mode
+    elif not st.get("armed") and z["pct"] >= th and send and line_mode() == mode and _budget_dropped(st.get("qid")):
+        st["qid"] = notify.send("pool_add", zone_text(mode, z, th, n))      # still in the zone: once more, now there is room
     st.update(day=z["day"], th=th, pct=z["pct"], depth=z["depth"])
     db.set_state(f"poolzone:{mode}", st)
     return st
@@ -214,7 +226,7 @@ def gap_check(mode, bt, send=True) -> dict | None:
                "Dashboard → see the gap.")
         db.add_event("warn", "pool", f"Real pool {abs(g['gap']):.1f} points behind its backtest", txt)
         if send and line_mode() == mode:
-            notify.send("pool_gap", txt)
+            st["qid"] = notify.send("pool_gap", txt)
         st["armed"] = False
     elif g["gap"] > -lim / 2:
         st["armed"] = True                              # back within half the limit: armed again
