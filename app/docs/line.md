@@ -33,7 +33,25 @@ message. Instant and critical alerts are not paused.
 hours) only when the bot did not shut down normally: a crash, out of memory or a power loss, with the last time it was seen
 running and how long it was off.
 
-The page shows the monthly quota from LINE's API. Above 90% of the quota, non-critical instant alerts move to the digest.
+## Monthly message budget (300)
+
+Every push to every recipient is one LINE message, and LINE's free plan allows **300 a month**. On 27 Nov 2026 the bot reached
+the limit and LINE refused the rest of the month's alerts, critical ones too. Now the bot keeps to a **monthly budget**
+(LINE alerts → *Connection*, default 300; LINE's own plan limit is used if it is lower):
+
+| State | What happens |
+|---|---|
+| On pace | everything as set |
+| Today's share used | the month's room left (less the reserve) is spread over the days left; past today's share, routine instant alerts wait for the next digest |
+| Running low | the month's digests would not fit: **one digest a day** (the first time), routine instant alerts go into it |
+| Critical only | the last **30 messages** are kept for critical alerts (failed lot, Webull disconnected, new sign-in, health problem); the rest is not sent but stays on the site (Logs, Dashboard) |
+| Limit reached | nothing is sent until the 1st |
+
+The count is the bot's own (each message × recipients) or LINE's (refreshed hourly), whichever is higher, and starts again on
+the 1st (Bangkok). Unused room carries over to the next days. The page shows *this month* with the reserve marked, today's use
+and share; the Dashboard and Health check warn when running low. *Recently sent* marks what the budget held back
+(*not sent · budget*).
+
 Every strategy also has its own LINE switch. With **Automatic** on (LINE alerts page → *Strategies sending alerts*, on by
 default) the switches set themselves: a strategy's LINE is **on while it is not Stopped** (Active, Pause buys or Stop & sell)
 **and holds money** (at least $1 of cash or any shares) in Live, or in the modes that are on when Live is off; it turns
@@ -41,6 +59,12 @@ default) the switches set themselves: a strategy's LINE is **on while it is not 
 empty or stop still sends its last messages (the move, the final sale, *stopped*) before it goes quiet. Each change is
 written to Logs (*LINE alerts turned on automatically*). Critical alerts (a failed lot, Webull disconnected, a health-check
 problem) always come. Turn Automatic off to set every switch by hand.
+
+## Pool alerts
+
+With the strategy pool on: *Pool: good time to add extra money*, *Pool: monthly add reminder* and *Pool: real behind its
+backtest* (all Instant; Pool settings → Alerts switches them the same as this page). They go out for one mode only (Live when
+it is on). See [Strategy pool → Alerts](#/docs/pool).
 
 ## Orders for the next US open
 

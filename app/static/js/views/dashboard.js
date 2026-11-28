@@ -111,7 +111,7 @@ V.dashboard = async function (el) {
           <div class="big" style="margin-top:6px">${h ? `${h.counts.ok} ok${h.counts.warn ? ` · <span style="color:var(--warn-fg)">${h.counts.warn} warning${h.counts.warn > 1 ? 's' : ''}</span>` : ''}${h.counts.error ? ` · <span class="dn">${h.counts.error} problem${h.counts.error > 1 ? 's' : ''}</span>` : ''}` : 'Not run yet'}</div>
           <div class="muted small">${h && h.first ? U.esc(h.first.title) : 'Runs after every US close'}</div></a>
         <a class="card" href="#/line" style="color:var(--text)"><div class="eyebrow">LINE · last 24 h</div><div class="num big" style="margin-top:6px">${d.line.sent_24h} sent · ${d.line.failed_24h} failed</div>
-          <div class="muted small">${d.line.configured ? 'Next digest ' + (d.line.next_digest || '—') : 'Not set up yet'}${d.line.quota && d.line.quota.limit ? ` · ${d.line.quota.used}/${d.line.quota.limit} this month` : ''}</div></a>
+          <div class="muted small">${d.line.configured ? 'Next digest ' + (d.line.next_digest || '—') : 'Not set up yet'}${d.line.budget && d.line.budget.cap ? ` · ${d.line.budget.used}/${d.line.budget.cap} this month` : ''}</div></a>
       </div>
       <div class="row sb"><h2 class="h2" style="font-size:18px">Strategies</h2><span class="row small" style="gap:12px">${U.idleToggle(idleN, showIdle)}<a href="#/strategies">All strategies →</a></span></div>
       <div class="grid" style="--min:300px">${shown.map((s) => `

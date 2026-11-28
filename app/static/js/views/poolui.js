@@ -166,6 +166,23 @@
     });
   };
 
+  /* Pool settings → alerts (28 Nov 2026): the add-money zone, the monthly reminder, real vs backtest, a member past its
+     worst fall. The LINE switches here are the same as the LINE page's (Instant / Off). */
+  function alertsBox(a) {
+    if (!a) return '';
+    const L = (k) => `<button type="button" class="pill ${a.line[k] ? 'ok' : ''}" data-al-line="${k}" aria-pressed="${a.line[k]}" style="cursor:pointer;border:0">${a.line[k] ? 'LINE on' : 'LINE off'}</button>`;
+    const box = 'class="in num" style="width:80px;height:40px;font-size:16px"';
+    return `<div class="col" style="gap:14px;border-top:1px solid var(--line);padding-top:14px"><h3 class="h2" style="font-size:16px">Alerts</h3>
+      <div><b>Good time to add extra money</b><div class="muted small">When the pool backtest of today's members falls deeper than this share of its past days. Once per fall; again after it climbs back above the ${a.rearm}th.</div>
+        <div class="row" style="gap:10px;margin-top:8px"><select id="al-zone" ${box}>${a.zones.map((z) => `<option value="${z}" ${z === a.zone_pct ? 'selected' : ''}>${z}</option>`).join('')}</select><span class="muted">th percentile</span>${L('zone')}</div></div>
+      <div><b>Monthly add reminder</b><div class="muted small">On this day each month (the next trading day if it is a weekend or US holiday). "Done this month" hides it until next month.</div>
+        <div class="row" style="gap:10px;margin-top:8px"><span class="muted">day</span><input type="number" min="1" max="28" id="al-day" value="${a.month_day}" ${box}>${L('month')}</div></div>
+      <div><b>Real vs backtest</b><div class="muted small">Warn when the real pool is behind its backtest by more than this, since the pool started (checked after each close).</div>
+        <div class="row" style="gap:10px;margin-top:8px"><input type="number" min="1" max="50" step="0.5" id="al-gap" value="${a.gap_pts}" ${box}><span class="muted">points</span>${L('gap')}</div></div>
+      <div class="row sb" style="gap:10px;flex-wrap:nowrap"><div><b>A member past its worst fall</b><div class="muted small">A member falls further below its high than its backtest's worst fall (10 years). Shown on the Dashboard with a way to take it out.</div></div>${L('worst')}</div>
+      <div class="row sb" style="gap:10px;flex-wrap:nowrap"><div><b>Per-strategy "good time to add money"</b><div class="muted small">Off for pool members while the pool is on: new money goes to the pool.</div></div><span class="pill">Off for members</span></div></div>`;
+  }
+
   V.poolSettingsDialog = function (p, mode, onDone) {
     const T = p.total || 0;
     const inp = (id, v) => `<input class="in num" id="${id}" value="${v}" style="width:90px;height:40px;font-size:16px">`;
@@ -180,6 +197,7 @@
       <div><div class="row sb"><b>Smallest trade</b><span class="row" style="gap:8px">${inp('ps-min', p.min_pct)}<span class="muted">% of the pool</span></span></div>
         <div class="muted small" id="ps-min-t" style="margin-top:4px"></div></div>
       <div class="note"><b>How the money moves</b><br>• A new buy signal takes the trade size, or the free cash if less (never below the smallest trade; signals starting together share it).<br>• Open trades keep their money and their own profit or loss; nothing is cut to make room.<br>• When a trade ends, the money (with its profit or loss) goes back to the pool.<br>• New money you allocate goes to the pool: the next trades get the bigger size, and signals waiting for money buy at the next check.<br>• Members don't park in gold or T-bills while out: that money stays in the pool for other signals.<br>• Strategies not in the pool only sell; their money comes back when they hold nothing.</div>
+      ${alertsBox(p.alerts)}
       <div class="idlebox card" style="padding:12px 14px" id="ps-exp"></div>
       <div class="row" style="justify-content:flex-end;gap:8px"><button class="btn" id="ps-c">Cancel</button><button class="btn p" id="ps-go">Save</button></div></div>`, {
       width: 660,
@@ -205,9 +223,15 @@
         q('#ps-auto').addEventListener('change', upd);
         upd();
         q('#ps-c').onclick = close;
+        U.on(box, '[data-al-line]', 'click', (e, b) => { const on2 = !b.classList.contains('ok'); b.classList.toggle('ok', on2); b.textContent = on2 ? 'LINE on' : 'LINE off'; b.setAttribute('aria-pressed', on2); });
         q('#ps-go').onclick = (ev) => U.busy(ev.target, async () => {
           const auto = q('#ps-auto').checked;
           await U.api('/api/pool/settings', { body: { mode, on, auto_slot: auto, slot_pct: auto ? null : +q('#ps-slot').value, cap_pct: +q('#ps-cap').value, min_pct: +q('#ps-min').value } });
+          if (p.alerts) {
+            const line = {};
+            box.querySelectorAll('[data-al-line]').forEach((b) => { line[b.dataset.alLine] = b.classList.contains('ok'); });
+            await U.api('/api/pool/alerts', { body: { mode, zone_pct: +q('#al-zone').value, month_day: +q('#al-day').value, gap_pts: +q('#al-gap').value, line } });
+          }
           U.toast('Pool settings saved'); close(); onDone && onDone();
         });
       },

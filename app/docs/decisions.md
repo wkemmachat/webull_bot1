@@ -1,6 +1,16 @@
 <!--{"title": "Design decisions", "group": "Help"}-->
 # Design decisions (October 2026)
 
+- **Pool alerts and the LINE budget** (28 Nov 2026, your request): (1) *Good time to add extra money* when the pool backtest
+  of today's members passes its 80th percentile fall (ranked against past days only), once per fall, again after the 70th;
+  from the first day of such falls since 2005 the pool was higher a year later almost every time. (2) A *monthly add
+  reminder* on your day: waiting for the zone with regular savings lost in 84% of 5-year periods and choosing a day in the
+  month gained nothing (+0.3% since 2005, −1.5% over 10 years), so regular money goes in on the day and the zone is for money
+  kept aside. (3) *Real vs backtest*: warn past 5 points behind. (4) A member past its backtest's worst fall: Dashboard card
+  with a way to take it out. Per-strategy add alerts are off for members while the pool is on. Parking the free cash in gold
+  (+81% vs +77% a year over 10 years, worst fall −28% vs −19%) was rejected: cash stays. (5) LINE reached its 300-message
+  limit on 27 Nov and refused the rest of the month: the bot now keeps a **monthly budget** (300), spread over the days,
+  with 30 kept for critical alerts ([LINE alerts](#/docs/line)).
 - **Dashboard v2 and the 2x ETF watch** (28 Nov 2026, your request after the Live pool went on): the Dashboard counted only
   the money inside strategies, so with the pool holding the cash it showed $0.05 and −100%. Now the bot's value includes the
   pool's free cash while the pool is on (records since the pool started were repaired once). With the pool on, the Dashboard

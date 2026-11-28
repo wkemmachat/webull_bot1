@@ -191,6 +191,128 @@
       <div class="muted tiny">Recent years lean on the chips and AI run, and several ETFs are modelled before they listed — plan on the since-${String(A.from).slice(0, 4)} figure. The strategies were picked on these same years, so real results are usually lower.</div></section>`;
   }
 
+  /* ------------------------------------------------ pool alerts (app/poolalert.py): monthly reminder, add-money zone,
+     real vs backtest, a member past its worst fall */
+  const ord = (n) => { n = Math.floor(n); const t = n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th'); return n + t; };
+  function alertCards(ds, pv) {
+    const a = ds.alerts;
+    if (!a) return '';
+    const out = [];
+    const btn = (id, label, cls = '') => `<button type="button" class="btn s ${cls}" data-pa="${id}" style="white-space:nowrap">${label}</button>`;
+    if (a.month) {
+      const m = a.month;
+      out.push(`<div class="row" style="gap:14px;flex-wrap:nowrap;align-items:center;padding:14px 18px;border-radius:12px;background:var(--panel);border:1px solid color-mix(in srgb,var(--ok-fg) 40%,var(--line))" role="status">
+        <span aria-hidden="true" style="font-size:20px">📅</span><div style="flex:1;min-width:0"><b>Monthly add · ${U.esc(m.name)}</b> <span class="muted small">· your reminder for the ${ord(m.day)}</span>
+        <div class="small" style="margin-top:2px">Best day to add this month's savings: <b>today</b>. Waiting for a dip inside the month gained nothing since 2005 (+0.3%; −1.5% over the last 10 years).${m.pct != null ? ` Where the pool is now: ${Math.abs(m.depth).toFixed(1)}% below its high · ${ord(m.pct)} percentile.` : ''}</div></div>
+        ${btn('add', 'Add money to the pool', 'p')}${btn('done', 'Done this month')}</div>`);
+    }
+    if (a.zone) {
+      const z = a.zone, r = z.row || {};
+      out.push(`<div class="row" style="gap:14px;flex-wrap:nowrap;align-items:center;padding:14px 18px;border-radius:12px;background:var(--ok-bg);border:1px solid color-mix(in srgb,var(--ok-fg) 45%,var(--line))" role="status">
+        <span aria-hidden="true" style="font-size:18px">▲</span><div style="flex:1;min-width:0"><b>Good time to add extra money to the pool</b>${z.since ? ` <span class="muted small">· since ${U.day(Date.parse(z.since) / 1000)}</span>` : ''}
+        <div class="small" style="margin-top:2px">Today's ${pv.members.length} members are ${Math.abs(z.depth).toFixed(1)}% below their high in the pool backtest — deeper than ${Math.floor(z.pct)}% of past days.${r.n ? ` From the first day of such falls since ${String(z.from || '').slice(0, 4)} the pool was higher a year later ${r.up} of ${r.n} times (typically ${r.med > 0 ? '+' : ''}${Math.round(r.med)}%).` : ''} For money you keep aside; regular money: add it when you have it.</div></div>
+        ${btn('add', 'Add money to the pool', 'p')}<a class="small" href="#" data-pa="why" style="white-space:nowrap">Why? →</a></div>`);
+    }
+    if (a.gap) {
+      const g = a.gap;
+      out.push(`<div class="note fx warn" style="align-items:center" role="status"><div style="flex:1;min-width:0"><b>The real pool is ${Math.abs(g.gap).toFixed(1)} points behind its backtest</b>
+        <div class="small">Since ${U.day(Date.parse(g.from) / 1000)}: real ${g.real > 0 ? '+' : ''}${g.real.toFixed(1)}% · backtest of the same members ${g.model > 0 ? '+' : ''}${g.model.toFixed(1)}% over the same days. Usually costs, timing or an order that did not go through. Each member's gap is on the Money page.</div></div>
+        ${btn('gap', 'See the gap')}</div>`);
+    }
+    (a.worst || []).forEach((w) => {
+      out.push(`<div class="note fx warn" style="align-items:center" role="status"><div style="flex:1;min-width:0"><b>${U.esc(w.name)}: past its backtest's worst fall</b>
+        <div class="small">${w.depth}% from its high; its worst fall in ${w.years >= 10 ? '10' : w.years} years of backtest was ${w.worst}%. Worth a look: keep it, or take it out of the pool (its open trade finishes first).</div></div>
+        <a class="btn s" href="#/strategies/${U.esc(w.id)}" style="white-space:nowrap">Open strategy</a>${pv.members.some((m) => m.id === w.id) ? btn('rm', 'Take it out…').replace('data-pa="rm"', `data-pa="rm" data-sid="${U.esc(w.id)}"`) : ''}</div>`);
+    });
+    return out.length ? `<div class="col" style="gap:12px">${out.join('')}</div>` : '';
+  }
+
+  /* ------------------------------------------------ the pool backtest of today's members: value from 100 (log scale), how
+     far below its high (with the 80/85/90th percentile depths), and what followed falls this deep */
+  function btCard(ds, pv) {
+    const B = ds.btchart, a = (ds.alerts || {}).settings || {};
+    if (!B || !B.weekly || !B.zone || !B.zone.deep) return '';
+    let per = '10Y';
+    try { per = localStorage.getItem('dash_btp') || '10Y'; } catch (e) { /* default */ }
+    const W = B.weekly, last = W[W.length - 1][0];
+    const yrs = { '5Y': 5, '10Y': 10 }[per];
+    const t0 = yrs ? last - yrs * 365.25 * 86400 : W[0][0];
+    let pts = W.filter((p) => p[0] >= t0);
+    if (pts.length < 10) pts = W;
+    const base = pts[0][1];
+    const val = pts.map((p) => [p[0], p[1] / base * 100]);
+    // under water inside the period: deepest weekly fall from the series' own high (the whole history's high, so a fall
+    // that began before the period still shows)
+    const under = pts.map((p) => [p[0], p[2]]);
+    const Z = B.zone, deep = Z.deep, th = a.zone_pct || 80;
+    const P = yrs ? (B.periods || {})[per] : B.all;
+    const sinceLbl = 'Since ' + String((B.all || {}).from || '').slice(0, 4);
+    const w = 1100, X = (t) => 48 + (t - pts[0][0]) / (last - pts[0][0]) * (w - 120);
+    // value chart, log scale
+    const vmax = Math.max(...val.map((p) => p[1])), vmin = Math.min(100, ...val.map((p) => p[1]));
+    const h1 = 230, L0 = Math.log10(vmin * 0.95), L1 = Math.log10(vmax * 1.08);
+    const Y1 = (v) => 10 + (h1 - 36) * (1 - (Math.log10(v) - L0) / (L1 - L0));
+    const ticks = [];
+    for (let e = Math.floor(L0); e <= Math.ceil(L1); e++) [1, 2, 5].forEach((k) => { const v = k * 10 ** e; if (v >= vmin * 0.95 && v <= vmax * 1.08) ticks.push(v); });
+    const big = ticks.filter((v) => String(v)[0] === '1');
+    const show = (L1 - L0 > 1.6 ? big : ticks);
+    const fmt = (v) => v >= 1000 ? Math.round(v).toLocaleString('en-US') : String(Math.round(v));
+    let years = '';
+    const y0 = new Date(pts[0][0] * 1000).getUTCFullYear() + 1, y1 = new Date(last * 1000).getUTCFullYear();
+    const stepY = Math.max(1, Math.ceil((y1 - y0 + 1) / 8));
+    const yx = [];
+    for (let y = y0; y <= y1; y += stepY) yx.push([Date.UTC(y, 0, 1) / 1000, y]);
+    const xl = (h) => yx.map(([t, y]) => `<text x="${X(t)}" y="${h}" font-size="10.5" fill="var(--muted)" text-anchor="middle">${y}</text>`).join('');
+    const vline = val.map((p) => `${X(p[0]).toFixed(1)},${Y1(p[1]).toFixed(1)}`).join(' ');
+    const lastV = val[val.length - 1][1];
+    const svg1 = `<svg viewBox="0 0 ${w} ${h1}" style="width:100%;height:auto" role="img" aria-label="Pool backtest value from 100, log scale">
+      ${show.map((v) => `<line x1="48" x2="${w - 72}" y1="${Y1(v)}" y2="${Y1(v)}" stroke="var(--line2)"/><text x="${w - 66}" y="${Y1(v) + 4}" font-size="10.5" fill="var(--muted)">${fmt(v)}</text>`).join('')}
+      <polygon points="${X(val[0][0])},${h1 - 26} ${vline} ${X(last)},${h1 - 26}" fill="var(--ok-fg)" opacity=".08"/>
+      <polyline points="${vline}" fill="none" stroke="var(--ok-fg)" stroke-width="2"/>
+      <circle cx="${X(last)}" cy="${Y1(lastV)}" r="4" fill="var(--ok-fg)"/><text x="${X(last) - 4}" y="${Math.max(12, Math.min(Y1(lastV), Y1(vmax)) - 8)}" font-size="11" font-weight="600" fill="var(--text)" text-anchor="end">${fmt(lastV)}</text>
+      ${xl(h1 - 8)}</svg>`;
+    // under-water chart
+    const lo = Math.min(-30, Math.floor(Math.min(...under.map((p) => p[1])) / 10) * 10);
+    const h2 = 200, Y2 = (v) => 10 + (h2 - 36) * (v / lo);
+    const lines = [[80, 'var(--ok-fg)'], [85, '#e8590c'], [90, 'var(--err-fg)']];
+    if (![80, 85, 90].includes(th)) lines.push([th, 'var(--accent)']);
+    const area = `${X(under[0][0])},${Y2(0)} ` + under.map((p) => `${X(p[0]).toFixed(1)},${Y2(p[1]).toFixed(1)}`).join(' ') + ` ${X(last)},${Y2(0)}`;
+    const zY = Y2(deep[String(th)]);
+    const nowD = Z.depth;
+    let grid2 = '';
+    for (let v = 0; v >= lo; v -= 10) grid2 += `<line x1="48" x2="${w - 72}" y1="${Y2(v)}" y2="${Y2(v)}" stroke="var(--line2)"/><text x="${w - 66}" y="${Y2(v) + 4}" font-size="10.5" fill="var(--muted)">${v}%</text>`;
+    const svg2 = `<svg viewBox="0 0 ${w} ${h2}" style="width:100%;height:auto" role="img" aria-label="How far the pool backtest was below its high, with the percentile depths">
+      ${grid2}<rect x="48" y="${zY}" width="${w - 120}" height="${Y2(lo) - zY}" fill="var(--ok-fg)" opacity=".07"/>
+      <polygon points="${area}" fill="var(--err-fg)" opacity=".18"/><polyline points="${under.map((p) => `${X(p[0]).toFixed(1)},${Y2(p[1]).toFixed(1)}`).join(' ')}" fill="none" stroke="var(--err-fg)" stroke-width="1.2"/>
+      ${lines.map(([k, c]) => deep[String(k)] != null ? `<line x1="48" x2="${w - 72}" y1="${Y2(deep[String(k)])}" y2="${Y2(deep[String(k)])}" stroke="${c}" stroke-width="1.4" stroke-dasharray="6 4"/>` : '').join('')}
+      <circle cx="${X(last)}" cy="${Y2(nowD)}" r="4.5" fill="var(--err-fg)"/>${xl(h2 - 8)}</svg>`;
+    const leg = lines.map(([k, c]) => `<span class="row" style="gap:6px"><i style="width:18px;border-top:2px dashed ${c};display:inline-block"></i>${k}th${k === 80 ? ' percentile' : ''} · ${deep[String(k)].toFixed(1)}%</span>`).join('')
+      + `<span class="row" style="gap:6px"><i style="width:14px;height:10px;background:color-mix(in srgb,var(--ok-fg) 14%,transparent);display:inline-block"></i>add-money zone (${th}th)</span>`
+      + `<span class="row" style="gap:6px">${U.dot('var(--err-fg)', 8)}today ${nowD}%</span>`;
+    // the table
+    const R = Z.rows || {}, ths = [...new Set([80, 85, 90, th])].sort((x, y) => x - y);
+    const y0s = String(Z.from || '').slice(0, 4), y1s = String(Z.to || '').slice(0, 4);
+    const cell = (x, sgn = true, cls = '') => (x == null ? '<td class="r muted">—</td>' : `<td class="r num ${cls || U.cls(x)}">${sgn && x > 0 ? '+' : ''}${x}%</td>`);
+    const row = (label, r, depth, bold, dot) => `<tr style="${bold ? 'font-weight:600' : ''}"><td>${dot ? U.dot(dot, 8) + ' ' : ''}${label}</td><td class="r num">${depth == null ? '—' : Math.abs(depth).toFixed(1) + '%'}</td>
+      <td class="r num">${depth == null ? '—' : r.n}</td><td class="r num">${r.n ? (depth == null ? Math.round(r.up / r.n * 100) + '%' : `${r.up} of ${r.n}`) : '—'}</td>
+      ${cell(r.med != null ? Math.round(r.med) : null)}${cell(r.p10)}${cell(r.fall, false, 'dn')}</tr>`;
+    const col = { 80: 'var(--ok-fg)', 85: '#e8590c', 90: 'var(--err-fg)' };
+    const tbl = `<div class="tw"><table class="t" style="font-size:13px;width:100%"><thead><tr><th>When the pool is…</th><th class="r">Depth</th><th class="r">Times since ${y0s}</th><th class="r">Higher a year later</th><th class="r">Typical a year later</th><th class="r">Worst 1 in 10</th><th class="r">Fell further first</th></tr></thead><tbody>
+      ${row('any day', R.any || {}, null, false)}${ths.map((k) => row(`${k}th percentile+${k === th ? ' · your alert' : ''}`, R[String(k)] || {}, deep[String(k)], k === th, col[k] || 'var(--accent)')).join('')}</tbody></table></div>`;
+    const tabs = ['5Y', '10Y', 'all'].map((k) => `<button type="button" data-btp="${k}" class="${per === k ? 'on' : ''}">${k === 'all' ? sinceLbl : k}</button>`).join('');
+    return `<section class="card col" style="gap:12px" id="pool-bt"><div class="row sb" style="flex-wrap:wrap;gap:10px;align-items:flex-start"><div><h2 class="h2">Pool backtest · today's ${pv.members.length} members</h2>
+      <div class="muted small">The pool's rules on each member's backtest (Webull's fee) · starts at 100 · changes when you add or remove a member</div></div><div class="seg">${tabs}</div></div>
+      <div class="row" style="gap:22px;flex-wrap:wrap;align-items:baseline"><span class="muted small">100 became <b class="num" style="font-size:22px;color:var(--text)">${fmt(lastV)}</b></span>
+        ${P ? `<span class="muted small">a year <b class="num ${U.cls(P.cagr)}" style="font-size:20px">${P.cagr > 0 ? '+' : ''}${P.cagr}%</b></span><span class="muted small">worst fall <b class="num dn" style="font-size:20px">${P.maxdd}%</b></span>` : ''}
+        <span class="muted small">now <b class="num dn" style="font-size:20px">${nowD}%</b></span>${Z.pct != null ? U.pill(Z.pct >= th ? 'ok' : '', `deeper than ${Math.floor(Z.pct)}% of past days`) : ''}</div>
+      <div class="eyebrow">Value (log scale${L1 - L0 > 1.6 ? ', so each step up is ×10' : ''})</div>${svg1}
+      <div class="row sb" style="flex-wrap:wrap;gap:8px"><div class="eyebrow">Under water · how far below its last high</div><div class="row small muted" style="gap:14px;flex-wrap:wrap">${leg}</div></div>${svg2}
+      <div class="muted tiny">Dashed lines = the depth reached on 80% / 85% / 90% of days since ${String((B.all || {}).from || '').slice(0, 4)}. A backtest of strategies chosen on these same years: real results are usually lower.</div>
+      <h3 class="h2" style="font-size:16px;margin-top:6px">After a fall this deep <span class="muted small" style="font-weight:400">(first day of each fall, ${y0s}–${y1s})</span></h3>${tbl}
+      <div class="small" style="padding:4px 6px">Waiting for the zone with your regular money was worse than adding it every month in 84% of 5-year periods (median −4%): the pool rises most of the time. The zone is for <b>extra money you keep aside</b>.</div>
+      <div class="muted tiny">A fall counts again only after the pool climbs back above the ${(a.rearm || 70)}th percentile (the alert's own rule). Each day is ranked against the days before it only, after a 3-year start.</div></section>`;
+  }
+
   V.etfWatchCard = function (w) {
     if (!w || !w.t) return w && w.running ? '<section class="card"><b>New 2x ETFs</b> <span class="muted small">· the first check is running…</span></section>' : '';
     const nx = w.next ? 'Next check ' + U.dt(w.next) : '';
@@ -245,6 +367,7 @@
       <div class="page-head"><div><div class="eyebrow">${U.esc(today)} · ${U.modeLabel[mode]} · strategy pool on</div><h1 class="h1">Dashboard</h1></div>
         <div class="row"><button class="btn p" type="button" id="add">Add money to the pool</button></div></div>
       ${attention(ds.attention)}
+      ${alertCards(ds, pv)}
       ${V.etfNotice(d.etfwatch)}
       <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
         <section class="card col" style="gap:10px"><div class="eyebrow">Strategy pool · ${U.modeLabel[mode]} · ${pv.members.length} members</div>
@@ -258,12 +381,13 @@
         ${checkCard(c, pv, ds.since)}
         ${nextCard(d)}
       </div>
-      <section class="card col" style="gap:10px"><div><h2 class="h2">Real vs backtest</h2><div class="muted small">The real return (time-weighted, so adding money does not move it) against where today's mix usually was in its backtest, counted from the day the pool started</div></div>
+      <section class="card col" style="gap:10px" id="rvb"><div><h2 class="h2">Real vs backtest</h2><div class="muted small">The real return (time-weighted, so adding money does not move it) against where today's mix usually was in its backtest, counted from the day the pool started</div></div>
         ${chartSvg(ds, mode)}
         <div class="row small muted" style="gap:18px;flex-wrap:wrap"><span class="row" style="gap:6px"><i style="width:16px;height:3px;background:var(--accent);display:inline-block"></i>Real</span>
           <span class="row" style="gap:6px"><i style="width:16px;height:10px;background:color-mix(in srgb,var(--ok-fg) 22%,transparent);display:inline-block"></i>Usual range (8 of 10 backtest stretches)</span>
           <span class="row" style="gap:6px"><i style="width:16px;border-top:2px dashed var(--ok-fg);display:inline-block"></i>Backtest middle</span></div></section>
       ${board(pv)}
+      ${btCard(ds, pv)}
       <div class="grid" style="--min:min(440px,100%)">${moneyCard(pv)}<div id="etfw">${V.etfWatchCard(d.etfwatch)}</div></div>
       <div id="pnlx"></div>
       <div class="grid" style="--min:min(440px,100%)">${monthsCard(ds)}${expectCard(ds)}</div>
@@ -274,6 +398,20 @@
           <div class="num muted small nowrap">${U.dt(e.t)}</div></div>`).join('') || '<div class="empty">No activity yet</div>'}</section>`;
     if (oldPnl && oldPnl.firstChild) { el.querySelector('#pnlx').replaceWith(oldPnl); V.renderPnl(oldPnl); } else V.renderPnl(el.querySelector('#pnlx'));
     el.querySelector('#add').onclick = () => V.fundDialog('in', load);
+    const bindBt = () => U.on(el, '[data-btp]', 'click', (e, x) => {
+      try { localStorage.setItem('dash_btp', x.dataset.btp); } catch (err) { /* not kept */ }
+      const card = el.querySelector('#pool-bt');
+      if (card) { card.outerHTML = btCard(ds, pv); bindBt(); }
+    });
+    bindBt();
+    U.on(el, '[data-pa]', 'click', (e, x) => {
+      const k = x.dataset.pa;
+      if (k === 'add') V.fundDialog('in', load);
+      else if (k === 'why') { e.preventDefault(); const t = el.querySelector('#pool-bt'); if (t) t.scrollIntoView({ behavior: 'smooth' }); }
+      else if (k === 'gap') { const t = el.querySelector('#rvb'); if (t) t.scrollIntoView({ behavior: 'smooth' }); }
+      else if (k === 'done') U.busy(x, async () => { await U.api('/api/pool/month_done', { body: { mode } }); U.toast('Done for this month'); load(); });
+      else if (k === 'rm') V.poolRemoveDialog(pv.members.find((m) => m.id === x.dataset.sid), mode, load);
+    });
     U.on(el, '[data-hc]', 'click', (e, x) => { try { localStorage.setItem('dash_haircut', x.dataset.hc); } catch (err) { /* not kept */ } load(); });
     V.etfBind(el, load);
     if (V.tradedBind) V.tradedBind(el, d.traded);

@@ -506,6 +506,12 @@ async def pool_action(action: str, request: Request, u=Depends(user)):
             return pool.remove(mode, str(b.get("strategy") or ""), sell=bool(b.get("sell")))
         if action == "stay":
             return pool.stay(mode, str(b.get("strategy") or ""))
+        if action == "alerts":
+            from . import poolalert
+            return poolalert.set_settings(mode, b)
+        if action == "month_done":
+            from . import poolalert
+            return poolalert.month_done(mode)
         if action == "backtest":
             c = pool.cfg(mode)
             sids = list(b.get("members") if b.get("members") is not None else c["members"])

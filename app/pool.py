@@ -470,7 +470,16 @@ def view(mode: str) -> dict:
             "cap_usd": round(float(c["cap_pct"]) / 100 * T, 2), "min_usd": round(float(c["min_pct"]) / 100 * T, 2),
             "members": members, "outside": sorted(outside, key=lambda r: (not r["leaving"], r["name"])),
             "groups": sorted(groups.values(), key=lambda g: -g["value"]), "waiting": [m for m in members if m["status"][1].startswith("Signal · waits")],
-            "needs_test": mode == "live"}
+            "needs_test": mode == "live", "alerts": _alerts(mode)}
+
+
+def _alerts(mode):
+    try:
+        from . import poolalert
+        return poolalert.public(mode)
+    except Exception as e:                                  # the settings dialog still opens
+        log.warning("pool alert settings: %s", e)
+        return None
 
 
 def since(mode: str, c: dict | None = None) -> int | None:
@@ -622,6 +631,100 @@ def ranges(v: pd.Series) -> dict:
     return out
 
 
+ZONE_WARM = 756          # trading days (3 years) before a day's fall is ranked against the days before it
+ZONE_REARM = 70         # the add-money alert is armed again once the fall is shallower than this percentile
+ZONE_TH = (70, 75, 80, 85, 90, 95)
+FWD = 252               # a year of trading days
+
+
+def past_pct(dd: np.ndarray, warm: int = ZONE_WARM) -> np.ndarray:
+    """Each day's fall (dd ≤ 0) ranked against the days before it only (no hindsight): the percentage of past days that
+    were less deep (ties count half). NaN for the first `warm` days."""
+    import bisect
+    depth = -dd
+    out = np.full(len(depth), np.nan)
+    seen: list = []
+    for i, x in enumerate(depth):
+        if i >= warm:
+            lo, hi = bisect.bisect_left(seen, x), bisect.bisect_right(seen, x)
+            out[i] = (lo + (hi - lo) / 2) / len(seen) * 100
+        bisect.insort(seen, x)
+    return out
+
+
+def first_days(pct: np.ndarray, th: float, rearm: float = ZONE_REARM) -> list:
+    """The days an alert at `th` would have fired: the first day at or past it, again only after the fall was shallower
+    than the `rearm` percentile."""
+    out, armed = [], True
+    for i, p in enumerate(pct):
+        if np.isnan(p):
+            continue
+        if armed and p >= th:
+            out.append(i)
+            armed = False
+        elif p < rearm:
+            armed = True
+    return out
+
+
+def zones(v: pd.Series) -> dict:
+    """How deep the pool backtest of today's members is below its high, what share of past days were less deep, and what
+    followed the first day of each fall past 70…95th percentile (a year later; the further fall first)."""
+    if len(v) < ZONE_WARM + FWD:
+        return {}
+    vv = v.values.astype(float)
+    dd = vv / np.maximum.accumulate(vv) - 1
+    pct = past_pct(dd)
+    fwd = np.full(len(vv), np.nan)
+    low = np.full(len(vv), np.nan)
+    for i in range(len(vv) - FWD):
+        fwd[i] = vv[i + FWD] / vv[i] - 1
+        low[i] = vv[i + 1:i + FWD + 1].min() / vv[i] - 1
+    def row(idx):
+        f = fwd[idx]
+        f, l = f[~np.isnan(f)], low[idx][~np.isnan(fwd[idx])]
+        if not len(f):
+            return {"n": 0}
+        return {"n": int(len(f)), "up": int((f > 0).sum()), "med": round(float(np.median(f)) * 100, 1),
+                "p10": round(float(np.percentile(f, 10)) * 100, 1), "fall": round(float(np.median(l)) * 100, 1)}
+    ok = np.where(~np.isnan(pct))[0]
+    rows = {"any": row(ok)}
+    for th in ZONE_TH:
+        rows[str(th)] = row(np.array(first_days(pct, th), dtype=int))
+    hist = -dd
+    deep = {str(th): round(-float(np.percentile(hist, th)) * 100, 1) for th in ZONE_TH}
+    hi = int(np.where(vv >= np.maximum.accumulate(vv))[0][-1])
+    # each threshold's last alert day, and whether the alert is still "used" (not re-armed since)
+    last = {}
+    for th in ZONE_TH:
+        fd = first_days(pct, th)
+        if fd:
+            j = fd[-1]
+            rearmed = bool((pct[j:] < ZONE_REARM).any())
+            last[str(th)] = {"day": str(v.index[j].date()), "open": not rearmed}
+    first_ok = v.index[ok[0]] if len(ok) else None
+    last_fwd = v.index[len(vv) - FWD - 1] if len(vv) > FWD else None
+    return {"depth": round(float(dd[-1]) * 100, 1), "pct": None if np.isnan(pct[-1]) else round(float(pct[-1]), 1),
+            "day": str(v.index[-1].date()), "high_day": str(v.index[hi].date()), "deep": deep, "rows": rows, "last": last,
+            "from": str(first_ok.date()) if first_ok is not None else None,
+            "to": str(last_fwd.date()) if last_fwd is not None else None, "rearm": ZONE_REARM}
+
+
+def weekly(v: pd.Series) -> list:
+    """The value (100 at the start) and the deepest fall below the high, a point a week (the last point is the last day)."""
+    v = v / v.iloc[0] * 100
+    dd = v / v.cummax() - 1
+    w = pd.DataFrame({"v": v.resample("W-FRI").last(), "dd": dd.resample("W-FRI").min()}).dropna()
+    out = [[int(v.index[0].timestamp()), 100.0, 0.0]] + [[int(t.timestamp()), round(float(r.v), 3), round(float(r.dd) * 100, 2)]
+                                                         for t, r in w.iterrows() if t > v.index[0]]
+    last = [int(v.index[-1].timestamp()), round(float(v.iloc[-1]), 3), round(float(dd.iloc[-1]) * 100, 2)]
+    if out and out[-1][0] >= last[0]:
+        out[-1] = last
+    else:
+        out.append(last)
+    return out
+
+
 def backtest(sids: list, slot_pct_: float, cap_pct: float, min_pct: float) -> dict:
     """The expected return of this mix: {"ready": True, ...} or {"ready": False, "done": k, "of": n} while the members'
     backtests are still being built (in the background, once per data day)."""
@@ -661,7 +764,8 @@ def _bt_work(key, sids, slot_pct_, cap_pct, min_pct, job):
                "periods": {k: _stats(v, y) for k, y in (("1Y", 1), ("3Y", 3), ("5Y", 5), ("10Y", 10))},
                "all": _stats(v), "fixed": {k: _stats(each, y) for k, y in (("10Y", 10),)} | {"all": _stats(each)},
                "curve": [[int(t.timestamp()), round(float(x), 2)] for t, x in v.resample("ME").last().items()],
-               "ranges": ranges(v),
+               "ranges": ranges(v), "weekly": weekly(v), "zone": zones(v),
+               "daily_tail": [[str(t.date()), round(float(x), 4)] for t, x in v.iloc[-400:].items()],
                "note": "Each member's own backtest (Webull's fee, cash 0%), run through the pool's rules from $100,000. Members join "
                        "when their history starts; several use modelled ETF history before listing. Plan lower: the strategies were "
                        "picked on the same years."}

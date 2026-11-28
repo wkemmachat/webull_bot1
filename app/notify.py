@@ -57,6 +57,12 @@ EVENTS = {
             "deeper below its backtest high than on 85% of its past days, and in its backtest such falls were followed by gains "
             "(the times it got there and how many were up a year later, $1,000 typically became …). Only strategies where this "
             "worked; once per fall.", "instant", False),
+    "pool_add": ("Pool: good time to add extra money", "Once per fall: the pool backtest of today's members fell deeper than the "
+                 "chosen share of its past days (Pool settings → alerts). Again only after it climbs back above the 70th.", "instant", False),
+    "pool_month": ("Pool: monthly add reminder", "On the chosen day each month (the next weekday if it is a weekend or US holiday).",
+                   "instant", False),
+    "pool_gap": ("Pool: real behind its backtest", "The real pool trails the backtest of the same members since the pool started by "
+                 "more than the chosen points (checked after each close).", "instant", False),
     "drawdown": ("Deep fall: a strategy near or past its worst backtest fall", "Once a day after the US close: a strategy fell to 75% "
                  "of its worst fall in the last 10 years of its backtest, and again when it goes past it. Once per fall; with your own "
                  "money's fall in each mode. A warning only: nothing is sold.", "instant", False),
@@ -222,8 +228,12 @@ def in_quiet(now_local: datetime) -> bool:
     return (a <= m < b) if a < b else (m >= a or m < b)
 
 
+_clock: dict = {"now": None}      # the dispatcher's "now" (tests pass a fixed time), for the monthly count
+
+
 def _deliver(text: str, scope: str):
-    """Send to every enabled recipient whose scope covers this message. Returns (ok, error)."""
+    """Send to every enabled recipient whose scope covers this message. Returns (ok, error). Each push to each recipient is
+    one LINE message: counted for the monthly budget."""
     errs, sent = [], 0
     for r in recipients():
         if not r.get("enabled", True):
@@ -235,9 +245,109 @@ def _deliver(text: str, scope: str):
             sent += 1
         else:
             errs.append(err)
+    if sent:
+        _count(sent, _clock["now"])
     if errs and not sent:
         return False, errs[0]
     return True, (errs[0] if errs else None)
+
+
+# ---------------------------------------------------------------- monthly message budget (28 Nov 2026)
+# LINE's free plan allows 300 messages a month and every push to every recipient counts. On 27 Nov 2026 the bot hit the
+# limit (LINE answered 429) and the rest of the month's alerts, critical ones included, could not be sent. The budget
+# spreads the month's messages over its days and keeps a reserve that only critical alerts may use.
+BUDGET_DEFAULT = 300
+RESERVE = 30            # kept for critical alerts (failed order, Webull disconnected, new sign-in, health problem)
+
+
+def _month(now: datetime) -> str:
+    return now.astimezone(TZ).strftime("%Y-%m")
+
+
+def _count(n: int, now: datetime | None = None):
+    now = (now or datetime.now(TZ)).astimezone(TZ)
+    c = db.get_state("line_count") or {}
+    if c.get("month") != _month(now):
+        c = {"month": _month(now), "n": 0, "days": {}}
+    day = now.strftime("%Y-%m-%d")
+    c["n"] = int(c.get("n", 0)) + n
+    c.setdefault("days", {})[day] = int(c["days"].get(day, 0)) + n
+    db.set_state("line_count", c)
+
+
+def budget_cap() -> int:
+    try:
+        cap = int(db.get_setting("line_budget") or BUDGET_DEFAULT)
+    except ValueError:
+        cap = BUDGET_DEFAULT
+    q = db.get_state("line_quota") or {}
+    if q.get("limit"):
+        cap = min(cap, int(q["limit"]))
+    return max(cap, 0)
+
+
+def _digest_slots(day: datetime) -> list:
+    times = sorted(db.get_json_setting("line_digest_times", ["08:00", "21:00"]))
+    pause = weekend_pause_on()
+    return [t for t in times if not (pause and weekend_paused(day, t))]
+
+
+def budget(now: datetime | None = None) -> dict:
+    """Where this month's LINE messages stand and what may be sent now.
+    state: ok · tight (routine instant alerts wait for the digest) · low (one digest a day) · stop (critical only) · full."""
+    now = (now or datetime.now(TZ)).astimezone(TZ)
+    cap = budget_cap()
+    c = db.get_state("line_count") or {}
+    mine = int(c.get("n", 0)) if c.get("month") == _month(now) else 0
+    today = now.strftime("%Y-%m-%d")
+    today_used = int((c.get("days") or {}).get(today, 0)) if c.get("month") == _month(now) else 0
+    q = db.get_state("line_quota") or {}
+    used = mine
+    if q.get("used") is not None and q.get("at") and _month(datetime.fromtimestamp(q["at"], TZ)) == _month(now):
+        used = max(used, int(q["used"]))              # LINE's own count also has messages sent from elsewhere
+    rec = [r for r in recipients() if r.get("enabled", True)]
+    per_alert = max(1, sum(1 for r in rec if r.get("scope", "all") != "reports"))
+    per_digest = max(1, len(rec))
+    first = now.replace(day=1)
+    nxt = (first + timedelta(days=32)).replace(day=1)
+    dim = (nxt - first).days
+    days_left = dim - now.day + 1                      # today included
+    left = cap - used
+    reserve = min(RESERVE, cap // 10)
+    free = left - reserve
+    # what today may use: the room left at the start of today, spread over the days left (unused room carries on)
+    allow_today = (free + today_used) / days_left if days_left else free
+    m = now.hour * 60 + now.minute
+    slots_today = _digest_slots(now)
+    digests_left_today = sum(1 for t in slots_today if _hm(t) > m)
+    # the month's remaining digests at two a day (or the times set) must fit in the free room; if not, one a day
+    future = 0
+    for d in range(1, days_left):
+        future += len(_digest_slots(now + timedelta(days=d)))
+    need_digests = (future + digests_left_today) * per_digest
+    if left <= 0:
+        state = "full"
+    elif free <= 0:
+        state = "stop"
+    elif need_digests > free:
+        state = "low"
+    elif today_used + per_alert + digests_left_today * per_digest > allow_today:
+        state = "tight"
+    else:
+        state = "ok"
+    return {"cap": cap, "used": used, "left": max(left, 0), "free": max(int(free), 0), "reserve": reserve, "state": state,
+            "text": BUDGET_TEXT[state],
+            "today": today_used, "allow_today": max(int(allow_today), 0), "days_left": days_left,
+            "per_alert": per_alert, "per_digest": per_digest, "month": _month(now)}
+
+
+BUDGET_TEXT = {
+    "ok": "On pace",
+    "tight": "Today's share is used: routine instant alerts wait for the next digest",
+    "low": "Running low: one digest a day, routine instant alerts wait for it",
+    "stop": "Only critical alerts until the 1st: the rest stays on the site",
+    "full": "Monthly limit reached: nothing more until the 1st",
+}
 
 
 def _header(kind: str) -> str:
@@ -255,19 +365,25 @@ def dispatch(now: datetime | None = None):
     now = now or datetime.now(TZ)
     local = now.astimezone(TZ)
     quiet = in_quiet(local)
-    q = db.get_state("line_quota") or {}
-    near_limit = q.get("limit") and q.get("used") is not None and q["used"] >= 0.9 * q["limit"]
+    _clock["now"] = local
+    if _transport["push"] is push:
+        quota()                                       # LINE's own count, cached for an hour
+    b = budget(local)
     # instant (and held) items
     items = db.rows("SELECT * FROM line_queue WHERE status IN ('pending','held','failed') AND delivery='instant' "
                     "AND attempts < 6 AND t > ? ORDER BY id", (int(time.time()) - 6 * 3600,))
     send_now = []
     for it in items:
+        if b["state"] == "full" or (b["state"] == "stop" and not it["critical"]):
+            db.run("UPDATE line_queue SET status='skipped', error=? WHERE id=?", (f"Monthly LINE budget ({b['cap']}) – shown on the site", it["id"]))
+            continue
         if quiet and not it["critical"]:
             if it["status"] != "held":
                 db.run("UPDATE line_queue SET status='held' WHERE id=?", (it["id"],))
             continue
-        if near_limit and not it["critical"]:
-            db.run("UPDATE line_queue SET delivery='digest', status='pending' WHERE id=?", (it["id"],))
+        if b["state"] in ("tight", "low") and not it["critical"]:
+            db.run("UPDATE line_queue SET delivery='digest', status='pending', error=? WHERE id=?",
+                   ("Moved to the digest: monthly LINE budget", it["id"]))
             continue
         send_now.append(it)
     if send_now:
@@ -296,7 +412,14 @@ def dispatch(now: datetime | None = None):
             done[hhmm] = today                      # weekend pause: what was collected waits for Monday 08:00
             db.set_state("line_digest_done", done)
         elif due and done.get(hhmm) != today and local.hour * 60 + local.minute - _hm(hhmm) < 120:
-            send_digest(hhmm)
+            b = budget(local)
+            slots = _digest_slots(local)
+            if b["state"] in ("stop", "full"):
+                _skip_digest(b)
+            elif b["state"] == "low" and slots and hhmm != slots[0]:
+                pass                                # one digest a day: what was collected waits for tomorrow's first
+            else:
+                send_digest(hhmm)
             done[hhmm] = today
             db.set_state("line_digest_done", done)
         elif due and done.get(hhmm) != today:
@@ -312,6 +435,11 @@ def weekend_paused(day: datetime, hhmm: str) -> bool:
     """A digest time falls in the weekend pause: Saturday from 12:00 to Monday before 08:00 (Bangkok)."""
     wd, m = day.weekday(), _hm(hhmm)
     return (wd == 5 and m >= 12 * 60) or wd == 6 or (wd == 0 and m < 8 * 60)
+
+
+def _skip_digest(b):
+    db.run("UPDATE line_queue SET status='skipped', error=? WHERE delivery='digest' AND status IN ('pending','failed')",
+           (f"Monthly LINE budget ({b['cap']}) – shown on the site",))
 
 
 def send_digest(label: str = "") -> bool:
@@ -390,12 +518,13 @@ def summary() -> dict:
     r = db.one("SELECT SUM(status='sent') sent, SUM(status='failed') failed, SUM(status IN ('pending','held')) waiting "
                "FROM line_queue WHERE t>=?", (since,))
     return {"sent_24h": r["sent"] or 0, "failed_24h": r["failed"] or 0, "waiting": r["waiting"] or 0,
-            "configured": configured(), "next_digest": next_digest(), "quota": db.get_state("line_quota") or {}}
+            "configured": configured(), "next_digest": next_digest(), "quota": db.get_state("line_quota") or {},
+            "budget": budget()}
 
 
 def recent(limit=20):
     return db.rows("SELECT id,t,event,strategy,title,text,critical,delivery,status,sent_at,error FROM line_queue "
-                   "WHERE status<>'skipped' ORDER BY id DESC LIMIT ?", (limit,))
+                   "WHERE status<>'skipped' OR error LIKE 'Monthly LINE budget%' ORDER BY id DESC LIMIT ?", (limit,))
 
 
 def settings_public() -> dict:
@@ -406,6 +535,7 @@ def settings_public() -> dict:
             "quiet_from": s.get("line_quiet_from"), "quiet_to": s.get("line_quiet_to"), "lang": s.get("line_lang"),
             "detail": s.get("line_detail"), "per_strategy": s.get("line_per_strategy") == "1",
             "weekend_pause": weekend_pause_on(), "auto": s.get("line_auto", "1") == "1",
+            "budget": int(s.get("line_budget") or BUDGET_DEFAULT),
             "events": [{"key": k, "label": v[0], "desc": v[1], "critical": v[3], "mode": event_modes()[k]} for k, v in EVENTS.items()]}
 
 
@@ -436,6 +566,11 @@ def save_settings(d: dict):
         if k in d:
             h, m = (int(x) for x in str(d[k]).split(":"))
             upd[f"line_{k}"] = f"{h:02d}:{m:02d}"
+    if d.get("budget") not in (None, ""):
+        n = int(d["budget"])
+        if not 20 <= n <= 100000:
+            raise ValueError("Monthly message budget: 20 to 100,000")
+        upd["line_budget"] = str(n)
     for k in ("quiet", "per_strategy", "auto", "weekend_pause"):
         if k in d:
             upd[f"line_{k}"] = "1" if d[k] else "0"

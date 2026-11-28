@@ -195,7 +195,7 @@ def refresh_all(now=None, send=True) -> dict:
                 txt = addmoney.line_text(s.name, x, d)
                 db.add_event("info", "strategy", f"{s.name}: good time to add money ({ordinal(d['pct'])} percentile, {d['depth']:.0f}%)",
                              txt, strategy=s.id)
-                if send:
+                if send and not in_pool(s.id):              # pool members: the pool's own alert instead (28 Nov 2026)
                     notify.send("dip", txt, strategy=s.id)
             elif x and verdict in ("mixed", "none"):
                 db.add_event("info", "strategy", f"{s.name}: {ordinal(d['pct'])} percentile fall ({d['depth']:.0f}%)",
@@ -224,6 +224,12 @@ def refresh_all(now=None, send=True) -> dict:
                                      "warned": warned, "warned_peak": d.get("peak_day")})
         out[s.id] = d
     return out
+
+
+def in_pool(sid) -> bool:
+    """A member of a pool that is on: new money goes to the pool, so its own "good time to add" LINE alert is not sent."""
+    from . import pool
+    return any(pool.on(m) and pool.is_member(m, sid) for m in ("live", "test", "paper"))
 
 
 def _add_version():

@@ -65,6 +65,39 @@ For the suggested 10 (one per group, so the cap never binds) the pool mainly **c
 also uses idle cash. Several strategies use modelled ETF history from before the ETF existed, and all were picked on these
 years, so plan for lower.
 
+## Pool backtest on the Dashboard
+
+The Dashboard card **Pool backtest · today's members** runs the pool rules on today's members' backtests and shows:
+
+- **Value from 100** on a log scale (each step ×10 when the range is wide), over 5 years, 10 years or since the start.
+- **Under water**: how far below its last high, with dashed lines at the depth reached on 80%, 85% and 90% of days, the
+  add-money zone shaded and today's point.
+- **After a fall this deep**: from the first day of each fall past the 80th / 85th / 90th percentile (and your alert's
+  level), how often the pool was higher a year later, the typical and the 1-in-10 result, and how much further it fell
+  first. Each day is ranked against the days before it only (after a 3-year start), and a fall counts again only after the
+  pool climbs back above the 70th percentile — the alert's own rule, so the table is what the alert would have told you.
+
+Adding or removing a member (Money → Choose members, or *Take it out* on a warning) changes the backtest: it is worked out
+again for the new members (a minute; then kept for the day), and the chart, the table and the alerts follow.
+
+## Alerts
+
+Pool settings → **Alerts** (each with its LINE switch; the same switches as the LINE alerts page):
+
+| Alert | When | Dashboard | LINE |
+|---|---|---|---|
+| Good time to add extra money | the pool backtest of today's members is deeper than the chosen percentile of its past days (70–95, default **80th**) | green card with the year-later figures and *Add money to the pool* | once per fall; again only after it climbs back above the 70th |
+| Monthly add reminder | the chosen day (1–28, default the **1st**; the next trading day if it is a weekend or US holiday) | card until *Done this month* | once, from 08:00 Bangkok |
+| Real vs backtest | the real pool (time-weighted) trails the backtest of the same members since the pool started by more than the chosen points (default **5**), after 5 trading days | amber card, *See the gap* | once; again after the gap is back within half |
+| A member past its worst fall | a member is deeper below its high than its backtest's worst 10-year fall | amber card with *Open strategy* and *Take it out…* | the strategy's *Deep fall* alert |
+
+While the pool is on, members do not send their own *good time to add money* LINE alert: new money goes to the pool.
+
+Why these rules (research, 28 Nov 2026, 15 Live members): from the first day of each fall past the 80th percentile since
+2005 the pool was higher a year later in almost every case (typically about +59%); but waiting for the zone with regular
+savings lost to adding them at once in 84% of 5-year periods, and choosing a day inside the month gained nothing (+0.3% since
+2005, −1.5% over 10 years). So: add regular money on your day each month; the zone alert is for money you keep aside.
+
 ## Turning it on
 
 1. **Paper first.** Money → Choose members → Pool settings → *Pool on*. Strategies that are not members hand their cash back

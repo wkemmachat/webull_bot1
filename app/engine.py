@@ -256,6 +256,14 @@ def daily_jobs(now):
             expected.recheck_if_stale()
         except Exception as e:
             log.warning("expected returns re-check: %s", e)
+    # pool alerts (add-money zone, monthly reminder, real vs backtest): every 5 minutes; the backtest behind them is
+    # worked out once a day in the background
+    if md.source() != "csv" and _once("poolalert", local.strftime("%Y-%m-%d %H:") + str(local.minute // 5)):
+        from . import poolalert
+        try:
+            poolalert.run(now)
+        except Exception as e:
+            log.warning("pool alerts: %s", e)
     from . import etfwatch                                   # 2x ETF watch: Saturday 09:40 Bangkok, reports only
     try:
         if md.source() != "csv" and etfwatch.due(now):

@@ -82,7 +82,14 @@ def _attention(mode, d, pv, check):
         items.append({"level": "warn", "title": f"{ln['failed_24h']} LINE message(s) failed in the last 24 h", "text": "Check the LINE page.",
                       "action": {"label": "LINE", "href": "#/line"}})
     elif ln.get("configured"):
-        ok.append(f"LINE · {ln.get('sent_24h', 0)} sent in 24 h")
+        bg = ln.get("budget") or {}
+        ok.append(f"LINE · {ln.get('sent_24h', 0)} sent in 24 h" + (f" · {bg['used']}/{bg['cap']} this month" if bg.get("cap") else ""))
+    bg = ln.get("budget") or {}
+    if ln.get("configured") and bg.get("state") in ("low", "stop", "full"):
+        items.append({"level": "err" if bg["state"] == "full" else "warn",
+                      "title": f"LINE: {bg['used']} of {bg['cap']} messages used this month",
+                      "text": bg.get("text", "") + ". Everything still shows on the site.",
+                      "action": {"label": "LINE", "href": "#/line"}})
     b = d.get("backup")
     if b:
         items.append({"level": "warn", "title": "No backup downloaded for " + (f"{b['days']} days" if b.get("last") else "a while"),
@@ -130,6 +137,13 @@ def build(mode: str, d: dict) -> dict:
     bt = pool.backtest(list(c["members"]), pool.slot_pct(c), float(c["cap_pct"]), float(c["min_pct"])) if c["members"] else {}
     check["bt"] = {k: bt.get(k) for k in ("ready", "done", "of", "error", "ranges", "all", "periods", "fixed", "idle", "slot_pct")}
     out["check"] = check
+    out["btchart"] = {k: bt.get(k) for k in ("ready", "weekly", "zone", "all", "periods")} if bt.get("ready") and not bt.get("error") else None
+    try:
+        from . import poolalert
+        out["alerts"] = poolalert.view(mode, bt if bt.get("ready") else None)
+    except Exception as e:
+        log.warning("pool alerts view: %s", e)
+        out["alerts"] = None
     out["attention"] = _attention(mode, d, pv, check)
     plans = []
     for p in d.get("plans") or []:

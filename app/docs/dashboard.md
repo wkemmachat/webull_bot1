@@ -9,7 +9,10 @@ top to bottom:
 1. **Does anything need me?** Problems only, each with what to do: a Webull login ending, the account not readable, buys
    waiting for buying power, a cross-check problem, a member waiting over a day for money, LINE failures, no recent backup, or
    the fall from the top past the worst fall in the pool's backtest. When there is none, one green line lists the routine
-   checks that are fine.
+   checks that are fine. Below them, the **pool alerts** when they apply ([Strategy pool → Alerts](#/docs/pool)): the monthly
+   add reminder (*Add money to the pool* · *Done this month*), *Good time to add extra money* (green), the real pool behind its
+   backtest, and a member past its backtest's worst fall (*Open strategy* · *Take it out…*). A LINE monthly budget running
+   low shows here too.
 2. **How much, and how is it doing?** The pool's value (strategies + free cash), today, this month, the **real return**
    (time-weighted: adding or taking out money does not move it), profit since start, money put in, and the result **since the
    pool started**.
@@ -21,7 +24,8 @@ top to bottom:
 
 Below: **Real vs backtest** (the real return since the start against the backtest's usual range, drawn from the day the pool
 started), **Members now** (in a trade · buys at the next open · waiting for money · money coming back; members with no signal
-as chips), **Where the money is** (by market, with the group cap), **New 2x ETFs** ([2x ETF watch](#/docs/etf-watch)), the
+as chips), **Pool backtest · today's members** (value from 100 on a log scale for 5Y / 10Y / since the start, the
+under-water chart with the 80/85/90th percentile depths and today, and *After a fall this deep*), **Where the money is** (by market, with the group cap), **New 2x ETFs** ([2x ETF watch](#/docs/etf-watch)), the
 **Profit & loss by strategy** card described below, **Month by month** (real, time-weighted; darker cells are outside the
 usual month), **What to expect from this mix** (the pool backtest: plan a year after a haircut, worst fall, a bad year,
 1/3/5/10 years and the whole history), **Traded** and **Recent activity**.

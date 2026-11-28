@@ -12,6 +12,7 @@
     d.strategies.forEach((x) => (strat[x.id] = x.line_on));
     let auto = s.auto !== false;
     const q = d.summary.quota || {};
+    const bg = d.summary.budget || {};
     function render() {
       el.innerHTML = `<div class="page-head"><div><div class="eyebrow">LINE Messaging API</div><h1 class="h1">LINE alerts</h1>
         <div class="muted" style="margin-top:4px">Choose what arrives at once, what waits for the digest, and what never comes.</div></div>
@@ -27,9 +28,12 @@
               <select class="in" style="height:34px;width:auto" data-rscope="${i}"><option value="all" ${r.scope !== 'reports' ? 'selected' : ''}>everything</option><option value="reports" ${r.scope === 'reports' ? 'selected' : ''}>reports only</option></select>
               <button class="x" data-rdel="${i}" aria-label="Remove">×</button></div>`).join('')}
             <button class="btn s" id="addrec" style="align-self:flex-start">+ Add recipient</button></div></div>
-          <div class="col" style="gap:6px"><div class="row sb small"><span class="muted">Messages this month</span><span class="num">${q.limit ? q.used + ' / ' + q.limit : q.used != null ? q.used + ' (no limit)' : '—'}</span></div>
-            <div class="bar"><div style="position:absolute;left:0;top:0;bottom:0;width:${q.limit ? Math.min(100, q.used / q.limit * 100) : 0}%;background:var(--accent)"></div></div>
-            <span class="muted small">From LINE's quota API (<a href="#" id="rq">refresh</a>). At 90% non-critical instant alerts move to the digest.</span></div>
+          <div class="col" style="gap:6px"><div class="row sb small"><span class="muted">Messages this month</span><span class="num">${bg.cap ? bg.used + ' / ' + bg.cap : '—'}</span></div>
+            <div class="bar"><div style="position:absolute;left:0;top:0;bottom:0;width:${bg.cap ? Math.min(100, bg.used / bg.cap * 100) : 0}%;background:${bg.state === 'ok' || bg.state === 'tight' ? 'var(--accent)' : bg.state === 'full' ? 'var(--err-fg)' : 'var(--warn-fg)'}"></div>
+              ${bg.cap ? `<span title="kept for critical alerts" style="position:absolute;top:-3px;bottom:-3px;width:2px;left:${(1 - bg.reserve / bg.cap) * 100}%;background:var(--text)"></span>` : ''}</div>
+            <div class="row sb small" style="flex-wrap:wrap;gap:6px">${U.pill(bg.state === 'ok' ? 'ok' : bg.state === 'full' ? 'err' : 'warn', bg.text || '—')}<span class="muted">today ${bg.today || 0} of about ${bg.allow_today || 0} · ${bg.days_left || 0} days left</span></div>
+            <div class="row" style="gap:10px;margin-top:4px"><label class="small" for="bud">Monthly budget</label><input class="in num" id="bud" type="number" min="20" value="${s.budget || 300}" style="width:100px;height:34px"><span class="muted small">messages</span></div>
+            <span class="muted small">Each message to each recipient counts (LINE's free plan: 300 a month). The month is spread over its days: past today's share, routine instant alerts wait for the next digest; when running low, one digest a day; the last ${bg.reserve || 30} (black mark) are kept for critical alerts. LINE's own count: <a href="#" id="rq">refresh</a>${q.used != null ? ' · ' + q.used + (q.limit ? ' / ' + q.limit : '') : ''}.</span></div>
         </section>
         <section class="card col" style="gap:16px"><h2 class="h2">When to send</h2>
           <div class="f"><label>Digest times (Bangkok)</label><div class="row" style="gap:8px" id="times">${times.map((t, i) => `<span class="pill num" style="font-size:13.5px;padding:7px 12px">${t} <button class="x" style="width:20px;height:20px;font-size:14px" data-tdel="${i}" aria-label="Remove">×</button></span>`).join('')}
@@ -58,7 +62,7 @@
             ${d.strategies.map((x) => `<div class="kv" style="align-items:center"><span class="row" style="gap:8px">${U.dot(x.color)}${U.esc(x.name)}</span>
             <button class="sw ${strat[x.id] ? 'on' : ''}" data-strat="${x.id}" role="switch" aria-label="LINE for ${U.esc(x.name)}" ${auto ? 'disabled title="Automatic: follows the strategy\'s state and money"' : ''}></button></div>`).join('')}</section>
           <section class="card"><h2 class="h2" style="margin-bottom:6px">Recently sent</h2>${d.recent.slice(0, 8).map((r) => `<div class="kv small"><span class="num muted" style="width:96px">${U.dt(r.t)}</span>
-            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${U.esc(r.title)}</span>${U.pill(r.status === 'sent' ? 'ok' : r.status === 'failed' ? 'err' : r.status === 'skipped' ? '' : 'warn', r.status === 'held' ? 'held · quiet hours' : r.status === 'pending' && r.delivery === 'digest' ? 'in next digest' : r.status)}</div>`).join('') || '<div class="muted small">Nothing yet</div>'}</section>
+            <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${U.esc(r.title)}</span>${U.pill(r.status === 'sent' ? 'ok' : r.status === 'failed' ? 'err' : r.status === 'skipped' ? '' : 'warn', r.status === 'held' ? 'held · quiet hours' : r.status === 'skipped' ? 'not sent · budget' : r.status === 'pending' && r.delivery === 'digest' ? 'in next digest' : r.status)}</div>`).join('') || '<div class="muted small">Nothing yet</div>'}</section>
         </div>
       </div>`;
       U.on(el, '[data-ev] button', 'click', (e, b) => { ev[b.parentElement.dataset.ev] = b.dataset.v; b.parentElement.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); });
@@ -77,7 +81,7 @@
       el.querySelector('#save').onclick = (e) => U.busy(e.target, async () => {
         readRec();
         await U.api('/api/line', { body: { token: el.querySelector('#tok').value.trim() || undefined, recipients: rec.filter((r) => r.id), digest_times: times,
-          quiet: el.querySelector('#quiet').classList.contains('on'), quiet_from: el.querySelector('#qf').value, quiet_to: el.querySelector('#qt').value,
+          budget: +el.querySelector('#bud').value || undefined, quiet: el.querySelector('#quiet').classList.contains('on'), quiet_from: el.querySelector('#qf').value, quiet_to: el.querySelector('#qt').value,
           per_strategy: el.querySelector('#per').classList.contains('on'), weekend_pause: el.querySelector('#wkp').classList.contains('on'), auto, events: ev, strategies: strat } });
         U.toast('LINE settings saved'); V.line(el);
       });

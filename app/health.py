@@ -334,9 +334,11 @@ def run(now=None, send=True):
         _item(items, "line", "Alerts", "LINE messages delivered", "warn", f"{line['failed_24h']} message(s) failed in 24 h.",
               "Open LINE alerts → Recently sent for the error.", "#/line")
     else:
-        q = line.get("quota") or {}
-        _item(items, "line", "Alerts", "LINE messages delivered", "ok", f"{line['sent_24h']} sent in 24 h" +
-              (f" · quota {q.get('used')} / {q.get('limit')}" if q.get("limit") else ""), link="#/line")
+        bg = line.get("budget") or {}
+        low = bg.get("state") in ("low", "stop", "full")
+        _item(items, "line", "Alerts", "LINE messages delivered", "warn" if low else "ok", f"{line['sent_24h']} sent in 24 h" +
+              (f" · {bg['used']} / {bg['cap']} this month" if bg.get("cap") else "") + (f" · {bg['text']}" if low else ""),
+              "Fewer instant alerts (LINE page → What to send), or a bigger LINE plan." if low else "", link="#/line")
 
     files = sorted(BACKUP_DIR.glob("bot-*.db")) if BACKUP_DIR.exists() else []
     bl = db.get_state("backup_last") or {}
